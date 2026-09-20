@@ -2,6 +2,7 @@ import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { 
+  LayoutDashboard,
   Zap, 
   Truck, 
   Tag, 
@@ -14,10 +15,11 @@ import {
 
 export default function Sidebar({ activeTab, setActiveTab }) {
   const { user, isImpersonating, logout } = useAuth();
-  const { tenants, activeTenant, switchTenant } = useTenant();
+  const { tenants, activeTenant, currentTenant, switchTenant } = useTenant();
+  const tenant = currentTenant || activeTenant;
 
-  const subPlan = activeTenant?.plan || 'Monthly';
-  const subStatus = activeTenant?.sub_status || 'Active';
+  const subPlan = tenant?.plan || 'Monthly';
+  const subStatus = tenant?.sub_status || 'Active';
 
   const planStyles = {
     Monthly: 'bg-blue-100 text-blue-900 border-blue-200',
@@ -26,12 +28,13 @@ export default function Sidebar({ activeTab, setActiveTab }) {
   };
 
   const navItems = [
+    { id: 'dashboard', label: 'Dashboard (डैशबोर्ड)', icon: LayoutDashboard, shortcut: 'F1' },
     { id: 'quick-trade', label: 'Quick Trade (एकल सौदा)', icon: Zap, shortcut: 'F2' },
     { id: 'arrivals', label: 'Inward Arrivals (गाड़ी आवक)', icon: Truck, shortcut: 'F3' },
     { id: 'sales', label: 'Auction & Sales (बोली व बिक्री)', icon: Tag, shortcut: 'F4' },
-    { id: 'bahi-khata', label: 'Bahi-Khata & Rokad (खाताबही)', icon: BookOpen, shortcut: 'F5' },
-    { id: 'reports', label: 'Mandi Reports (रिपोर्ट व टीप)', icon: FileText, shortcut: 'F6' },
-    { id: 'settings', label: 'Settings & Masters (सेटिंग्स)', icon: Settings, shortcut: 'F9' }
+    { id: 'bahi-khata', label: 'Bahi-Khata & Rokad (खाता)', icon: BookOpen, shortcut: 'F5' },
+    { id: 'reports', label: 'Mandi Reports (रिपोर्ट्स)', icon: FileText, shortcut: 'F6' },
+    { id: 'settings', label: 'Settings & Masters (मास्टर)', icon: Settings, shortcut: 'F9' }
   ];
 
   const userAvatars = {
@@ -42,23 +45,23 @@ export default function Sidebar({ activeTab, setActiveTab }) {
   };
 
   return (
-    <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between fixed lg:sticky top-0 h-screen z-50 select-none no-print shrink-0">
+    <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between sticky top-0 h-screen z-40 select-none no-print shrink-0 overflow-y-auto">
       
       {/* Top Section: Firm Card & Navigation */}
-      <div className="p-4 space-y-4 overflow-y-auto">
+      <div className="p-4 space-y-4">
         
         {/* Agency Identity & Switcher */}
         <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2.5">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-800 flex items-center justify-center text-white font-black text-xl shadow-xs shrink-0">
-              {activeTenant?.logo_icon || '🍎'}
+            <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white font-black text-xl shadow-xs shrink-0">
+              {tenant?.logo_icon || '🍎'}
             </div>
             <div className="min-w-0">
               <h1 className="font-black text-slate-900 text-sm leading-tight truncate">
-                {activeTenant?.firm_name || 'Loading Firm...'}
+                {tenant?.firm_name || 'Loading Firm...'}
               </h1>
               <span className="text-[10px] text-slate-500 font-medium block truncate">
-                {activeTenant?.shop_no} • {activeTenant?.mandi_name}
+                {tenant?.shop_no} • {tenant?.mandi_name}
               </span>
             </div>
           </div>
@@ -73,7 +76,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
             </div>
             
             <select
-              value={activeTenant?.id || ''}
+              value={tenant?.id || ''}
               onChange={(e) => switchTenant(e.target.value)}
               disabled={tenants.length <= 1}
               className="w-full text-xs font-bold bg-white border border-slate-300 text-slate-700 py-1.5 px-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
@@ -109,14 +112,14 @@ export default function Sidebar({ activeTab, setActiveTab }) {
               >
                 <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-400' : 'text-slate-500'}`} />
                 <span className="flex-1">{item.label}</span>
-                <span className="text-[9px] font-mono opacity-60 bg-slate-200/40 px-1.5 py-0.5 rounded">
+                <span className="text-[9px] font-mono opacity-60 bg-slate-200/50 px-1.5 py-0.5 rounded">
                   {item.shortcut}
                 </span>
               </button>
             );
           })}
 
-          {/* Super Admin Console Button (Only for Platform Owner dmchaturvedi@gmail.com) */}
+          {/* Super Admin Console Button (Only for Platform Owner) */}
           {user?.role === 'super_admin' && (
             <div className="pt-3">
               <div className="text-[10px] font-black text-purple-400 uppercase tracking-wider px-3 py-1">
@@ -138,8 +141,8 @@ export default function Sidebar({ activeTab, setActiveTab }) {
         </nav>
       </div>
 
-      {/* Bottom Section: Active User Card & Logout */}
-      <div className="p-3 border-t border-slate-200 bg-slate-50/70">
+      {/* Bottom Section: User Session Profile & Logout */}
+      <div className="p-3 border-t border-slate-200 bg-slate-50/70 shrink-0">
         <div className="p-2 bg-white rounded-xl border border-slate-200 flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-xl shrink-0">
