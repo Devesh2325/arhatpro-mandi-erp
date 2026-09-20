@@ -1,0 +1,2145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#15803d">
+  <meta name="description" content="Enterprise Multi-Tenant Mandi ERP with Left Sidebar, Automated Double-Entry Journal, Teep Final Sale, and Mandi Reports Suite">
+  <title>ArhatPro | Enterprise Mandi ERP (Azadpur Delhi)</title>
+
+  <!-- PWA Manifest & Icons -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2315803d'/><path d='M30 65 C30 45, 45 35, 70 30 C65 55, 55 70, 35 70 Z' fill='%2386efac'/><path d='M35 70 L65 35' stroke='%23ffffff' stroke-width='4'/></svg>">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            mandi: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              600: '#16a34a',
+              700: '#15803d',
+              800: '#166534',
+              900: '#14532d'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Chart.js for Price Trends -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- QRCode.js for Dynamic UPI Payment QR -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <!-- Custom App Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-slate-100 text-slate-900 antialiased min-h-screen">
+
+  <!-- Sticky Impersonation Banner (Active only during Super Admin Audit Mode) -->
+  <div id="impersonation-banner" class="hidden sticky top-0 z-[90] bg-amber-500 text-slate-950 px-4 py-2.5 flex items-center justify-between font-bold text-xs shadow-md border-b border-amber-600">
+    <div class="flex items-center gap-2">
+      <span class="text-base animate-pulse">🔒</span>
+      <span>SUPER ADMIN IMPERSONATION MODE: Viewing <span id="impersonation-firm-name" class="underline font-black"></span> (Audit Mode • View-Only • Changes Locked)</span>
+    </div>
+    <button onclick="AuthManager.stopImpersonation()" class="px-3.5 py-1.5 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-black shadow-xs transition-all flex items-center gap-1">
+      Exit Impersonation ✕
+    </button>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <!-- ================= AUTHENTICATION & ONBOARDING OVERLAY ================= -->
+  <div id="auth-overlay" class="hidden fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 my-6 max-h-[92vh] overflow-y-auto border border-slate-100">
+      
+      <!-- Brand Header -->
+      <div class="text-center space-y-1">
+        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-600 to-emerald-800 flex items-center justify-center text-3xl mx-auto shadow-md">
+          🌾
+        </div>
+        <h2 class="text-xl font-black text-slate-900 pt-2 tracking-tight">ArhatPro Mandi ERP</h2>
+        <p class="text-xs text-slate-500">Azadpur Wholesale Mandi • Multi-Tenant Platform</p>
+      </div>
+
+      <!-- Auth Switcher Tabs (Login / Sign-Up) -->
+      <div class="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl text-xs font-bold gap-1">
+        <button id="auth-tab-login" onclick="AuthManager.switchAuthTab('login')" class="py-2.5 rounded-xl bg-slate-900 text-white transition-all shadow-xs">
+          🔑 Login (प्रवेश)
+        </button>
+        <button id="auth-tab-signup" onclick="AuthManager.switchAuthTab('signup')" class="py-2.5 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
+          🚀 New Agency Sign-Up
+        </button>
+      </div>
+
+      <!-- Tab 1: LOGIN FORM -->
+      <div id="auth-form-login" class="space-y-4 text-xs">
+        <form onsubmit="event.preventDefault(); AuthManager.login(document.getElementById('auth-login-phone').value, document.getElementById('auth-login-pin').value);" class="space-y-3">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Mobile Number or Email</label>
+            <input type="text" id="auth-login-phone" required placeholder="e.g. 9810012345 or dmchaturvedi@gmail.com" 
+              class="w-full p-3 border border-slate-300 rounded-xl font-bold focus:ring-2 focus:ring-green-600 focus:outline-none">
+          </div>
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label class="font-bold text-slate-700">Security PIN or Password</label>
+              <span class="text-[10px] text-slate-400">PIN or Master Password</span>
+            </div>
+            <input type="password" id="auth-login-pin" required maxlength="30" placeholder="••••" 
+              class="w-full p-3 border border-slate-300 rounded-xl font-mono text-base font-bold tracking-wider focus:ring-2 focus:ring-green-600 focus:outline-none">
+          </div>
+          <button type="submit" class="w-full py-3 bg-green-700 hover:bg-green-800 text-white rounded-xl font-bold text-sm shadow-md transition-all">
+            Secure Login to Workspace →
+          </button>
+        </form>
+
+        <div class="pt-3 border-t border-slate-200 flex justify-between items-center text-xs">
+          <span class="text-slate-400">Platform Owner?</span>
+          <a href="admin.html" class="font-bold text-purple-700 hover:text-purple-900 transition-colors flex items-center gap-1">
+            <span>👑</span> Super Admin Portal →
+          </a>
+        </div>
+      </div>
+
+      <!-- Tab 2: SIGN-UP FORM (Instant Agency Provisioning) -->
+      <div id="auth-form-signup" class="hidden space-y-4 text-xs">
+        <div class="bg-emerald-50 p-3 rounded-2xl border border-emerald-200 text-emerald-900 text-xs">
+          <strong>Self-Serve Agency Setup:</strong> Instantly provisions your own isolated Mandi workspace with preloaded commodities, party codes & white-label settings.
+        </div>
+        <form onsubmit="event.preventDefault(); AuthManager.signup({
+          firmName: document.getElementById('auth-signup-firm').value,
+          proprietor: document.getElementById('auth-signup-prop').value,
+          phone: document.getElementById('auth-signup-phone').value,
+          pin: document.getElementById('auth-signup-pin').value,
+          shopNo: document.getElementById('auth-signup-shop').value,
+          mandiName: document.getElementById('auth-signup-mandi').value,
+          apmcLicenseNo: document.getElementById('auth-signup-lic').value,
+          theme: document.getElementById('auth-signup-theme').value
+        });" class="space-y-3">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Mandi Firm Name (फर्म का नाम) *</label>
+            <input type="text" id="auth-signup-firm" required placeholder="e.g. Kisan Kripa Fruit Trading Co." 
+              class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="font-bold text-slate-700 block mb-1">Proprietor Name *</label>
+              <input type="text" id="auth-signup-prop" required placeholder="Owner Name" 
+                class="w-full p-2.5 border border-slate-300 rounded-xl">
+            </div>
+            <div>
+              <label class="font-bold text-slate-700 block mb-1">Mobile Number *</label>
+              <input type="tel" id="auth-signup-phone" required placeholder="98XXXXXXXX" 
+                class="w-full p-2.5 border border-slate-300 rounded-xl font-mono">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="font-bold text-slate-700 block mb-1">Set 4-Digit PIN *</label>
+              <input type="password" id="auth-signup-pin" required maxlength="6" value="1234" 
+                class="w-full p-2.5 border border-slate-300 rounded-xl font-mono font-bold tracking-widest">
+            </div>
+            <div>
+              <label class="font-bold text-slate-700 block mb-1">Shop / Shed No.</label>
+              <input type="text" id="auth-signup-shop" placeholder="Shop B-105" value="Shop B-105" 
+                class="w-full p-2.5 border border-slate-300 rounded-xl">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="font-bold text-slate-700 block mb-1">Mandi Yard</label>
+              <input type="text" id="auth-signup-mandi" value="Azadpur Mandi, Delhi" 
+                class="w-full p-2.5 border border-slate-300 rounded-xl">
+            </div>
+            <div>
+              <label class="font-bold text-slate-700 block mb-1">APMC License No.</label>
+              <input type="text" id="auth-signup-lic" placeholder="DL-APMC-..." value="DL-APMC-2026-99" 
+                class="w-full p-2.5 border border-slate-300 rounded-xl font-mono">
+            </div>
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Brand Theme Color (व्हाइट लेबल रंग)</label>
+            <select id="auth-signup-theme" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold bg-white">
+              <option value="emerald">Emerald Green (एमेरल्ड हरा - Azadpur Standard)</option>
+              <option value="navy">Royal Navy Blue (रॉयल नेवी ब्लू)</option>
+              <option value="maroon">Kashmiri Maroon (कश्मीरी महरून)</option>
+              <option value="purple">Imperial Purple (इंपीरियल पर्पल)</option>
+              <option value="amber">Golden Amber (गोल्डन एम्बर)</option>
+              <option value="slate">Corporate Slate (कॉर्पोरेट स्लेट)</option>
+            </select>
+          </div>
+          <button type="submit" class="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-sm shadow-md transition-all">
+            🚀 Launch My Agency ERP →
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Mobile Sidebar Backdrop Overlay -->
+  <div id="sidebar-backdrop" onclick="App.toggleSidebarDrawer(false)" class="hidden fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm lg:hidden transition-opacity"></div>
+
+  <!-- Main App Shell Container: Sidebar + Content -->
+  <div class="min-h-screen flex flex-col lg:flex-row">
+
+    <!-- ================= MODERN LEFT SIDEBAR NAVIGATION ================= -->
+    <aside id="app-sidebar" class="w-64 bg-white border-r border-slate-200 flex flex-col justify-between fixed lg:sticky top-0 h-screen z-50 transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-in-out select-none no-print">
+      
+      <!-- Upper Section: Firm Brand & Main Menu -->
+      <div class="p-4 space-y-4 overflow-y-auto">
+        
+        <!-- Firm Identity Card & Switcher -->
+        <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2.5">
+          <div class="flex items-center gap-2.5">
+            <div id="tenant-logo-icon" class="w-10 h-10 rounded-xl bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center text-white font-black text-xl shadow-xs shrink-0">
+              🍎
+            </div>
+            <div class="min-w-0">
+              <h1 id="tenant-firm-name" class="font-black text-slate-900 text-sm leading-tight truncate">
+                Shree Ganesh Fruit Co.
+              </h1>
+              <span id="tenant-shop-sub" class="text-[10px] text-slate-500 font-medium block truncate">
+                Shop C-42, Azadpur Mandi
+              </span>
+            </div>
+          </div>
+
+          <!-- APMC License & Tenant Switcher -->
+          <div class="pt-2 border-t border-slate-200 flex flex-col gap-1.5">
+            <div class="flex justify-between items-center text-[10px]">
+              <span class="font-bold text-slate-400 uppercase tracking-wide">Agency Switcher</span>
+              <span id="tenant-subscription-badge" class="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wide border bg-blue-100 text-blue-900 border-blue-200">⭐ MONTHLY • ACTIVE</span>
+            </div>
+            <select id="tenant-switcher-select" class="w-full text-xs font-bold bg-white border border-slate-300 text-slate-700 py-1.5 px-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600">
+              <!-- Populated by TenantManager -->
+            </select>
+          </div>
+        </div>
+
+        <!-- Navigation Menu Items -->
+        <nav class="space-y-1 text-xs">
+          <div class="text-[10px] font-black text-slate-400 uppercase tracking-wider px-3 py-1">Operations (मंडी व्यापार)</div>
+          
+          <button data-tab-target="quick-trade" class="sidebar-link active">
+            <span class="sidebar-icon text-base">⚡</span>
+            <span class="flex-1">Quick Trade (एकल सौदा)</span>
+            <span class="text-[9px] font-mono opacity-60 bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded">F2</span>
+          </button>
+
+          <button data-tab-target="arrivals" class="sidebar-link">
+            <span class="sidebar-icon text-base">🚚</span>
+            <span class="flex-1">Inward Arrivals (गाड़ी आवक)</span>
+            <span class="text-[9px] font-mono opacity-60 bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded">F4</span>
+          </button>
+
+          <button data-tab-target="sales" class="sidebar-link">
+            <span class="sidebar-icon text-base">🏷️</span>
+            <span class="flex-1">Sales Lots (लॉट बिक्री)</span>
+          </button>
+
+          <div class="text-[10px] font-black text-slate-400 uppercase tracking-wider px-3 pt-3 py-1">Accounting & Books (लेखा)</div>
+
+          <button data-tab-target="bahi-khata" class="sidebar-link">
+            <span class="sidebar-icon text-base">📒</span>
+            <span class="flex-1">Bahi-Khata & Rokad (खाता)</span>
+          </button>
+
+          <button data-tab-target="reports" class="sidebar-link">
+            <span class="sidebar-icon text-base">📊</span>
+            <span class="flex-1">Mandi Reports Hub (रिपोर्ट्स)</span>
+            <span class="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded font-black text-[9px]">8</span>
+          </button>
+
+          <div class="text-[10px] font-black text-slate-400 uppercase tracking-wider px-3 pt-3 py-1">Intelligence & System</div>
+
+          <button data-tab-target="mandi-bhav" class="sidebar-link">
+            <span class="sidebar-icon text-base">📈</span>
+            <span class="flex-1">Market Bhav (दैनिक भाव)</span>
+          </button>
+
+          <button data-tab-target="settings" class="sidebar-link">
+            <span class="sidebar-icon text-base">⚙️</span>
+            <span class="flex-1">Settings & Masters (मास्टर)</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Bottom Section: User Session, Super Admin, Shortcuts & Language -->
+      <div class="p-3 border-t border-slate-200 bg-slate-50 space-y-2">
+        <!-- User Session Profile & Logout Card -->
+        <div class="bg-white p-2.5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2 min-w-0">
+            <span id="sidebar-user-avatar" class="w-8 h-8 rounded-xl bg-purple-100 text-purple-900 flex items-center justify-center font-bold text-sm shrink-0">👑</span>
+            <div class="min-w-0">
+              <div id="sidebar-user-name" class="font-bold text-slate-800 text-xs truncate">Amit Agarwal</div>
+              <div id="sidebar-user-role" class="text-[10px] text-purple-700 font-semibold truncate">Application Owner</div>
+            </div>
+          </div>
+          <button onclick="AuthManager.logout()" title="Logout (लॉगआउट)" class="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors shrink-0" aria-label="Logout">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+          </button>
+        </div>
+
+        <!-- Super Admin Switch Button -->
+        <button id="super-admin-toggle-btn" onclick="AdminManager.toggleSuperAdminMode()" 
+          class="w-full py-2 px-3 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all">
+          <span>👑</span> Super Admin Console
+        </button>
+
+        <div class="flex items-center gap-1.5">
+          <!-- Language Toggle -->
+          <button id="lang-toggle-btn" class="flex-1 py-1.5 px-2 bg-white border border-slate-300 hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-700 transition-colors text-center">
+            🇮🇳 हिंदी
+          </button>
+
+          <!-- Shortcuts Modal Trigger -->
+          <button onclick="App.openShortcutsModal()" title="Keyboard Shortcuts" 
+            class="py-1.5 px-2.5 bg-white border border-slate-300 hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-600 transition-colors">
+            ⌨️ ?
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ================= MAIN CONTENT AREA ================= -->
+    <div class="flex-1 min-w-0 flex flex-col min-h-screen">
+      
+      <!-- Top Responsive Bar -->
+      <header class="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-xs h-16 flex items-center justify-between px-4 sm:px-6 no-print">
+        
+        <!-- Left: Mobile Menu Hamburger & Quick Breadcrumb -->
+        <div class="flex items-center gap-3">
+          <button onclick="App.toggleSidebarDrawer(true)" class="lg:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          
+          <div class="hidden sm:flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+            <span class="text-xs font-bold text-slate-700">Azadpur APMC Live Desk</span>
+            <span class="text-slate-300">•</span>
+            <span class="text-xs text-slate-500 font-medium" id="header-live-date"></span>
+          </div>
+        </div>
+
+        <!-- Center / Right: Global Search & Quick Actions -->
+        <div class="flex items-center gap-2 sm:gap-3">
+          
+          <!-- Command Palette Search Button (Ctrl+K) -->
+          <button onclick="App.openCommandPalette()" 
+            class="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl text-xs text-slate-600 transition-all font-medium">
+            <span>🔍</span>
+            <span class="hidden md:inline">Quick Search...</span>
+            <span class="hidden sm:inline px-1.5 py-0.5 text-[10px] font-mono bg-white border border-slate-300 rounded text-slate-500">Ctrl+K</span>
+          </button>
+
+          <!-- Rapid New Consignment Button -->
+          <button onclick="App.switchTab('quick-trade'); UnifiedTrade.resetForNextConsignment();" 
+            class="px-3.5 py-1.5 bg-green-700 hover:bg-green-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all">
+            <span>+</span>
+            <span class="hidden sm:inline">New Trade</span>
+            <span class="sm:hidden">Trade</span>
+          </button>
+
+          <!-- Request Access (for onboarding prospective agents) -->
+          <button onclick="AdminManager.openRequestAccessModal()" 
+            class="hidden xl:flex items-center gap-1 px-3 py-1.5 rounded-xl border border-dashed border-purple-400 hover:bg-purple-50 text-purple-800 text-xs font-bold transition-all">
+            <span>📝</span> Request Access
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Section Containers -->
+      <main class="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto space-y-6">
+
+        <!-- ================= SUPER ADMIN PORTAL ================= -->
+        <div id="super-admin-portal" class="hidden space-y-6">
+          <div class="bg-gradient-to-r from-purple-900 to-indigo-900 rounded-3xl p-6 text-white shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <span class="px-3 py-1 rounded-full text-xs font-black bg-purple-700/80 text-purple-200 uppercase tracking-wider inline-block mb-2">
+                Platform Super Admin Console
+              </span>
+              <h2 class="text-2xl font-black">Mandi Agency Master Management</h2>
+              <p class="text-xs text-purple-200 mt-1">Review agent access requests, approve new agency tenants, and monitor market-wide volume.</p>
+            </div>
+            <button onclick="AdminManager.openOnboardModal()" 
+              class="px-4 py-2.5 bg-white text-purple-900 hover:bg-purple-50 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md transition-all">
+              <span>+</span> Direct Onboard Agent
+            </button>
+          </div>
+
+          <div id="admin-stats-summary"></div>
+
+          <!-- Section: Pending Agency Access Requests -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">
+            <div class="p-4 border-b border-slate-200 bg-amber-50/60 flex justify-between items-center">
+              <div>
+                <h3 class="font-bold text-sm text-slate-800">Pending Agency Access Requests (आवेदन)</h3>
+                <p class="text-xs text-slate-500">Mandi agents who requested access to ArhatPro platform</p>
+              </div>
+              <span class="text-xs font-bold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-full">Requires Approval</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-200 bg-slate-100 font-bold text-slate-600">
+                    <th class="p-3">Agency Details</th>
+                    <th class="p-3">Proprietor Contact</th>
+                    <th class="p-3">APMC License</th>
+                    <th class="p-3 text-center">Status</th>
+                    <th class="p-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-requests-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Section: Active Agencies Directory -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+              <h3 class="font-bold text-sm text-slate-800">Active Mandi Commission Agencies</h3>
+              <span class="text-xs text-slate-500 font-medium">Multi-Tenant Workspaces</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-200 bg-slate-100 font-bold text-slate-600">
+                    <th class="p-3.5">Agency / Shop Details</th>
+                    <th class="p-3.5">Proprietor Contact</th>
+                    <th class="p-3.5">APMC License & GSTIN</th>
+                    <th class="p-3.5 text-center">Comm. Rate</th>
+                    <th class="p-3.5 text-center">Status</th>
+                    <th class="p-3.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-agents-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= SECTION 0: UNIFIED QUICK TRADE (Rapid Trading Desk) ================= -->
+        <section id="quick-trade-section" class="space-y-6">
+          <div class="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm space-y-5">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b pb-4">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 uppercase tracking-wide">
+                    RAPID TRADING DESK
+                  </span>
+                  <h2 class="text-lg sm:text-xl font-black text-slate-900">Unified Arrival & Multi-Lot Sale (एकल आवक-बिक्री)</h2>
+                </div>
+                <p class="text-xs text-slate-500 mt-0.5">Enter incoming truck, multiple lot numbers & allocate crates to buyers in one single flow.</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span id="unified-balance-crates" class="text-xs font-black text-emerald-800 bg-emerald-100 px-3.5 py-1.5 rounded-full">
+                  0 crates unallocated
+                </span>
+              </div>
+            </div>
+
+            <!-- Visual Allocation Progress Bar -->
+            <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+              <div id="unified-allocation-progress" class="bg-emerald-600 h-full rounded-full transition-all duration-300" style="width: 100%;"></div>
+            </div>
+
+            <!-- Part 1: Arrival & Multi-Lot Definition -->
+            <div class="space-y-4">
+              <div class="text-xs font-black text-slate-400 uppercase tracking-wider flex justify-between items-center">
+                <span>Part 1: Consignment & Farmer Origin</span>
+                <button type="button" onclick="UnifiedTrade.addLot()" class="px-3 py-1 bg-purple-50 text-purple-800 hover:bg-purple-100 rounded-xl font-bold text-xs border border-purple-200 transition-all">
+                  + Add Consignment Lot
+                </button>
+              </div>
+              
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">Truck No. (गाड़ी नंबर)</label>
+                  <input type="text" id="unified-truck-no" value="HP-10-B-9812" class="w-full p-2.5 border border-slate-300 rounded-xl font-mono font-bold uppercase bg-slate-50/50">
+                </div>
+
+                <div>
+                  <div class="flex justify-between items-center mb-1">
+                    <label class="font-bold text-slate-700">Farmer Code (किसान कोड)</label>
+                    <button type="button" onclick="SettingsManager.openAddPartyModal()" class="text-[10px] text-green-700 font-bold hover:underline">
+                      + New Farmer
+                    </button>
+                  </div>
+                  <input type="text" id="unified-farmer-code" value="NEG" placeholder="e.g. NEG, LON" class="w-full p-2.5 border border-slate-300 rounded-xl font-mono font-black uppercase text-green-800 bg-white">
+                  <span id="unified-farmer-resolved" class="text-[11px] font-bold text-emerald-700 block mt-1 truncate">✓ Harish Negi (Kotkhai, Shimla)</span>
+                  <input type="hidden" id="unified-farmer-phone" value="+91 98160 44321">
+                  <input type="hidden" id="unified-driver-name" value="Surjeet Singh">
+                  <input type="hidden" id="unified-driver-phone" value="+91 98166 12345">
+                </div>
+
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">Commodity (फसल)</label>
+                  <select id="unified-commodity" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold bg-white">
+                    <!-- Populated by CommodityManager -->
+                  </select>
+                </div>
+              </div>
+
+              <!-- Dynamic Multi-Lot Container (Lot 1, Lot 2, Lot 3...) -->
+              <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                <div class="flex justify-between items-center text-xs">
+                  <span class="font-bold text-slate-700">Consignment Lots Classification (लॉट वर्गीकरण)</span>
+                  <span id="unified-total-crates-display" class="font-black text-slate-900 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                    300 Crates Total (2 Lots)
+                  </span>
+                </div>
+
+                <div id="unified-lots-container" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+              </div>
+
+              <!-- Freight & Advance Section -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-amber-50/80 p-3.5 rounded-2xl border border-amber-200 text-xs">
+                <div>
+                  <label class="font-bold text-amber-900 block mb-1">Total Truck Freight (कुल भाड़ा ₹)</label>
+                  <input type="number" id="unified-total-freight" value="36000" class="w-full p-2.5 border border-amber-300 rounded-xl bg-white font-medium">
+                </div>
+                <div>
+                  <label class="font-bold text-amber-900 block mb-1">Freight Advance Paid to Driver (भाड़ा पेशगी ₹)</label>
+                  <input type="number" id="unified-freight-adv" value="15000" class="w-full p-2.5 border border-amber-300 rounded-xl bg-white font-black text-rose-700">
+                  <span class="text-[10px] text-amber-800 block mt-0.5">Deducted from farmer J-Form & recorded in Rokad Cashbook</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Part 2: Instant Multi-Buyer Spot Allocation -->
+            <div class="space-y-3 pt-4 border-t border-slate-200">
+              <div class="flex justify-between items-center">
+                <div class="text-xs font-black text-slate-400 uppercase tracking-wider">Part 2: Multi-Buyer Spot Sales Distribution</div>
+                <button type="button" onclick="UnifiedTrade.addBuyerRow()" 
+                  class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm">
+                  + Add Buyer Row
+                </button>
+              </div>
+
+              <!-- Dynamic Buyer Split Rows Container -->
+              <div id="unified-buyer-rows"></div>
+
+              <!-- Trade Execution Summary Bar -->
+              <div class="p-4 bg-slate-900 rounded-2xl text-white flex flex-col sm:flex-row justify-between items-center gap-3 mt-4 shadow-lg">
+                <div>
+                  <span class="text-xs text-slate-400 block font-medium">Gross Realized Value</span>
+                  <span id="unified-gross-sale-display" class="text-2xl font-black text-emerald-400">₹0</span>
+                </div>
+                <button type="button" onclick="UnifiedTrade.submitUnifiedTrade()" 
+                  class="w-full sm:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-black flex items-center justify-center gap-2 shadow-md transition-all">
+                  <span>⚡</span> Save Consignment & Seal Teep
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= SECTION 1: INWARD ARRIVALS ================= -->
+        <section id="arrivals-section" class="hidden space-y-6">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+            <div>
+              <h2 class="text-lg font-black text-slate-900">Inward Truck Arrivals & Freight Advance (गाड़ी आवक)</h2>
+              <p class="text-xs text-slate-500">Record incoming consignments from farmers, freight advance to drivers, and unloading palledari.</p>
+            </div>
+            <button onclick="ArrivalsManager.openNewArrivalModal()" 
+              class="px-4 py-2.5 bg-green-700 hover:bg-green-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-colors">
+              <span>+</span> Register New Truck Arrival
+            </button>
+          </div>
+          <div id="arrivals-summary-cards"></div>
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-4 border-b border-slate-200 bg-slate-50">
+              <h3 class="font-bold text-sm text-slate-800">Today's Truck Inward Register</h3>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-200 bg-slate-100 font-bold text-slate-600">
+                    <th class="p-3">Arrival ID</th>
+                    <th class="p-3">Vehicle Details</th>
+                    <th class="p-3">Farmer Details</th>
+                    <th class="p-3">Commodity & Units</th>
+                    <th class="p-3 text-right">Freight / Advance</th>
+                    <th class="p-3 text-center">Status</th>
+                    <th class="p-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="arrivals-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= SECTION 2: SALES LOTS ================= -->
+        <section id="sales-section" class="hidden space-y-6">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+            <div>
+              <h2 class="text-lg font-black text-slate-900">Consignment Sales & Multi-Buyer Lot Splitting</h2>
+              <p class="text-xs text-slate-500">Sell arrived truckloads in batches to multiple wholesale buyers, hammer deals, and issue J/I-Forms.</p>
+            </div>
+            <button onclick="ArrivalsManager.openNewArrivalModal()" class="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold">
+              + New Inward Lot
+            </button>
+          </div>
+          <div id="sales-lots-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+        </section>
+
+        <!-- ================= SECTION 3: BAHI-KHATA, ROKAD & AUTOMATED JOURNAL ================= -->
+        <section id="bahi-khata-section" class="hidden space-y-6">
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <h2 class="text-lg font-black text-slate-900">Arhatiya Bahi-Khata, Rokad Cashbook & Journal (रोजनामचा)</h2>
+              <p class="text-xs text-slate-500">Double-entry ledger with automated debit-credit balancing, buyer aging, and daily cash-in-hand.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="BahiKhata.openJournalVoucherModal()" class="px-3.5 py-2 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-xs font-bold shadow-xs">
+                + Journal Voucher (रोजनामचा)
+              </button>
+              <button onclick="BahiKhata.openRokadEntryModal()" class="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs">
+                + Cash Jama/Kharch
+              </button>
+            </div>
+          </div>
+          
+          <div id="bahi-khata-summary"></div>
+
+          <!-- Section: Buyer Accounts & Aging -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">
+            <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+              <h3 class="font-bold text-sm text-slate-800">Buyer Accounts & Credit Outstanding (उधारी खाता)</h3>
+              <span class="text-xs text-slate-500 font-medium">1.5% Interest past 15 days</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-200 bg-slate-100 font-bold text-slate-600">
+                    <th class="p-3.5">Buyer / Party Name</th>
+                    <th class="p-3.5 text-right">Total Purchases</th>
+                    <th class="p-3.5 text-right">Total Cleared</th>
+                    <th class="p-3.5 text-right">Outstanding (उधारी)</th>
+                    <th class="p-3.5 text-center">Overdue Days</th>
+                    <th class="p-3.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="bahi-khata-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Section: General Journal Register (रोजनामचा बही) -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">
+            <div class="p-4 border-b border-slate-200 bg-purple-50/60 flex justify-between items-center">
+              <div>
+                <h3 class="font-bold text-sm text-purple-900">General Journal Register (रोजनामचा बही - Double Entry)</h3>
+                <p class="text-[11px] text-purple-700">Balanced debit and credit vouchers across all accounts</p>
+              </div>
+              <button onclick="BahiKhata.openJournalVoucherModal()" class="px-3 py-1 bg-purple-700 text-white rounded-lg text-xs font-bold">
+                + New Voucher
+              </button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-200 bg-slate-100 font-bold text-slate-600">
+                    <th class="p-3">Date</th>
+                    <th class="p-3">Voucher No</th>
+                    <th class="p-3">Accounts (Debit / Credit)</th>
+                    <th class="p-3">Narration (विवरण)</th>
+                    <th class="p-3 text-right">Amount (₹)</th>
+                    <th class="p-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="journal-register-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Section: Daily Rokad Cashbook -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+              <div>
+                <h3 class="font-bold text-sm text-slate-800">Daily Rokad Bahi (दैनिक रोकड़ खाता)</h3>
+              </div>
+              <div class="text-right">
+                <span class="text-xs font-medium text-slate-500 block">Closing Cash in Hand:</span>
+                <span id="rokad-closing-balance" class="text-base font-black text-green-800">₹0</span>
+              </div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-200 bg-slate-100 font-bold text-slate-600">
+                    <th class="p-3">Time</th>
+                    <th class="p-3">Particulars / Description</th>
+                    <th class="p-3 text-center">Type</th>
+                    <th class="p-3 text-right">Amount (₹)</th>
+                  </tr>
+                </thead>
+                <tbody id="rokad-transactions-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= SECTION 4: MANDI REPORTS HUB ================= -->
+        <section id="reports-section" class="hidden space-y-6">
+          
+          <!-- Reports Hub Navigation Deck -->
+          <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            <div class="border-b pb-3">
+              <div class="flex items-center gap-2">
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-900 uppercase">
+                  STATUTORY & OPERATIONAL AUDIT
+                </span>
+                <h2 class="text-lg sm:text-xl font-black text-slate-900">Mandi Reports & Audit Suite (रिपोर्ट्स हब)</h2>
+              </div>
+              <p class="text-xs text-slate-500 mt-0.5">Quick access to Teep final sales, buyer purchas, balance ledgers, and APMC Form 'M'.</p>
+            </div>
+
+            <!-- Quick Access Report Pills -->
+            <div class="flex flex-wrap gap-2">
+              <button data-report-target="teep" onclick="ReportsHub.switchReportTab('teep')" 
+                class="report-subtab-pill px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white shadow-xs transition-all">
+                📋 Teep Final Sales (टीप)
+              </button>
+              <button data-report-target="purcha" onclick="ReportsHub.switchReportTab('purcha')" 
+                class="report-subtab-pill px-3.5 py-2 rounded-xl text-xs font-bold bg-white text-slate-700 hover:bg-slate-100 transition-all border border-slate-200">
+                🧾 Buyer Purcha (पर्चा)
+              </button>
+              <button data-report-target="buyer-balance" onclick="ReportsHub.switchReportTab('buyer-balance')" 
+                class="report-subtab-pill px-3.5 py-2 rounded-xl text-xs font-bold bg-white text-slate-700 hover:bg-slate-100 transition-all border border-slate-200">
+                💰 Buyer Balance (उधारी)
+              </button>
+              <button data-report-target="grower-balance" onclick="ReportsHub.switchReportTab('grower-balance')" 
+                class="report-subtab-pill px-3.5 py-2 rounded-xl text-xs font-bold bg-white text-slate-700 hover:bg-slate-100 transition-all border border-slate-200">
+                🧑‍🌾 Grower Balance (किसान बकाया)
+              </button>
+              <button data-report-target="buyer-summary" onclick="ReportsHub.switchReportTab('buyer-summary')" 
+                class="report-subtab-pill px-3.5 py-2 rounded-xl text-xs font-bold bg-white text-slate-700 hover:bg-slate-100 transition-all border border-slate-200">
+                📊 Buyer Summary (खरीदार सारांश)
+              </button>
+              <button data-report-target="grower-summary" onclick="ReportsHub.switchReportTab('grower-summary')" 
+                class="report-subtab-pill px-3.5 py-2 rounded-xl text-xs font-bold bg-white text-slate-700 hover:bg-slate-100 transition-all border border-slate-200">
+                🌾 Grower Summary (किसान सारांश)
+              </button>
+              <button data-report-target="grower-arrival" onclick="ReportsHub.switchReportTab('grower-arrival')" 
+                class="report-subtab-pill px-3.5 py-2 rounded-xl text-xs font-bold bg-white text-slate-700 hover:bg-slate-100 transition-all border border-slate-200">
+                🚚 Grower Arrivals (आवक)
+              </button>
+              <button data-report-target="apmc-form-m" onclick="ReportsHub.switchReportTab('apmc-form-m')" 
+                class="report-subtab-pill px-3.5 py-2 rounded-xl text-xs font-bold bg-white text-slate-700 hover:bg-slate-100 transition-all border border-slate-200">
+                🏛️ APMC Form 'M' (सेस)
+              </button>
+            </div>
+          </div>
+
+          <!-- Report 1: Teep Final Sale Register -->
+          <div id="rep-panel-teep" class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden space-y-4 p-5">
+            <div class="flex justify-between items-center border-b pb-3">
+              <div>
+                <h3 class="font-bold text-sm text-slate-800">Consignment Teep Register (टीप अंतिम विक्रय पत्र)</h3>
+                <p class="text-xs text-slate-500">Sealed, view-only final trade settlement documents for the owner</p>
+              </div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-200 bg-slate-100 font-bold text-slate-600">
+                    <th class="p-3">Teep No</th>
+                    <th class="p-3">Vehicle</th>
+                    <th class="p-3">Grower Details</th>
+                    <th class="p-3">Commodity & Variety</th>
+                    <th class="p-3 text-center">Units Sold</th>
+                    <th class="p-3 text-right">Gross Realized (₹)</th>
+                    <th class="p-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="rep-teep-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Report 2: Buyer Purcha Register -->
+          <div id="rep-panel-purcha" class="hidden bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden space-y-4 p-5">
+            <div class="flex justify-between items-center border-b pb-3">
+              <div>
+                <h3 class="font-bold text-sm text-slate-800">Buyer Purcha Register (खरीदार बिक्री पर्चा / I-Form)</h3>
+                <p class="text-xs text-slate-500">All delivery bills issued to wholesale purchasers with 80mm thermal reprint</p>
+              </div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-200 bg-slate-100 font-bold text-slate-600">
+                    <th class="p-3">Purcha No</th>
+                    <th class="p-3">Date</th>
+                    <th class="p-3">Buyer Name</th>
+                    <th class="p-3">Commodity</th>
+                    <th class="p-3 text-center">Qty</th>
+                    <th class="p-3 text-right">Rate</th>
+                    <th class="p-3 text-right">Net Bill (₹)</th>
+                    <th class="p-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="rep-purcha-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Report 3: Buyer Balance Aging Report -->
+          <div id="rep-panel-buyer-balance" class="hidden bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden space-y-4 p-5">
+            <div class="flex justify-between items-center border-b pb-3">
+              <div>
+                <h3 class="font-bold text-sm text-slate-800">Buyer Balance & Aging Schedule (खरीदार उधारी व अवधि)</h3>
+                <p class="text-xs text-slate-500">Overdue bracket analysis: 0-7, 8-15, 16-30, and 30+ days overdue</p>
+              </div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-200 bg-slate-100 font-bold text-slate-600">
+                    <th class="p-3">Buyer Name</th>
+                    <th class="p-3 text-right">Total Balance</th>
+                    <th class="p-3 text-right">0-7 Days</th>
+                    <th class="p-3 text-right">8-15 Days</th>
+                    <th class="p-3 text-right">16-30 Days</th>
+                    <th class="p-3 text-right">30+ Days</th>
+                    <th class="p-3 text-right">Interest (1.5%)</th>
+                    <th class="p-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="rep-buyer-balance-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Report 4: Grower Balance Report -->
+          <div id="rep-panel-grower-balance" class="hidden bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden space-y-4 p-5">
+            <div class="flex justify-between items-center border-b pb-3">
+              <div>
+                <h3 class="font-bold text-sm text-slate-800">Grower / Kisan Net Payable Balance (उत्पादक किसान बकाया)</h3>
+                <p class="text-xs text-slate-500">Pending net disbursements to farmers after deducting freight advance and palledari</p>
+              </div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-200 bg-slate-100 font-bold text-slate-600">
+                    <th class="p-3">Voucher</th>
+                    <th class="p-3">Farmer Details</th>
+                    <th class="p-3">Commodity</th>
+                    <th class="p-3 text-right">Gross Realized</th>
+                    <th class="p-3 text-right">Freight Adv Paid</th>
+                    <th class="p-3 text-right">Net Pending (₹)</th>
+                    <th class="p-3 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="rep-grower-balance-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Report 5: Buyer Summary Report -->
+          <div id="rep-panel-buyer-summary" class="hidden bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden space-y-4 p-5">
+            <div class="flex justify-between items-center border-b pb-3">
+              <h3 class="font-bold text-sm text-slate-800">Buyer Cumulative Turnover Summary (खरीदार सारांश)</h3>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-200 bg-slate-100 font-bold text-slate-600">
+                    <th class="p-3">Buyer Name</th>
+                    <th class="p-3 text-right">Total Purchases</th>
+                    <th class="p-3 text-right">Total Paid</th>
+                    <th class="p-3 text-right">Outstanding Udhaari</th>
+                    <th class="p-3 text-center">Overdue Days</th>
+                    <th class="p-3 text-center">Credit Posture</th>
+                  </tr>
+                </thead>
+                <tbody id="rep-buyer-summary-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Report 6: Grower Summary Report -->
+          <div id="rep-panel-grower-summary" class="hidden bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden space-y-4 p-5">
+            <div class="flex justify-between items-center border-b pb-3">
+              <h3 class="font-bold text-sm text-slate-800">Grower Consignment & Commission Summary (किसान सारांश)</h3>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-200 bg-slate-100 font-bold text-slate-600">
+                    <th class="p-3">Farmer Name & Origin</th>
+                    <th class="p-3 text-center">Trucks Arrived</th>
+                    <th class="p-3 text-center">Total Volume</th>
+                    <th class="p-3 text-right">Gross Realized (₹)</th>
+                    <th class="p-3 text-right">Arhat Commission (₹)</th>
+                  </tr>
+                </thead>
+                <tbody id="rep-grower-summary-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Report 7: Grower Arrival Register -->
+          <div id="rep-panel-grower-arrival" class="hidden bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden space-y-4 p-5">
+            <div class="flex justify-between items-center border-b pb-3">
+              <h3 class="font-bold text-sm text-slate-800">Inward Truck Arrival Log (Rule 24 Register)</h3>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-200 bg-slate-100 font-bold text-slate-600">
+                    <th class="p-3">Arrival ID</th>
+                    <th class="p-3">Truck No</th>
+                    <th class="p-3">Farmer Name</th>
+                    <th class="p-3">Commodity</th>
+                    <th class="p-3 text-center">Quantity</th>
+                    <th class="p-3">Driver Contact</th>
+                    <th class="p-3 text-right">Freight Adv</th>
+                    <th class="p-3 text-center">Palledar Toli</th>
+                  </tr>
+                </thead>
+                <tbody id="rep-grower-arrival-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Report 8: APMC Statutory Form M -->
+          <div id="rep-panel-apmc-form-m" class="hidden space-y-4">
+            <div id="apmc-form-m-container"></div>
+          </div>
+        </section>
+
+        <!-- ================= SECTION 5: SETTINGS & CONFIGURATION SUITE ================= -->
+        <section id="settings-section" class="hidden space-y-6">
+          <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
+            <div class="border-b pb-4 mb-5">
+              <h2 class="text-lg font-black text-slate-900">Agency Settings & Master Configurations</h2>
+              <p class="text-xs text-slate-500">Manage commodities, party short codes, staff roles, mandi rates, printer configurations, and complete database backup.</p>
+            </div>
+
+            <!-- Sub-Tab Navigation Bar -->
+            <div class="flex flex-wrap gap-2 mb-6 border-b pb-4">
+              <button data-subtab="branding" onclick="SettingsManager.switchSubTab('branding')" 
+                class="settings-subtab-btn px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white shadow-xs transition-all">
+                🎨 White-Label & Branding (व्हाइट लेबल)
+              </button>
+              <button data-subtab="commodity-master" onclick="SettingsManager.switchSubTab('commodity-master')" 
+                class="settings-subtab-btn px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
+                🌾 Commodity Master (फसल)
+              </button>
+              <button data-subtab="party-master" onclick="SettingsManager.switchSubTab('party-master')" 
+                class="settings-subtab-btn px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
+                🏷️ Party Master (शॉर्ट कोड)
+              </button>
+              <button data-subtab="rates" onclick="SettingsManager.switchSubTab('rates')" 
+                class="settings-subtab-btn px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
+                📊 Mandi Rates & Palledari
+              </button>
+              <button data-subtab="printer" onclick="SettingsManager.switchSubTab('printer')" 
+                class="settings-subtab-btn px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
+                🖨️ Printer & Slip Format
+              </button>
+              <button data-subtab="firm" onclick="SettingsManager.switchSubTab('firm')" 
+                class="settings-subtab-btn px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
+                🏢 Firm Profile & Bank Details
+              </button>
+              <button data-subtab="team" onclick="SettingsManager.switchSubTab('team')" 
+                class="settings-subtab-btn px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
+                👥 Team & Staff (स्टाफ व मुनीम)
+              </button>
+              <button data-subtab="backup" onclick="SettingsManager.switchSubTab('backup')" 
+                class="settings-subtab-btn px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
+                💾 Data Backup & Restore
+              </button>
+            </div>
+
+            <!-- Sub-Tab 0: White-Label Customization & Branding -->
+            <div id="settings-branding" class="space-y-6">
+              <div class="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-5 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-md">
+                <div>
+                  <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-white/20 uppercase tracking-wide">
+                    Autonomous White-Label Suite
+                  </span>
+                  <h3 class="text-lg font-black mt-1">Agency Identity & Visual Branding</h3>
+                  <p class="text-xs text-slate-300">White-label your Mandi ERP with custom colors, header logo, bill print layouts & business credentials.</p>
+                </div>
+                <button onclick="SettingsManager.saveBrandingForm()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-xs transition-all">
+                  💾 Save Branding Changes
+                </button>
+              </div>
+
+              <!-- Theme Color Selector -->
+              <div class="bg-white p-4 rounded-2xl border border-slate-200 space-y-3">
+                <div class="flex justify-between items-center">
+                  <h4 class="font-bold text-slate-800 text-xs uppercase tracking-wider">1. Brand Primary Theme (रंग शैली)</h4>
+                  <span class="text-[11px] text-slate-500">Live preview applies instantly across header, sidebar, and buttons</span>
+                </div>
+                <div id="wl-theme-presets" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                  <!-- Populated by SettingsManager.renderBrandingForm -->
+                </div>
+              </div>
+
+              <!-- Firm Identity & Letterhead -->
+              <div class="bg-white p-4 rounded-2xl border border-slate-200 space-y-4 text-xs">
+                <h4 class="font-bold text-slate-800 uppercase tracking-wider">2. Agency Identity & Header Details</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label class="font-bold text-slate-700 block mb-1">Firm Display Name</label>
+                    <input type="text" id="wl-firm-name" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+                  </div>
+                  <div>
+                    <label class="font-bold text-slate-700 block mb-1">Tagline / Speciality</label>
+                    <input type="text" id="wl-tagline" placeholder="Commission Agent & Order Supplier" class="w-full p-2.5 border border-slate-300 rounded-xl">
+                  </div>
+                  <div>
+                    <label class="font-bold text-slate-700 block mb-1">Logo Icon (Emoji or Short)</label>
+                    <input type="text" id="wl-logo-icon" placeholder="🍎, 🌾, 🍇" class="w-full p-2.5 border border-slate-300 rounded-xl text-center text-lg">
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div>
+                    <label class="font-bold text-slate-700 block mb-1">Shop / Shed No.</label>
+                    <input type="text" id="wl-shop-no" class="w-full p-2.5 border border-slate-300 rounded-xl">
+                  </div>
+                  <div>
+                    <label class="font-bold text-slate-700 block mb-1">Mandi Name</label>
+                    <input type="text" id="wl-mandi-name" class="w-full p-2.5 border border-slate-300 rounded-xl">
+                  </div>
+                  <div>
+                    <label class="font-bold text-slate-700 block mb-1">APMC License No.</label>
+                    <input type="text" id="wl-apmc-lic" class="w-full p-2.5 border border-slate-300 rounded-xl font-mono">
+                  </div>
+                  <div>
+                    <label class="font-bold text-slate-700 block mb-1">GSTIN</label>
+                    <input type="text" id="wl-gstin" class="w-full p-2.5 border border-slate-300 rounded-xl font-mono">
+                  </div>
+                </div>
+
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">Contact Mobile / Landline</label>
+                  <input type="text" id="wl-phone" class="w-full p-2.5 border border-slate-300 rounded-xl max-w-sm font-mono">
+                </div>
+              </div>
+
+              <!-- Bank & Payment Details -->
+              <div class="bg-white p-4 rounded-2xl border border-slate-200 space-y-3 text-xs">
+                <h4 class="font-bold text-slate-800 uppercase tracking-wider">3. Bank Account & UPI Details (Printed on Invoices)</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div>
+                    <label class="font-bold text-slate-700 block mb-1">Bank Name</label>
+                    <input type="text" id="wl-bank-name" class="w-full p-2.5 border border-slate-300 rounded-xl">
+                  </div>
+                  <div>
+                    <label class="font-bold text-slate-700 block mb-1">Account Number</label>
+                    <input type="text" id="wl-acc-no" class="w-full p-2.5 border border-slate-300 rounded-xl font-mono">
+                  </div>
+                  <div>
+                    <label class="font-bold text-slate-700 block mb-1">IFSC Code</label>
+                    <input type="text" id="wl-ifsc" class="w-full p-2.5 border border-slate-300 rounded-xl font-mono uppercase">
+                  </div>
+                  <div>
+                    <label class="font-bold text-slate-700 block mb-1">UPI ID (Scan to Pay)</label>
+                    <input type="text" id="wl-upi-id" class="w-full p-2.5 border border-slate-300 rounded-xl font-mono">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bill Template & Terms -->
+              <div class="bg-white p-4 rounded-2xl border border-slate-200 space-y-3 text-xs">
+                <h4 class="font-bold text-slate-800 uppercase tracking-wider">4. Invoice Format & Custom Mandi Terms</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label class="font-bold text-slate-700 block mb-1">Default Bill Print Layout</label>
+                    <select id="wl-bill-format" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold bg-white">
+                      <option value="thermal">Thermal POS Receipt (80mm / 58mm)</option>
+                      <option value="a4">Standard A4 / A5 Legal Bill</option>
+                    </select>
+                  </div>
+                  <div class="sm:col-span-2">
+                    <label class="font-bold text-slate-700 block mb-1">Custom Terms & Disclaimers</label>
+                    <textarea id="wl-disclaimer" rows="3" class="w-full p-2.5 border border-slate-300 rounded-xl text-xs"></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex justify-end">
+                <button onclick="SettingsManager.saveBrandingForm()" class="py-3 px-6 bg-green-700 hover:bg-green-800 text-white rounded-xl font-bold text-xs shadow-md transition-all">
+                  Apply White-Label Branding & Save
+                </button>
+              </div>
+            </div>
+
+            <!-- Sub-Tab 1: Commodity Master -->
+            <div id="settings-commodity-master" class="hidden space-y-4">
+              <div class="flex justify-between items-center">
+                <div>
+                  <h4 class="font-bold text-slate-800 text-sm">Commodity Master (फसल व तौल विनिर्देश)</h4>
+                  <p class="text-xs text-slate-500">Configure commodities, default units, tare weight deduction, and palledari</p>
+                </div>
+                <button onclick="SettingsManager.openAddCommodityModal()" 
+                  class="px-4 py-2 bg-green-700 hover:bg-green-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all">
+                  + Add New Commodity
+                </button>
+              </div>
+              <div class="overflow-x-auto border border-slate-200 rounded-2xl">
+                <table class="w-full text-left text-xs">
+                  <thead>
+                    <tr class="border-b border-slate-200 bg-slate-100 font-bold text-slate-700">
+                      <th class="p-3">Commodity Name</th>
+                      <th class="p-3 text-center">Category</th>
+                      <th class="p-3">Default Unit & Wt</th>
+                      <th class="p-3 text-center">Tare Deduction</th>
+                      <th class="p-3 text-center">Commission %</th>
+                      <th class="p-3 text-right">Palledari (₹)</th>
+                      <th class="p-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="settings-commodity-table-body"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Sub-Tab 1: Party Master -->
+            <div id="settings-party-master" class="space-y-4">
+              <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <div class="relative flex-1 max-w-sm">
+                  <input type="text" id="party-search-input" placeholder="Search by short code (AGW, RJD) or name..." 
+                    oninput="SettingsManager.renderPartyMasterTable(this.value)"
+                    class="w-full p-2.5 pl-8 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-green-600">
+                  <span class="absolute left-2.5 top-3 text-slate-400 text-xs">🔍</span>
+                </div>
+                <button onclick="SettingsManager.openAddPartyModal()" 
+                  class="px-4 py-2 bg-green-700 hover:bg-green-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all">
+                  + Add New Party (Short Code)
+                </button>
+              </div>
+
+              <div class="overflow-x-auto border border-slate-200 rounded-2xl">
+                <table class="w-full text-left text-xs">
+                  <thead>
+                    <tr class="border-b border-slate-200 bg-slate-100 font-bold text-slate-700">
+                      <th class="p-3">Short Code</th>
+                      <th class="p-3">Party Name & Address</th>
+                      <th class="p-3 text-center">Type</th>
+                      <th class="p-3">Mobile Phone</th>
+                      <th class="p-3 text-right">Balance / Limit</th>
+                      <th class="p-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="settings-party-table-body"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Sub-Tab 2: Statutory Rates -->
+            <div id="settings-rates" class="hidden space-y-4 max-w-xl">
+              <div class="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">Standard Arhat Commission (%)</label>
+                  <input type="number" step="0.1" id="cfg-commission-pct" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+                </div>
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">Palledari / Box Unloading (₹)</label>
+                  <input type="number" id="cfg-palledari-rate" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+                </div>
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">APMC Mandi Cess (%)</label>
+                  <input type="number" step="0.1" id="cfg-apmc-cess" value="1.0" class="w-full p-2.5 border border-slate-300 rounded-xl">
+                </div>
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">DAMB Development Fee (%)</label>
+                  <input type="number" step="0.1" id="cfg-damb-fee" value="1.0" class="w-full p-2.5 border border-slate-300 rounded-xl">
+                </div>
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">Stationery / Post Fee (₹)</label>
+                  <input type="number" id="cfg-stationery" class="w-full p-2.5 border border-slate-300 rounded-xl">
+                </div>
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">Overdue Interest Rate (% p.m.)</label>
+                  <input type="number" step="0.1" id="cfg-interest-pct" value="1.5" class="w-full p-2.5 border border-slate-300 rounded-xl">
+                </div>
+              </div>
+              <button onclick="SettingsManager.saveRatesForm()" class="py-2.5 px-5 bg-green-700 hover:bg-green-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm">
+                Save Rates & Charges
+              </button>
+            </div>
+
+            <!-- Sub-Tab 3: Printer & Format -->
+            <div id="settings-printer" class="hidden space-y-4 max-w-xl text-xs">
+              <div>
+                <label class="font-bold text-slate-700 block mb-1">Default Bill Format</label>
+                <select id="cfg-printer-format" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+                  <option value="thermal">Thermal POS Receipt (80mm / 58mm)</option>
+                  <option value="a4">Standard A4 / A5 Legal Bill</option>
+                </select>
+              </div>
+              <div>
+                <label class="font-bold text-slate-700 block mb-1">Custom Bill Terms & Disclaimers</label>
+                <textarea id="cfg-bill-disclaimer" rows="4" class="w-full p-2.5 border border-slate-300 rounded-xl text-xs"></textarea>
+              </div>
+              <button onclick="SettingsManager.savePrinterConfigForm()" class="py-2.5 px-5 bg-green-700 hover:bg-green-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm">
+                Save Printer Settings
+              </button>
+            </div>
+
+            <!-- Sub-Tab 4: Firm Profile -->
+            <div id="settings-firm" class="hidden space-y-4 max-w-xl text-xs">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">Firm Name</label>
+                  <input type="text" id="cfg-firm-name" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+                </div>
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">Shop No.</label>
+                  <input type="text" id="cfg-shop-no" class="w-full p-2.5 border border-slate-300 rounded-xl">
+                </div>
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">APMC Lic No.</label>
+                  <input type="text" id="cfg-apmc-lic" class="w-full p-2.5 border border-slate-300 rounded-xl">
+                </div>
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">Phone</label>
+                  <input type="text" id="cfg-phone" class="w-full p-2.5 border border-slate-300 rounded-xl">
+                </div>
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">GSTIN</label>
+                  <input type="text" id="cfg-gstin" class="w-full p-2.5 border border-slate-300 rounded-xl">
+                </div>
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">UPI ID (Scan to Pay)</label>
+                  <input type="text" id="cfg-upi-id" class="w-full p-2.5 border border-slate-300 rounded-xl font-mono">
+                </div>
+              </div>
+              <div class="grid grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                <input type="text" id="cfg-bank-name" placeholder="Bank Name" class="p-2 border border-slate-300 rounded-lg">
+                <input type="text" id="cfg-acc-no" placeholder="Account No." class="p-2 border border-slate-300 rounded-lg">
+                <input type="text" id="cfg-ifsc" placeholder="IFSC Code" class="p-2 border border-slate-300 rounded-lg">
+              </div>
+              <button onclick="SettingsManager.saveFirmProfileForm()" class="py-2.5 px-5 bg-green-700 hover:bg-green-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm">
+                Save Firm Profile
+              </button>
+            </div>
+
+            <!-- Sub-Tab 5: Team & Staff Management -->
+            <div id="settings-team" class="hidden space-y-4">
+              <div class="flex justify-between items-center">
+                <div>
+                  <h4 class="font-bold text-slate-800 text-sm">Shop Team & Staff (स्टाफ व मुनीम)</h4>
+                  <p class="text-xs text-slate-500">Manage Munshis, Cashiers and Shop Partners with role-based access</p>
+                </div>
+                <button onclick="TeamManager.openInviteModal()" 
+                  class="px-3.5 py-2 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all">
+                  + Invite Staff Member
+                </button>
+              </div>
+
+              <div class="overflow-x-auto border border-slate-200 rounded-2xl">
+                <table class="w-full text-left text-xs">
+                  <thead>
+                    <tr class="border-b border-slate-200 bg-slate-100 font-bold text-slate-700">
+                      <th class="p-3">Staff Name</th>
+                      <th class="p-3">Role</th>
+                      <th class="p-3">Mobile Phone</th>
+                      <th class="p-3">Access Permissions</th>
+                      <th class="p-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="settings-team-table-body"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Sub-Tab 6: Data Backup -->
+            <div id="settings-backup" class="hidden space-y-4 max-w-lg text-xs">
+              <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                <h4 class="font-bold text-slate-800">Export Complete Mandi ERP Database</h4>
+                <p class="text-slate-500">Download all your commodities, arrivals, lots, party short codes, staff, journal entries, and Bahi-Khata ledgers in a single JSON backup file.</p>
+                <button onclick="SettingsManager.exportCompleteDataJSON()" class="py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold flex items-center gap-2 transition-all">
+                  📥 Download JSON Backup
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ================= SECTION 6: MANDI BHAV ================= -->
+        <section id="mandi-bhav-section" class="hidden space-y-6">
+          <div class="bg-gradient-to-r from-emerald-800 to-green-900 rounded-3xl p-6 text-white shadow-md relative overflow-hidden">
+            <div class="relative z-10 max-w-2xl">
+              <span class="px-2.5 py-1 rounded-full text-xs font-extrabold bg-emerald-700/80 text-emerald-200 uppercase tracking-wider inline-block mb-2">
+                Azadpur Daily Bulletin
+              </span>
+              <h2 class="text-xl sm:text-2xl font-black">Wholesale Market Rates (Mandi Bhav)</h2>
+              <p class="text-xs sm:text-sm text-emerald-100 mt-1">Official modal rates, arrival volumes, and 7-day price fluctuations across sheds.</p>
+            </div>
+            <div class="absolute -right-6 -bottom-10 opacity-15 text-9xl pointer-events-none">🌾</div>
+          </div>
+
+          <div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+            <div class="flex items-center gap-2">
+              <button data-category="all" class="commodity-filter-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-green-700 text-white">
+                All Commodities
+              </button>
+              <button data-category="Fruit" class="commodity-filter-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200">
+                Fruits
+              </button>
+              <button data-category="Vegetable" class="commodity-filter-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200">
+                Vegetables
+              </button>
+            </div>
+            <div class="relative flex-1 sm:max-w-xs">
+              <input type="text" id="commodity-search" placeholder="Search Apple, Onion, Potato..." 
+                class="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-green-600 focus:outline-none">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            </div>
+          </div>
+
+          <div id="mandi-bhav-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ================= MODALS SUITE ================= -->
+
+  <!-- 1. Automated Double-Entry Journal Voucher Modal (Debit -> Auto Credit) -->
+  <div id="journal-voucher-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 my-6">
+      <div class="flex justify-between items-center border-b pb-3">
+        <div>
+          <h3 class="font-black text-slate-900 text-base">General Journal Voucher (रोजनामचा)</h3>
+          <p class="text-xs text-slate-500">Automated double-entry posting: Debit auto-matches Credit (Dr = Cr)</p>
+        </div>
+        <button onclick="BahiKhata.closeJournalVoucherModal()" class="text-slate-400 text-xl font-bold">✕</button>
+      </div>
+
+      <form onsubmit="event.preventDefault(); BahiKhata.submitJournalVoucher();" class="space-y-3 text-xs">
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Voucher Date</label>
+          <input type="date" id="jv-date" required class="w-full p-2.5 border border-slate-300 rounded-xl font-mono font-bold bg-slate-50">
+        </div>
+
+        <!-- Debit Account Section -->
+        <div class="p-3 bg-rose-50/60 rounded-2xl border border-rose-200 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="font-black text-rose-900 uppercase text-[11px]">1. Debit Account (नामे खाता - Dr)</span>
+            <span class="text-[10px] text-rose-700 font-bold">Funds Inflow / Asset / Expense</span>
+          </div>
+          <select id="jv-debit-account" required class="w-full p-2.5 border border-rose-300 rounded-xl font-bold bg-white focus:ring-2 focus:ring-rose-500">
+            <!-- Populated by BahiKhata.openJournalVoucherModal -->
+          </select>
+          <div>
+            <label class="font-bold text-rose-900 block mb-1">Debit Amount (नामे राशि ₹)</label>
+            <input type="number" id="jv-debit-amount" required placeholder="50000" 
+              oninput="BahiKhata.onDebitAmountChange(this.value)"
+              class="w-full p-2.5 border border-rose-300 rounded-xl font-black text-rose-800 text-sm bg-white">
+          </div>
+        </div>
+
+        <!-- Credit Account Section (Automated Matching) -->
+        <div class="p-3 bg-emerald-50/60 rounded-2xl border border-emerald-200 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="font-black text-emerald-900 uppercase text-[11px]">2. Credit Account (जमा खाता - Cr)</span>
+            <span class="text-[10px] text-emerald-700 font-bold">Auto-Matched Balancing</span>
+          </div>
+          <select id="jv-credit-account" required class="w-full p-2.5 border border-emerald-300 rounded-xl font-bold bg-white focus:ring-2 focus:ring-emerald-500">
+            <!-- Populated by BahiKhata.openJournalVoucherModal -->
+          </select>
+          <div>
+            <label class="font-bold text-emerald-900 block mb-1">Credit Amount (जमा राशि ₹ - Auto Populated)</label>
+            <input type="number" id="jv-credit-amount" readonly placeholder="Auto-populated from Debit" 
+              class="w-full p-2.5 border border-emerald-300 rounded-xl font-black text-emerald-800 text-sm bg-emerald-100/50 cursor-not-allowed">
+          </div>
+        </div>
+
+        <!-- Live Balance Indicator -->
+        <div id="jv-balance-notice"></div>
+
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Narration / Particulars (विवरण)</label>
+          <input type="text" id="jv-narration" placeholder="e.g. Paid cash against truck freight / Kasar allowance" 
+            class="w-full p-2.5 border border-slate-300 rounded-xl">
+        </div>
+
+        <div class="pt-2 flex gap-2">
+          <button type="submit" class="flex-1 py-3 bg-purple-700 hover:bg-purple-800 text-white rounded-xl font-bold transition-all shadow-md">
+            Save Journal Voucher (रोजनामचा)
+          </button>
+          <button type="button" onclick="BahiKhata.closeJournalVoucherModal()" class="px-4 py-3 border border-slate-300 rounded-xl text-slate-600 font-semibold">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. Teep Final Sale Modal (View-Only Owner Copy) -->
+  <div id="teep-modal" class="hidden fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl max-w-3xl w-full p-6 shadow-2xl space-y-4 my-8 max-h-[92vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b pb-3 no-print">
+        <div>
+          <h3 class="font-black text-slate-900 text-base">Official Mandi Teep (अंतिम विक्रय पत्र)</h3>
+          <p class="text-xs text-slate-500">Sealed owner audit document • Locked against changes</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="window.print()" class="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-sm">
+            🖨️ Print Teep
+          </button>
+          <button onclick="ReportsHub.closeTeepModal()" class="text-slate-400 text-xl font-bold p-1">✕</button>
+        </div>
+      </div>
+      <div id="teep-modal-content"></div>
+    </div>
+  </div>
+
+  <!-- 3. Post-Trade Action Hub Modal -->
+  <div id="trade-success-modal" class="hidden fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 my-6">
+      <div class="text-center space-y-1 border-b pb-4">
+        <span class="text-4xl block">🎉</span>
+        <h3 class="text-lg font-black text-slate-900">Consignment Sale Completed!</h3>
+        <p class="text-xs text-slate-500">Teep generated, buyer khatas debited, and slips ready.</p>
+      </div>
+
+      <div id="trade-success-summary"></div>
+
+      <div class="space-y-2 text-xs">
+        <span class="font-bold text-slate-400 uppercase text-[10px] block">Immediate Next Actions:</span>
+        
+        <button onclick="ReportsHub.openTeepModal(document.getElementById('trade-success-modal').getAttribute('data-active-lot'))" 
+          class="w-full py-2.5 px-3 bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold rounded-xl flex items-center justify-between border border-purple-200 transition-colors">
+          <span>📋 View Sealed Mandi Teep (टीप)</span>
+          <span>➔</span>
+        </button>
+
+        <button onclick="BillingEngine.openJFormModal(document.getElementById('trade-success-modal').getAttribute('data-active-lot'))" 
+          class="w-full py-2.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-bold rounded-xl flex items-center justify-between border border-emerald-200 transition-colors">
+          <span>🧾 Print Farmer J-Form (Thermal 80mm / A4)</span>
+          <span>➔</span>
+        </button>
+
+        <button onclick="ReportsHub.switchReportTab('purcha'); App.switchTab('reports'); UnifiedTrade.closePostTradeHub();" 
+          class="w-full py-2.5 px-3 bg-blue-50 hover:bg-blue-100 text-blue-900 font-bold rounded-xl flex items-center justify-between border border-blue-200 transition-colors">
+          <span>🧾 View All Buyer Purcha Slips (I-Forms)</span>
+          <span>➔</span>
+        </button>
+
+        <button onclick="UnifiedTrade.resetForNextConsignment()" 
+          class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-center shadow-md transition-all mt-2">
+          ⚡ Record Next Truck Consignment
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Add/Edit Commodity Modal -->
+  <div id="commodity-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 id="comm-modal-title" class="font-bold text-slate-900 text-base">Add New Commodity</h3>
+        <button onclick="SettingsManager.closeCommodityModal()" class="text-slate-400 text-xl">✕</button>
+      </div>
+
+      <form onsubmit="event.preventDefault(); SettingsManager.submitCommodityForm();" class="space-y-3 text-xs">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Crop Name (English)</label>
+            <input type="text" id="comm-name-en" required placeholder="e.g. Apple - Royal" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Crop Name (हिंदी)</label>
+            <input type="text" id="comm-name-hi" placeholder="e.g. सेब - रॉयल" class="w-full p-2.5 border border-slate-300 rounded-xl">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Category</label>
+            <select id="comm-category" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+              <option value="Fruit">Fruit (फल)</option>
+              <option value="Vegetable">Vegetable (सब्जी)</option>
+            </select>
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Default Unit</label>
+            <select id="comm-unit" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+              <option value="Box (20kg)">Box (20kg)</option>
+              <option value="Crate (25kg)">Crate (25kg)</option>
+              <option value="Sack (50kg)">Sack (50kg)</option>
+              <option value="Quintal (100kg)">Quintal (100kg)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Unit Weight (Kg)</label>
+            <input type="number" step="0.5" id="comm-weight" value="20" required class="w-full p-2.5 border border-slate-300 rounded-xl">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Tare Deduction (Kg)</label>
+            <input type="number" step="0.1" id="comm-tare" value="1.2" required class="w-full p-2.5 border border-slate-300 rounded-xl">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Commission Rate (%)</label>
+            <input type="number" step="0.1" id="comm-commission" value="2.5" required class="w-full p-2.5 border border-slate-300 rounded-xl">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Palledari Rate (₹/unit)</label>
+            <input type="number" id="comm-palledari" value="12" required class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+          </div>
+        </div>
+
+        <div class="pt-2 flex gap-2">
+          <button type="submit" class="flex-1 py-3 bg-green-700 hover:bg-green-800 text-white rounded-xl font-bold transition-all shadow-md">
+            Save Commodity
+          </button>
+          <button type="button" onclick="SettingsManager.closeCommodityModal()" class="px-4 py-3 border border-slate-300 rounded-xl text-slate-600">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 5. Keyboard Shortcuts Cheatsheet Modal -->
+  <div id="shortcuts-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 class="font-bold text-slate-900 text-sm">Munshi Keyboard Shortcuts (शॉर्टकट)</h3>
+        <button onclick="App.closeShortcutsModal()" class="text-slate-400 text-lg">✕</button>
+      </div>
+
+      <div class="space-y-2 text-xs">
+        <div class="flex justify-between items-center p-2 bg-slate-50 rounded-xl">
+          <span>Quick Trade (एकल सौदा)</span>
+          <kbd class="px-2 py-1 bg-white border border-slate-300 rounded-lg font-mono font-bold">F2</kbd>
+        </div>
+        <div class="flex justify-between items-center p-2 bg-slate-50 rounded-xl">
+          <span>Register Truck Arrival (आवक)</span>
+          <kbd class="px-2 py-1 bg-white border border-slate-300 rounded-lg font-mono font-bold">F4</kbd>
+        </div>
+        <div class="flex justify-between items-center p-2 bg-slate-50 rounded-xl">
+          <span>Global Search (पार्टी/गाड़ी खोजें)</span>
+          <kbd class="px-2 py-1 bg-white border border-slate-300 rounded-lg font-mono font-bold">Ctrl + K</kbd>
+        </div>
+        <div class="flex justify-between items-center p-2 bg-slate-50 rounded-xl">
+          <span>New Journal Entry (रोजनामचा)</span>
+          <kbd class="px-2 py-1 bg-white border border-slate-300 rounded-lg font-mono font-bold">Ctrl + J</kbd>
+        </div>
+        <div class="flex justify-between items-center p-2 bg-slate-50 rounded-xl">
+          <span>Close Active Modal</span>
+          <kbd class="px-2 py-1 bg-white border border-slate-300 rounded-lg font-mono font-bold">Esc</kbd>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Command Palette Modal (Ctrl+K) -->
+  <div id="command-palette-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-start justify-center p-4 pt-16">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-4 shadow-2xl space-y-3">
+      <div class="relative">
+        <input type="text" id="command-palette-input" placeholder="Search parties, trucks, lots, or navigate..." 
+          oninput="App.onCommandPaletteSearch(this.value)"
+          class="w-full p-3 pl-10 border border-slate-300 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-green-600 focus:outline-none">
+        <span class="absolute left-3.5 top-3.5 text-slate-400">🔍</span>
+      </div>
+      <div id="command-palette-results" class="max-h-64 overflow-y-auto space-y-1 text-xs"></div>
+    </div>
+  </div>
+
+  <!-- Other Modals: Request Access, Onboard Agent, Party Master, Invite Staff, Print Viewer, New Arrival, Split Sale, Rokad Entry, Payment -->
+  <!-- Request Agency Access Modal -->
+  <div id="request-access-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 my-6">
+      <div class="flex justify-between items-center border-b pb-3">
+        <div>
+          <h3 class="font-black text-slate-900 text-base">Request Mandi Agency Access</h3>
+          <p class="text-xs text-slate-500">Apply to launch your Commission Agency on ArhatPro</p>
+        </div>
+        <button onclick="AdminManager.closeRequestAccessModal()" class="text-slate-400 text-xl">✕</button>
+      </div>
+
+      <form onsubmit="event.preventDefault(); AdminManager.submitAccessRequest({
+        firmName: document.getElementById('req-firm-name').value,
+        proprietor: document.getElementById('req-prop-name').value,
+        shopNo: document.getElementById('req-shop-no').value,
+        mandiName: document.getElementById('req-mandi-name').value,
+        apmcLicenseNo: document.getElementById('req-apmc-lic').value,
+        phone: document.getElementById('req-phone').value
+      })" class="space-y-3 text-xs">
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Firm Name (फर्म का नाम)</label>
+          <input type="text" id="req-firm-name" required placeholder="e.g. Haryana Sabzi Commission Agency" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Proprietor Name</label>
+            <input type="text" id="req-prop-name" required placeholder="Owner Name" class="w-full p-2.5 border border-slate-300 rounded-xl">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Shop / Shed No.</label>
+            <input type="text" id="req-shop-no" required placeholder="Shop A-55, Subzi Mandi" class="w-full p-2.5 border border-slate-300 rounded-xl">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Mandi Name</label>
+            <input type="text" id="req-mandi-name" value="Azadpur Mandi, Delhi" class="w-full p-2.5 border border-slate-300 rounded-xl">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">APMC License No.</label>
+            <input type="text" id="req-apmc-lic" required placeholder="DL-APMC-..." class="w-full p-2.5 border border-slate-300 rounded-xl font-mono">
+          </div>
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Contact Mobile</label>
+          <input type="tel" id="req-phone" required placeholder="+91 98..." class="w-full p-2.5 border border-slate-300 rounded-xl">
+        </div>
+        <div class="pt-2 flex gap-2">
+          <button type="submit" class="flex-1 py-3 bg-purple-700 hover:bg-purple-800 text-white rounded-xl font-bold transition-all shadow-md">
+            Submit Access Request
+          </button>
+          <button type="button" onclick="AdminManager.closeRequestAccessModal()" class="px-4 py-3 border border-slate-300 rounded-xl text-slate-600">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Super Admin Onboard Agent Modal -->
+  <div id="admin-onboard-agent-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 my-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 class="font-bold text-slate-900 text-base">Onboard New Mandi Commission Agent</h3>
+        <button onclick="AdminManager.closeOnboardModal()" class="text-slate-400 text-xl">✕</button>
+      </div>
+
+      <form id="admin-onboard-form" onsubmit="event.preventDefault(); AdminManager.submitOnboardAgent({
+        firmName: document.getElementById('adm-firm-name').value,
+        proprietor: document.getElementById('adm-prop-name').value,
+        shopNo: document.getElementById('adm-shop-no').value,
+        mandiName: document.getElementById('adm-mandi-name').value,
+        apmcLicenseNo: document.getElementById('adm-apmc-lic').value,
+        phone: document.getElementById('adm-phone').value,
+        bankName: document.getElementById('adm-bank-name').value,
+        accountNo: document.getElementById('adm-acc-no').value,
+        ifsc: document.getElementById('adm-ifsc').value,
+        upiId: document.getElementById('adm-upi-id').value,
+        standardCommission: parseFloat(document.getElementById('adm-comm-pct').value) || 2.5,
+        palledariRatePerBox: parseFloat(document.getElementById('adm-palledari').value) || 12,
+        status: 'Active'
+      })" class="space-y-3 text-xs">
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Firm Name (फर्म का नाम)</label>
+          <input type="text" id="adm-firm-name" required placeholder="e.g. Kishan Lal Fruit Agency" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Proprietor Name</label>
+            <input type="text" id="adm-prop-name" required placeholder="Owner Name" class="w-full p-2.5 border border-slate-300 rounded-xl">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Shop / Shed No.</label>
+            <input type="text" id="adm-shop-no" required placeholder="Shop D-18, Subzi Mandi" class="w-full p-2.5 border border-slate-300 rounded-xl">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Mandi Name</label>
+            <input type="text" id="adm-mandi-name" value="Azadpur Mandi, Delhi" class="w-full p-2.5 border border-slate-300 rounded-xl">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">APMC License No.</label>
+            <input type="text" id="adm-apmc-lic" required placeholder="DL-APMC-F-..." class="w-full p-2.5 border border-slate-300 rounded-xl font-mono">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Contact Phone</label>
+            <input type="tel" id="adm-phone" required placeholder="+91 98..." class="w-full p-2.5 border border-slate-300 rounded-xl">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Commission Rate (%)</label>
+            <input type="number" step="0.1" id="adm-comm-pct" value="2.5" required class="w-full p-2.5 border border-slate-300 rounded-xl">
+          </div>
+        </div>
+        <div class="bg-purple-50 p-3 rounded-xl border border-purple-200 space-y-2">
+          <span class="font-bold text-purple-900 block">Bank Account & UPI QR Details</span>
+          <div class="grid grid-cols-2 gap-2">
+            <input type="text" id="adm-bank-name" placeholder="Bank Name" required class="p-2 border border-purple-300 rounded-lg bg-white">
+            <input type="text" id="adm-acc-no" placeholder="Account No." required class="p-2 border border-purple-300 rounded-lg bg-white">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <input type="text" id="adm-ifsc" placeholder="IFSC Code" required class="p-2 border border-purple-300 rounded-lg bg-white">
+            <input type="text" id="adm-upi-id" placeholder="UPI ID" required class="p-2 border border-purple-300 rounded-lg bg-white font-mono">
+          </div>
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Unloading Palledari / Box (₹)</label>
+          <input type="number" id="adm-palledari" value="12" class="w-full p-2.5 border border-slate-300 rounded-xl">
+        </div>
+        <div class="pt-3 flex gap-2">
+          <button type="submit" class="flex-1 py-3 bg-purple-700 hover:bg-purple-800 text-white rounded-xl font-bold transition-colors">
+            Authorize & Launch Agency Workspace
+          </button>
+          <button type="button" onclick="AdminManager.closeOnboardModal()" class="px-4 py-3 border border-slate-300 rounded-xl text-slate-600">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Party Modal (Short Code Master) -->
+  <div id="add-party-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 class="font-bold text-slate-900 text-sm">Add New Party (शॉर्ट कोड)</h3>
+        <button onclick="SettingsManager.closeAddPartyModal()" class="text-slate-400 text-lg">✕</button>
+      </div>
+
+      <form id="add-party-form" onsubmit="event.preventDefault(); SettingsManager.submitNewParty({
+        shortCode: document.getElementById('new-party-code').value,
+        name: document.getElementById('new-party-name').value,
+        type: document.getElementById('new-party-type').value,
+        mobile: document.getElementById('new-party-mobile').value,
+        address: document.getElementById('new-party-address').value,
+        creditLimit: document.getElementById('new-party-credit-limit').value
+      })" class="space-y-3 text-xs">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Short Code (शॉर्ट कोड)</label>
+            <input type="text" id="new-party-code" required placeholder="e.g. AGW, RJD" class="w-full p-2.5 border border-slate-300 rounded-xl uppercase font-mono font-black text-green-900">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Party Type</label>
+            <select id="new-party-type" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+              <option value="Buyer">Buyer (थोक व्यापारी)</option>
+              <option value="Farmer">Farmer (उत्पादक किसान)</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Full Business / Legal Name</label>
+          <input type="text" id="new-party-name" required placeholder="e.g. Aggarwal Wholesale Mart" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Mobile Phone</label>
+            <input type="tel" id="new-party-mobile" required placeholder="+91 98..." class="w-full p-2.5 border border-slate-300 rounded-xl">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Credit Limit (₹)</label>
+            <input type="number" id="new-party-credit-limit" value="200000" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+          </div>
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Mandi Shop / Village Address</label>
+          <input type="text" id="new-party-address" placeholder="Shop 14, Tilak Nagar" class="w-full p-2.5 border border-slate-300 rounded-xl">
+        </div>
+        <div class="pt-2 flex gap-2">
+          <button type="submit" class="flex-1 py-2.5 bg-green-700 hover:bg-green-800 text-white rounded-xl font-bold transition-colors">
+            Save Party Code
+          </button>
+          <button type="button" onclick="SettingsManager.closeAddPartyModal()" class="px-4 py-2.5 border border-slate-300 rounded-xl text-slate-600">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Party Modal -->
+  <div id="edit-party-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 class="font-bold text-slate-900 text-sm">Edit Party Details (संशोधन)</h3>
+        <button onclick="SettingsManager.closeEditPartyModal()" class="text-slate-400 text-lg">✕</button>
+      </div>
+
+      <form id="edit-party-form" onsubmit="event.preventDefault(); SettingsManager.submitEditParty({
+        shortCode: document.getElementById('edit-party-code').value,
+        name: document.getElementById('edit-party-name').value,
+        type: document.getElementById('edit-party-type').value,
+        mobile: document.getElementById('edit-party-mobile').value,
+        address: document.getElementById('edit-party-address').value,
+        creditLimit: document.getElementById('edit-party-credit-limit').value
+      })" class="space-y-3 text-xs">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Short Code</label>
+            <input type="text" id="edit-party-code" required class="w-full p-2.5 border border-slate-300 rounded-xl uppercase font-mono font-black text-green-900">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Party Type</label>
+            <select id="edit-party-type" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+              <option value="Buyer">Buyer (थोक व्यापारी)</option>
+              <option value="Farmer">Farmer (उत्पादक किसान)</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Full Legal Name</label>
+          <input type="text" id="edit-party-name" required class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Mobile Phone</label>
+            <input type="tel" id="edit-party-mobile" required class="w-full p-2.5 border border-slate-300 rounded-xl">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Credit Limit (₹)</label>
+            <input type="number" id="edit-party-credit-limit" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+          </div>
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Address / Mandi Shop</label>
+          <input type="text" id="edit-party-address" class="w-full p-2.5 border border-slate-300 rounded-xl">
+        </div>
+        <div class="pt-2 flex gap-2">
+          <button type="submit" class="flex-1 py-2.5 bg-green-700 hover:bg-green-800 text-white rounded-xl font-bold transition-colors">
+            Update Party Details
+          </button>
+          <button type="button" onclick="SettingsManager.closeEditPartyModal()" class="px-4 py-2.5 border border-slate-300 rounded-xl text-slate-600">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Invite Staff Member Modal -->
+  <div id="invite-staff-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 class="font-bold text-slate-900 text-sm">Add Staff Member (स्टाफ व मुनीम)</h3>
+        <button onclick="TeamManager.closeInviteModal()" class="text-slate-400 text-lg">✕</button>
+      </div>
+
+      <form id="invite-staff-form" onsubmit="event.preventDefault(); TeamManager.submitInviteMember({
+        name: document.getElementById('staff-name').value,
+        role: document.getElementById('staff-role').value,
+        mobile: document.getElementById('staff-mobile').value,
+        pin: document.getElementById('staff-pin').value
+      })" class="space-y-3 text-xs">
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Staff Full Name (नाम)</label>
+          <input type="text" id="staff-name" required placeholder="e.g. Radhe Shyam (Munshi)" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Role & Responsibility</label>
+          <select id="staff-role" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+            <option value="Munshi (Data Entry)">Munshi / Data Entry (आवक-बिक्री प्रविष्टि)</option>
+            <option value="Accountant (Cashier)">Accountant / Cashier (रोकड़िया / मुनीम)</option>
+            <option value="Shop Admin">Shop Admin (मालिक / पार्टनर - Full Access)</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Mobile Phone</label>
+            <input type="tel" id="staff-mobile" required placeholder="+91 98..." class="w-full p-2.5 border border-slate-300 rounded-xl">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Quick Login PIN</label>
+            <input type="password" id="staff-pin" maxlength="4" placeholder="1234" class="w-full p-2.5 border border-slate-300 rounded-xl font-mono text-center font-bold">
+          </div>
+        </div>
+        <div class="pt-2 flex gap-2">
+          <button type="submit" class="flex-1 py-2.5 bg-purple-700 hover:bg-purple-800 text-white rounded-xl font-bold transition-colors">
+            Confirm & Add Staff
+          </button>
+          <button type="button" onclick="TeamManager.closeInviteModal()" class="px-4 py-2.5 border border-slate-300 rounded-xl text-slate-600">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Invoice Viewer Modal with Thermal 80mm vs Standard A4 Switcher -->
+  <div id="invoice-modal" class="hidden fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl max-w-3xl w-full p-5 sm:p-6 shadow-2xl space-y-4 my-8">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 no-print border-b pb-3">
+        <div>
+          <h3 class="font-bold text-slate-900 text-sm sm:text-base">Print Bill / Invoice Viewer</h3>
+          <p class="text-xs text-slate-500">Supports Thermal POS receipt printers and Standard A4/A5 office printers</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="inline-flex rounded-xl p-1 bg-slate-100 border border-slate-200">
+            <button id="btn-format-thermal" onclick="BillingEngine.setModalViewFormat('thermal')" 
+              class="px-2.5 py-1 text-xs font-bold rounded-lg bg-slate-900 text-white transition-all">
+              🧾 Thermal (80mm)
+            </button>
+            <button id="btn-format-a4" onclick="BillingEngine.setModalViewFormat('a4')" 
+              class="px-2.5 py-1 text-xs font-bold rounded-lg text-slate-700 hover:bg-slate-200 transition-all">
+              📄 Standard (A4)
+            </button>
+          </div>
+          <button onclick="BillingEngine.printInvoice()" class="px-3.5 py-1.5 bg-green-700 hover:bg-green-800 text-white rounded-xl text-xs font-bold flex items-center gap-1">
+            🖨️ Print
+          </button>
+          <button onclick="BillingEngine.closeInvoiceModal()" class="text-slate-400 text-xl font-bold p-1">✕</button>
+        </div>
+      </div>
+      <div id="invoice-render-area"></div>
+    </div>
+  </div>
+
+  <!-- Register New Truck Arrival Modal -->
+  <div id="new-arrival-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 my-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 class="font-bold text-slate-900 text-base">Register Inward Truck Arrival (गाड़ी आवक)</h3>
+        <button onclick="ArrivalsManager.closeNewArrivalModal()" class="text-slate-400 text-lg">✕</button>
+      </div>
+      <form id="new-arrival-form" class="space-y-3 text-xs">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Truck No. (गाड़ी नंबर)</label>
+            <input type="text" id="arv-truck-no" placeholder="HP-10-..." required class="w-full p-2.5 border border-slate-300 rounded-xl uppercase font-mono">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Driver Name & Mobile</label>
+            <input type="text" id="arv-driver-name" placeholder="Driver Name" required class="w-full p-2.5 border border-slate-300 rounded-xl">
+            <input type="tel" id="arv-driver-phone" placeholder="Driver Mobile" required class="w-full p-2 border border-slate-300 rounded-xl mt-1">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Farmer Name (किसान)</label>
+            <input type="text" id="arv-farmer-name" placeholder="Farmer Name" required class="w-full p-2.5 border border-slate-300 rounded-xl">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Farmer Phone</label>
+            <input type="tel" id="arv-farmer-phone" placeholder="+91 98..." required class="w-full p-2.5 border border-slate-300 rounded-xl">
+          </div>
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Origin / Farm Location</label>
+          <input type="text" id="arv-farmer-loc" placeholder="Kotkhai, Shimla (HP)" required class="w-full p-2.5 border border-slate-300 rounded-xl">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Commodity</label>
+            <select id="arv-commodity" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold bg-white">
+              <!-- Populated by CommodityManager -->
+            </select>
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Variety / Size</label>
+            <input type="text" id="arv-variety" placeholder="Medium Box 24mm" required class="w-full p-2.5 border border-slate-300 rounded-xl">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Total Quantity</label>
+            <input type="number" id="arv-quantity" placeholder="300" required class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Unit</label>
+            <select id="arv-unit" class="w-full p-2.5 border border-slate-300 rounded-xl">
+              <option value="Box (20kg)">Box (20kg)</option>
+              <option value="Quintal (100kg)">Quintal (100kg)</option>
+              <option value="Crate (25kg)">Crate (25kg)</option>
+              <option value="Sack (50kg)">Sack (50kg)</option>
+            </select>
+          </div>
+        </div>
+        <div class="bg-amber-50 p-3 rounded-xl border border-amber-200 grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-amber-900 block mb-1">Total Freight (₹)</label>
+            <input type="number" id="arv-total-freight" placeholder="36000" required class="w-full p-2 border border-amber-300 rounded-xl bg-white">
+          </div>
+          <div>
+            <label class="font-bold text-amber-900 block mb-1">Freight Advance (₹)</label>
+            <input type="number" id="arv-freight-adv" placeholder="15000" required class="w-full p-2 border border-amber-300 rounded-xl bg-white font-bold text-rose-700">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Palledar Toli</label>
+            <input type="text" id="arv-palledar-toli" value="Raju Toli No. 4" class="w-full p-2.5 border border-slate-300 rounded-xl">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Bardana Loaned</label>
+            <input type="number" id="arv-bardana" value="0" class="w-full p-2.5 border border-slate-300 rounded-xl">
+          </div>
+        </div>
+        <div class="pt-3 flex gap-2">
+          <button type="submit" class="flex-1 py-3 bg-green-700 hover:bg-green-800 text-white rounded-xl font-bold transition-colors">
+            Log Truck Arrival
+          </button>
+          <button type="button" onclick="ArrivalsManager.closeNewArrivalModal()" class="px-4 py-3 border border-slate-300 rounded-xl text-slate-600">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Rokad Cash Entry Modal -->
+  <div id="rokad-entry-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 class="font-bold text-slate-900 text-sm">Cash Jama / Kharch Entry (रोकड़)</h3>
+        <button onclick="BahiKhata.closeRokadEntryModal()" class="text-slate-400 text-lg">✕</button>
+      </div>
+      <form id="rokad-entry-form" class="space-y-3 text-xs">
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Transaction Type</label>
+          <select id="rokad-entry-type" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+            <option value="JAMA">+ Cash Jama (Receipt / आवक)</option>
+            <option value="KHARCH">- Cash Kharch (Payment / जावक)</option>
+          </select>
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Particulars / Reason</label>
+          <input type="text" id="rokad-entry-title" placeholder="Palledari, Freight advance, etc." required class="w-full p-2.5 border border-slate-300 rounded-xl">
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Amount (₹)</label>
+          <input type="number" id="rokad-entry-amount" placeholder="5000" required class="w-full p-2.5 border border-slate-300 rounded-xl font-black text-slate-900">
+        </div>
+        <div class="pt-2 flex gap-2">
+          <button type="submit" class="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold">
+            Save in Rokad
+          </button>
+          <button type="button" onclick="BahiKhata.closeRokadEntryModal()" class="px-4 py-2.5 border border-slate-300 rounded-xl text-slate-600">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Receive Payment Modal -->
+  <div id="payment-record-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 class="font-bold text-slate-900 text-sm">Receive Payment (भुगतान प्राप्ति)</h3>
+        <button onclick="BahiKhata.closePaymentModal()" class="text-slate-400 text-lg">✕</button>
+      </div>
+      <input type="hidden" id="payment-modal-account-id">
+      <div class="bg-slate-50 p-3 rounded-xl text-xs space-y-1">
+        <span class="text-slate-500 block">Party: <strong id="payment-modal-party-name" class="text-slate-800"></strong></span>
+        <span class="text-slate-500 block">Current Outstanding: <strong id="payment-modal-outstanding" class="text-amber-800"></strong></span>
+      </div>
+      <div>
+        <label class="text-xs font-bold text-slate-700 block mb-1">Amount Received (₹)</label>
+        <input type="number" id="payment-modal-amount" class="w-full p-3 border border-slate-300 rounded-xl text-base font-bold text-slate-900">
+      </div>
+      <div>
+        <label class="text-xs font-bold text-slate-700 block mb-1">Payment Mode</label>
+        <select id="payment-modal-mode" class="w-full p-2.5 border border-slate-300 rounded-xl text-xs font-medium">
+          <option value="UPI / QR">UPI / QR Code</option>
+          <option value="Cash (Counter)">Cash (Counter - Auto records in Rokad)</option>
+          <option value="RTGS / NEFT">Bank Transfer (RTGS/NEFT)</option>
+          <option value="Cheque">Bank Cheque</option>
+        </select>
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button onclick="BahiKhata.recordPaymentSubmit()" class="flex-1 py-2.5 bg-green-700 hover:bg-green-800 text-white rounded-xl text-xs font-bold">
+          Confirm Payment
+        </button>
+        <button onclick="BahiKhata.closePaymentModal()" class="px-4 py-2.5 border border-slate-300 rounded-xl text-xs font-semibold text-slate-600">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Multi-Buyer Split Sale Modal -->
+  <div id="split-sale-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 class="font-bold text-slate-900 text-sm">Spot Sale / Lot Splitting (बिक्री)</h3>
+        <button onclick="AuctionEngine.closeMultiBuyerSaleModal()" class="text-slate-400 text-lg">✕</button>
+      </div>
+      <input type="hidden" id="split-modal-lot-id">
+      <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs">
+        <span id="split-modal-title" class="font-bold text-slate-800 block">Commodity</span>
+        <span id="split-modal-avail" class="text-emerald-700 font-bold block mt-0.5">Quantity Remaining</span>
+      </div>
+      <form id="split-sale-form" class="space-y-3 text-xs">
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Buyer / Purchaser Name</label>
+          <select id="split-modal-buyer" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold">
+            <option value="Aggarwal Wholesale Mart">Aggarwal Wholesale Mart (AGW)</option>
+            <option value="Rajdhani Hotel Supplies">Rajdhani Hotel Supplies (RJD)</option>
+            <option value="Blinkit Darkstore Hub 4">Blinkit Darkstore Hub 4 (BLK)</option>
+            <option value="Kishore Bros Veg Mart">Kishore Bros Veg Mart (KSH)</option>
+            <option value="Delhi Fresh Supply Co.">Delhi Fresh Supply Co. (DEL)</option>
+          </select>
+          <input type="tel" id="split-modal-phone" value="+91 98110 55432" class="w-full p-2 border border-slate-300 rounded-xl mt-1 text-slate-500">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Quantity to Sell</label>
+            <input type="number" id="split-modal-qty" required class="w-full p-2.5 border border-slate-300 rounded-xl font-black text-slate-900">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Sale Rate (₹)</label>
+            <input type="number" id="split-modal-rate" required class="w-full p-2.5 border border-slate-300 rounded-xl font-black text-emerald-800">
+          </div>
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Payment Term</label>
+          <select id="split-modal-payment-mode" class="w-full p-2.5 border border-slate-300 rounded-xl">
+            <option value="Credit (7 Days)">Credit (7 Days)</option>
+            <option value="Credit (15 Days)">Credit (15 Days)</option>
+            <option value="Cash / Immediate">Immediate Cash / UPI</option>
+          </select>
+        </div>
+        <div class="pt-2 flex gap-2">
+          <button type="submit" class="flex-1 py-2.5 bg-green-700 hover:bg-green-800 text-white rounded-xl font-bold transition-colors">
+            Confirm Sale
+          </button>
+          <button type="button" onclick="AuctionEngine.closeMultiBuyerSaleModal()" class="px-4 py-2.5 border border-slate-300 rounded-xl text-slate-600">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Application Scripts -->
+  <script src="js/data.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/tenant.js"></script>
+  <script src="js/parties.js"></script>
+  <script src="js/commodities.js"></script>
+  <script src="js/team.js"></script>
+  <script src="js/bill_designer.js"></script>
+  <script src="js/arrivals.js"></script>
+  <script src="js/auction.js"></script>
+  <script src="js/unified_trade.js"></script>
+  <script src="js/billing.js"></script>
+  <script src="js/bahi_khata.js"></script>
+  <script src="js/apmc_reports.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/admin.js"></script>
+  <script src="js/mandi_bhav.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

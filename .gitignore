@@ -1,0 +1,8 @@
+# Logs and temp files
+*.log
+Thumbs.db
+.DS_Store
+
+# Temporary editor files
+*.swp
+*.bak

@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Super Admin Portal | ArhatPro Mandi ERP Platform</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen antialiased">
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <!-- ================= 1. SUPER ADMIN SECURE LOGIN GATE ================= -->
+  <div id="admin-login-overlay" class="min-h-screen flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl max-w-md w-full p-8 shadow-2xl space-y-6">
+      <div class="text-center space-y-2">
+        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-700 flex items-center justify-center text-3xl mx-auto shadow-lg">
+          👑
+        </div>
+        <h1 class="text-2xl font-black tracking-tight text-white">Platform Super Admin</h1>
+        <p class="text-xs text-purple-200">ArhatPro Mandi ERP Central Control & Subscription Management</p>
+      </div>
+
+      <form onsubmit="event.preventDefault(); handleAdminLogin();" class="space-y-4 text-xs">
+        <div>
+          <label class="font-bold text-slate-300 block mb-1">Super Admin Email</label>
+          <input type="email" id="admin-login-email" required value="dmchaturvedi@gmail.com" 
+            class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl font-bold text-white focus:ring-2 focus:ring-purple-500 focus:outline-none">
+        </div>
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <label class="font-bold text-slate-300">Master Password</label>
+            <span class="text-[10px] text-purple-400 font-mono">Protected</span>
+          </div>
+          <input type="password" id="admin-login-pass" required value="Devesh@23251995" 
+            class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl font-mono text-sm font-bold text-white tracking-wider focus:ring-2 focus:ring-purple-500 focus:outline-none">
+        </div>
+        <button type="submit" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl text-sm shadow-lg transition-all">
+          Secure Authenticate as Super Admin →
+        </button>
+      </form>
+
+      <div class="text-center pt-2 border-t border-slate-700/60">
+        <a href="index.html" class="text-xs text-purple-300 hover:text-white font-semibold transition-colors">
+          ← Back to Commission Agent Workspace
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 2. SUPER ADMIN CONSOLE DASHBOARD ================= -->
+  <div id="admin-main-dashboard" class="hidden min-h-screen flex flex-col">
+    
+    <!-- Top Super Admin Header -->
+    <header class="bg-slate-800/90 backdrop-blur-md border-b border-slate-700 sticky top-0 z-40 px-6 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center text-xl shadow-xs">
+          👑
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="font-black text-white text-base">ArhatPro Super Admin Central</h2>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/30">
+              PLATFORM OWNER
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">Azadpur APMC Multi-Tenant Ecosystem & Subscription Hub</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- Direct Onboard Agency Trigger -->
+        <button onclick="AdminManager.openOnboardModal()" 
+          class="px-3.5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md transition-all">
+          <span>+</span> Direct Onboard Agency
+        </button>
+
+        <!-- Go to Regular Workspace -->
+        <a href="index.html" 
+          class="px-3.5 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all">
+          <span>🏢</span> Open Mandi Desk
+        </a>
+
+        <!-- Logout -->
+        <button onclick="handleAdminLogout()" 
+          class="px-3 py-2 bg-rose-900/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800 rounded-xl text-xs font-bold transition-all">
+          🚪 Logout
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Admin Body -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+      
+      <!-- Key Platform Metrics -->
+      <div id="admin-stats-summary"></div>
+
+      <!-- Active Agencies & Subscriptions Directory -->
+      <div class="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
+        <div class="p-5 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="font-black text-slate-900 text-base">Mandi Commission Agencies & Subscriptions</h3>
+              <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-300">
+                Multi-Tenant Directory
+              </span>
+            </div>
+            <p class="text-xs text-slate-500 mt-0.5">Manage plans (Monthly, Yearly, Enterprise), extend validity, or start View-Only Audit Impersonation.</p>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-700">
+            <thead>
+              <tr class="border-b border-slate-200 bg-slate-100 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                <th class="p-4">Agency / Firm Name</th>
+                <th class="p-4">Proprietor Contact</th>
+                <th class="p-4">Subscription Plan & Expiry</th>
+                <th class="p-4 text-center">Status</th>
+                <th class="p-4 text-right">Audit Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admin-agents-table-body" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Pending Agency Access Applications -->
+      <div class="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
+        <div class="p-5 border-b border-slate-200 bg-amber-50 flex justify-between items-center">
+          <div>
+            <h3 class="font-bold text-sm text-amber-900">Pending Agency Access Requests (आवेदक सूची)</h3>
+            <p class="text-xs text-slate-500">Prospective commission agents requesting access to launch on ArhatPro</p>
+          </div>
+          <span class="text-xs font-bold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-full border border-amber-300">
+            Awaiting Approval
+          </span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-700">
+            <thead>
+              <tr class="border-b border-slate-200 bg-slate-100 text-slate-600 font-bold uppercase text-[11px]">
+                <th class="p-3.5">Agency Details</th>
+                <th class="p-3.5">Proprietor</th>
+                <th class="p-3.5">APMC License</th>
+                <th class="p-3.5 text-center">Status</th>
+                <th class="p-3.5 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="admin-requests-table-body" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Direct Onboard Agency Modal -->
+  <div id="admin-onboard-agent-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 my-6 text-slate-200">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 class="font-bold text-white text-base">Direct Onboard Mandi Agency</h3>
+        <button onclick="AdminManager.closeOnboardModal()" class="text-slate-400 hover:text-white text-xl">✕</button>
+      </div>
+
+      <form onsubmit="event.preventDefault(); AdminManager.submitOnboardAgent({
+        firmName: document.getElementById('adm-firm-name').value,
+        proprietor: document.getElementById('adm-prop-name').value,
+        shopNo: document.getElementById('adm-shop-no').value,
+        mandiName: document.getElementById('adm-mandi-name').value,
+        apmcLicenseNo: document.getElementById('adm-apmc-lic').value,
+        phone: document.getElementById('adm-phone').value,
+        bankName: document.getElementById('adm-bank-name').value,
+        accountNo: document.getElementById('adm-acc-no').value,
+        ifsc: document.getElementById('adm-ifsc').value,
+        upiId: document.getElementById('adm-upi-id').value,
+        standardCommission: parseFloat(document.getElementById('adm-comm-pct').value) || 2.5,
+        palledariRatePerBox: parseFloat(document.getElementById('adm-palledari').value) || 12,
+        subscriptionPlan: document.getElementById('adm-sub-plan').value,
+        status: 'Active'
+      })" class="space-y-3 text-xs">
+        <div>
+          <label class="font-bold text-slate-300 block mb-1">Firm Name (फर्म का नाम)</label>
+          <input type="text" id="adm-firm-name" required placeholder="e.g. Kisan Lal Fruit Agency" 
+            class="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-300 block mb-1">Proprietor Name</label>
+            <input type="text" id="adm-prop-name" required placeholder="Owner Name" 
+              class="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white">
+          </div>
+          <div>
+            <label class="font-bold text-slate-300 block mb-1">Shop / Shed No.</label>
+            <input type="text" id="adm-shop-no" required placeholder="Shop D-18" 
+              class="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-300 block mb-1">Mandi Name</label>
+            <input type="text" id="adm-mandi-name" value="Azadpur Mandi, Delhi" 
+              class="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white">
+          </div>
+          <div>
+            <label class="font-bold text-slate-300 block mb-1">APMC License No.</label>
+            <input type="text" id="adm-apmc-lic" required placeholder="DL-APMC-..." 
+              class="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-300 block mb-1">Contact Phone</label>
+            <input type="tel" id="adm-phone" required placeholder="98XXXXXXXX" 
+              class="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono">
+          </div>
+          <div>
+            <label class="font-bold text-slate-300 block mb-1">Initial Subscription Plan</label>
+            <select id="adm-sub-plan" class="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold">
+              <option value="Monthly">Monthly (₹1,999/mo)</option>
+              <option value="Yearly" selected>Yearly (₹19,999/yr)</option>
+              <option value="Enterprise">Enterprise (₹49,999/yr)</option>
+            </select>
+          </div>
+        </div>
+        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700 space-y-2">
+          <span class="font-bold text-purple-300 block">Bank Account & UPI Details</span>
+          <div class="grid grid-cols-2 gap-2">
+            <input type="text" id="adm-bank-name" placeholder="Bank Name" required value="HDFC Bank" class="p-2 bg-slate-800 border border-slate-700 rounded-lg text-white">
+            <input type="text" id="adm-acc-no" placeholder="Account No." required value="502000123456" class="p-2 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <input type="text" id="adm-ifsc" placeholder="IFSC Code" required value="HDFC0001234" class="p-2 bg-slate-800 border border-slate-700 rounded-lg text-white uppercase font-mono">
+            <input type="text" id="adm-upi-id" placeholder="UPI ID" required value="agency@upi" class="p-2 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-300 block mb-1">Commission Rate (%)</label>
+            <input type="number" step="0.1" id="adm-comm-pct" value="2.5" class="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white">
+          </div>
+          <div>
+            <label class="font-bold text-slate-300 block mb-1">Palledari / Box (₹)</label>
+            <input type="number" id="adm-palledari" value="12" class="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white">
+          </div>
+        </div>
+        <div class="pt-3 flex gap-2">
+          <button type="submit" class="flex-1 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold transition-all shadow-md">
+            Launch Agency Workspace
+          </button>
+          <button type="button" onclick="AdminManager.closeOnboardModal()" class="px-4 py-3 border border-slate-700 rounded-xl text-slate-400 hover:text-white">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/data.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/tenant.js"></script>
+  <script src="js/admin.js"></script>
+
+  <script>
+    // App stub for toasts
+    const App = {
+      showToast: function(msg, type) {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        const toast = document.createElement('div');
+        toast.className = `p-3 rounded-xl shadow-xl text-xs font-bold flex items-center gap-2 mb-2 transition-all ${
+          type === 'error' ? 'bg-rose-600 text-white' : (type === 'warning' ? 'bg-amber-600 text-white' : 'bg-emerald-600 text-white')
+        }`;
+        toast.textContent = msg;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 3500);
+      }
+    };
+
+    function initPortal() {
+      TenantManager.init();
+      AuthManager.init();
+
+      const user = AuthManager.currentUser;
+      if (user && user.role === 'super_admin' && user.email === 'dmchaturvedi@gmail.com') {
+        document.getElementById('admin-login-overlay').classList.add('hidden');
+        document.getElementById('admin-main-dashboard').classList.remove('hidden');
+        AdminManager.init();
+      } else {
+        document.getElementById('admin-login-overlay').classList.remove('hidden');
+        document.getElementById('admin-main-dashboard').classList.add('hidden');
+      }
+    }
+
+    function handleAdminLogin() {
+      const email = document.getElementById('admin-login-email').value;
+      const pass = document.getElementById('admin-login-pass').value;
+
+      const success = AuthManager.login(email, pass);
+      if (success) {
+        initPortal();
+      }
+    }
+
+    function handleAdminLogout() {
+      AuthManager.logout();
+      initPortal();
+    }
+
+    document.addEventListener('DOMContentLoaded', initPortal);
+  </script>
+</body>
+</html>

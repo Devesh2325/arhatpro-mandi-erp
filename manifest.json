@@ -1,0 +1,21 @@
+{
+  "name": "Azadpur Mandi Connect",
+  "short_name": "AzadpurMandi",
+  "description": "Digital platform for Farmers, Arhatiyas, Buyers & APMC at Azadpur Mandi Delhi",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#15803d",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2315803d'/><path d='M30 65 C30 45, 45 35, 70 30 C65 55, 55 70, 35 70 Z' fill='%2386efac'/><path d='M35 70 L65 35' stroke='%23ffffff' stroke-width='4'/></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2315803d'/><path d='M30 65 C30 45, 45 35, 70 30 C65 55, 55 70, 35 70 Z' fill='%2386efac'/><path d='M35 70 L65 35' stroke='%23ffffff' stroke-width='4'/></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

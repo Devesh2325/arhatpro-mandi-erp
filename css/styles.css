@@ -1,0 +1,176 @@
+/* Custom styles and print optimizations for Azadpur Mandi White-Label ERP */
+
+:root {
+  --primary: #15803d;
+  --primary-dark: #166534;
+  --primary-light: #dcfce7;
+  --accent: #eab308;
+  --danger: #dc2626;
+  --surface: #ffffff;
+  --bg: #f8fafc;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--bg);
+  color: #1e293b;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Pulse Animation */
+@keyframes pulseGreen {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.live-pulse {
+  animation: pulseGreen 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ================= MODERN LEFT SIDEBAR NAVIGATION ================= */
+.sidebar-link {
+  display: flex;
+  items-center: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #475569;
+  transition: all 0.15s ease-in-out;
+  text-align: left;
+  width: 100%;
+}
+.sidebar-link:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+.sidebar-link.active {
+  background-color: #15803d;
+  color: #ffffff;
+  box-shadow: 0 4px 12px -2px rgba(21, 128, 61, 0.35);
+}
+.sidebar-link.active .sidebar-icon {
+  transform: scale(1.1);
+}
+
+/* Status Badges */
+.badge-active {
+  background-color: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+.badge-pending {
+  background-color: #fef9c3;
+  color: #854d0e;
+  border: 1px solid #fef08a;
+}
+.badge-closed {
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+.badge-danger {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+/* Thermal Paper Tear Edge Effect */
+.thermal-slip-paper {
+  position: relative;
+  background: #ffffff;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.05));
+}
+.thermal-slip-paper::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: radial-gradient(circle, transparent, transparent 50%, #ffffff 50%, #ffffff 100%);
+  background-size: 10px 10px;
+}
+
+/* ================= PRINT ENGINE ================= */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  
+  #print-container, #print-container * {
+    visibility: visible;
+  }
+
+  .thermal-print-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 80mm !important;
+    max-width: 80mm !important;
+    margin: 0 !important;
+    padding: 2mm !important;
+    font-family: 'Courier New', Courier, monospace !important;
+    font-size: 10pt !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .a4-print-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 10mm !important;
+    font-family: Arial, sans-serif !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Toast Notifications */
+#toast-container {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateY(-20px);
+  opacity: 0;
+}
+.toast.show {
+  transform: translateY(0);
+  opacity: 1;
+}
