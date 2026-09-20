@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { TenantProvider, useTenant } from './context/TenantContext';
 import Sidebar from './components/Sidebar';
@@ -18,8 +18,15 @@ function MandiApp() {
   const { currentTenant, isImpersonating } = useTenant();
 
   const [activeTab, setActiveTab] = useState('quick-trade');
-  const [showAuthModal, setShowAuthModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (user?.role === 'super_admin') {
+      setActiveTab('super-admin');
+    } else {
+      setActiveTab('quick-trade');
+    }
+  }, [user]);
 
   if (loading) {
     return (
@@ -44,7 +51,7 @@ function MandiApp() {
             Cloud-native Multi-Tenant APMC Trading Engine • React + Express + Relational SQL
           </p>
         </div>
-        <AuthModal isOpen={true} onClose={() => {}} />
+        <AuthModal />
       </div>
     );
   }
@@ -109,7 +116,9 @@ function MandiApp() {
             >
               <Menu className="w-6 h-6" />
             </button>
-            <div className="font-black text-sm uppercase tracking-wider">{currentTenant?.name || 'ArhatPro Mandi'}</div>
+            <div className="font-black text-sm uppercase tracking-wider">
+              {currentTenant?.firm_name || currentTenant?.name || 'ArhatPro Mandi'}
+            </div>
             {user?.role === 'super_admin' ? (
               <span className="p-1 text-amber-400 font-bold text-xs">SUPER</span>
             ) : <div className="w-6" />}

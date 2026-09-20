@@ -41,12 +41,13 @@ export const API = {
   // Tenants
   getTenants: async () => {
     const data = await apiRequest('/tenants');
-    return Array.isArray(data) ? { tenants: data } : data;
+    const arr = Array.isArray(data) ? [...data] : (data?.tenants ? [...data.tenants] : []);
+    arr.tenants = arr;
+    return arr;
   },
   getTenant: (id) => apiRequest(`/tenants/${id}`),
   updateTenant: (id, data) => apiRequest(`/tenants/${id}`, 'PUT', data),
   updateTenantBranding: async (data) => {
-    // Current user's tenantId can be retrieved or passed
     const me = await apiRequest('/auth/me');
     const tId = me.tenant?.id || me.user?.tenant_id;
     return apiRequest(`/tenants/${tId}`, 'PUT', data);
@@ -56,7 +57,9 @@ export const API = {
     const me = await apiRequest('/auth/me');
     const tId = me.tenant?.id || me.user?.tenant_id;
     const list = await apiRequest(`/tenants/${tId}/team`);
-    return Array.isArray(list) ? { members: list } : list;
+    const arr = Array.isArray(list) ? [...list] : [];
+    arr.members = arr;
+    return arr;
   },
   addTeamMember: (tenantId, memberData) => apiRequest(`/tenants/${tenantId}/team`, 'POST', memberData),
   addTenantMember: async (memberData) => {
@@ -79,19 +82,22 @@ export const API = {
   // Trade
   getCommodities: async () => {
     const data = await apiRequest('/trade/commodities');
-    return Array.isArray(data) ? { commodities: data } : data;
+    const arr = Array.isArray(data) ? [...data] : (data?.commodities ? [...data.commodities] : []);
+    arr.commodities = arr;
+    return arr;
   },
   addCommodity: (data) => apiRequest('/trade/commodities', 'POST', data),
   getParties: async () => {
     const data = await apiRequest('/trade/parties');
-    return Array.isArray(data) ? { parties: data } : data;
+    const arr = Array.isArray(data) ? [...data] : (data?.parties ? [...data.parties] : []);
+    arr.parties = arr;
+    return arr;
   },
   addParty: (data) => apiRequest('/trade/parties', 'POST', data),
   deleteParty: (id) => apiRequest(`/trade/parties/${id}`, 'DELETE'),
   getArrivals: async () => {
     const data = await apiRequest('/trade/arrivals');
-    const list = Array.isArray(data) ? data : data.arrivals || [];
-    // Normalize properties for UI
+    const list = Array.isArray(data) ? data : (data?.arrivals || []);
     const mapped = list.map(a => ({
       ...a,
       truck_no: a.truck_no,
@@ -105,7 +111,8 @@ export const API = {
       lot_number: a.lot_id,
       arrival_date: a.date
     }));
-    return { arrivals: mapped };
+    mapped.arrivals = mapped;
+    return mapped;
   },
   createArrival: async (data) => {
     return apiRequest('/trade/arrivals', 'POST', {
@@ -124,11 +131,13 @@ export const API = {
   addArrival: (data) => apiRequest('/trade/arrivals', 'POST', data),
   getLots: async () => {
     const data = await apiRequest('/trade/lots');
-    return Array.isArray(data) ? { lots: data } : data;
+    const arr = Array.isArray(data) ? [...data] : (data?.lots ? [...data.lots] : []);
+    arr.lots = arr;
+    return arr;
   },
   getSalesLots: async () => {
     const data = await apiRequest('/trade/lots');
-    const list = Array.isArray(data) ? data : data.lots || [];
+    const list = Array.isArray(data) ? data : (data?.lots || []);
     const mapped = list.map(l => ({
       ...l,
       lot_number: l.id,
@@ -145,7 +154,8 @@ export const API = {
         payment_terms: s.payment_mode
       }))
     }));
-    return { lots: mapped };
+    mapped.lots = mapped;
+    return mapped;
   },
   splitSale: (lotId, data) => apiRequest(`/trade/lots/${lotId}/split`, 'POST', data),
   splitSaleLot: (lotId, data) => apiRequest(`/trade/lots/${lotId}/split`, 'POST', {
@@ -159,7 +169,7 @@ export const API = {
   // Ledger
   getAccounts: async () => {
     const data = await apiRequest('/ledger/accounts');
-    const list = Array.isArray(data) ? data : data.accounts || [];
+    const list = Array.isArray(data) ? data : (data?.accounts || []);
     const mapped = list.map(a => ({
       ...a,
       name: a.party_name,
@@ -168,12 +178,13 @@ export const API = {
       phone: a.contact,
       city: a.address
     }));
-    return { accounts: mapped };
+    mapped.accounts = mapped;
+    return mapped;
   },
   recordPayment: (data) => apiRequest('/ledger/payment', 'POST', data),
   getCashbook: async () => {
     const data = await apiRequest('/ledger/cashbook');
-    const txs = data.transactions || [];
+    const txs = data?.transactions || [];
     const mapped = txs.map(t => ({
       ...t,
       transaction_date: t.created_at || new Date().toISOString(),
@@ -193,7 +204,6 @@ export const API = {
   getJournal: () => apiRequest('/ledger/journal'),
   postJournal: (data) => apiRequest('/ledger/journal', 'POST', data),
   createJournalEntry: (data) => {
-    // Take the first debit and first credit
     const dr = (data.entries || []).find(e => e.debit_amount > 0);
     const cr = (data.entries || []).find(e => e.credit_amount > 0);
     return apiRequest('/ledger/journal', 'POST', {
@@ -228,7 +238,7 @@ export const API = {
   },
   getAdminTenants: async () => {
     const data = await apiRequest('/admin/tenants');
-    const list = Array.isArray(data) ? data : data.tenants || [];
+    const list = Array.isArray(data) ? data : (data?.tenants || []);
     const mapped = list.map(t => ({
       ...t,
       name: t.firm_name,
@@ -261,6 +271,5 @@ export const API = {
   }
 };
 
-// Aliases for both lowercase api and uppercase API
 export const api = API;
 export default API;

@@ -58,7 +58,7 @@ export function AuthProvider({ children }) {
     const res = await API.startImpersonation(targetTenantId);
     localStorage.setItem('mandi_jwt_token', res.token);
     setIsImpersonating(true);
-    setAuditedFirmName(res.targetTenant.firm_name);
+    setAuditedFirmName(res.targetTenant?.firm_name || 'Audited Agency');
     return res;
   };
 
@@ -73,6 +73,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user,
+      isAuthenticated: !!user,
       loading,
       isImpersonating,
       auditedFirmName,
@@ -88,5 +89,20 @@ export function AuthProvider({ children }) {
 }
 
 export function useAuth() {
-  return useContext(AuthContext);
+  const context = useContext(AuthContext);
+  if (!context) {
+    return {
+      user: null,
+      isAuthenticated: false,
+      loading: false,
+      isImpersonating: false,
+      auditedFirmName: '',
+      login: async () => {},
+      signup: async () => {},
+      logout: () => {},
+      startImpersonation: async () => {},
+      stopImpersonation: async () => {}
+    };
+  }
+  return context;
 }
