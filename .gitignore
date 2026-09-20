@@ -1,8 +1,30 @@
-# Logs and temp files
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Production Builds
+dist/
+client/dist/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Database files (database seeds automatically on startup)
+server/database/*.sqlite
+server/database/*.sqlite-journal
+
+# Logs and system
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 Thumbs.db
 .DS_Store
 
-# Temporary editor files
+# IDE and temporary files
+.vscode/
+.idea/
 *.swp
 *.bak
