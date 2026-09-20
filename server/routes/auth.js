@@ -13,19 +13,27 @@ router.post('/login', async (req, res) => {
     }
 
     const cleanId = identifier.trim().toLowerCase();
+    const digitsOnly = identifier.replace(/[^0-9]/g, '');
     const cleanSecret = pinOrPassword.trim();
 
-    // Look up user
-    const user = await queryOne(
+    // Look up user by Email, Phone, Digits-only Phone, or ID
+    let user = await queryOne(
       `SELECT u.*, t.firm_name, t.shop_no, t.theme_color 
        FROM users u 
        LEFT JOIN tenants t ON u.tenant_id = t.id 
-       WHERE LOWER(u.email) = ? OR u.phone = ? OR u.id = ?`,
-      [cleanId, cleanId, cleanId]
+       WHERE LOWER(u.email) = ? OR u.phone = ? OR (LENGTH(?) >= 5 AND u.phone LIKE '%' || ? || '%') OR u.id = ?`,
+      [cleanId, cleanId, digitsOnly, digitsOnly, cleanId]
     );
 
-    if (!user || (user.pin !== cleanSecret && user.password !== cleanSecret)) {
-      return res.status(401).json({ error: 'Invalid credentials. Please verify your Email/Phone or PIN.' });
+    if (!user) {
+      return res.status(401).json({ error: 'Account not found. Please check your Email / Mobile Number.' });
+    }
+
+    const isPinMatch = user.pin && (user.pin.trim() === cleanSecret);
+    const isPassMatch = user.password && (user.password.trim() === cleanSecret);
+
+    if (!isPinMatch && !isPassMatch) {
+      return res.status(401).json({ error: 'Incorrect PIN or Password. Please check and try again.' });
     }
 
     // Strict Super Admin Check: Only dmchaturvedi@gmail.com can be super_admin

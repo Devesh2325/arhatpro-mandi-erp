@@ -4,17 +4,17 @@ import { useAuth } from './AuthContext';
 
 const TenantContext = createContext(null);
 
-export const THEME_PRESETS = {
-  emerald: { label: 'Emerald Green (Azadpur Standard)', primary: '#15803d', dark: '#14532d', light: '#dcfce7' },
-  navy: { label: 'Royal Navy Blue (Grain Market)', primary: '#1e3a8a', dark: '#172554', light: '#dbeafe' },
-  maroon: { label: 'Kashmiri Maroon (Apple Market)', primary: '#881337', dark: '#4c0519', light: '#ffe4e6' },
-  purple: { label: 'Imperial Purple (Vegetable Yard)', primary: '#6b21a8', dark: '#3b0764', light: '#f3e8ff' },
-  amber: { label: 'Golden Amber (Onion/Potato Yard)', primary: '#b45309', dark: '#78350f', light: '#fef3c7' },
-  slate: { label: 'Corporate Slate (Corporate Mandi)', primary: '#334155', dark: '#0f172a', light: '#f1f5f9' }
-};
+export const THEME_PRESETS = [
+  { id: 'emerald', name: 'Emerald Green (Azadpur Standard)', value: '#15803d', dark: '#14532d', light: '#dcfce7' },
+  { id: 'navy', name: 'Royal Navy Blue (Grain Market)', value: '#1e3a8a', dark: '#172554', light: '#dbeafe' },
+  { id: 'maroon', name: 'Kashmiri Maroon (Apple Market)', value: '#881337', dark: '#4c0519', light: '#ffe4e6' },
+  { id: 'purple', name: 'Imperial Purple (Vegetable Yard)', value: '#6b21a8', dark: '#3b0764', light: '#f3e8ff' },
+  { id: 'amber', name: 'Golden Amber (Onion/Potato Yard)', value: '#b45309', dark: '#78350f', light: '#fef3c7' },
+  { id: 'slate', name: 'Corporate Slate (Corporate Mandi)', value: '#334155', dark: '#0f172a', light: '#f1f5f9' }
+];
 
 export function TenantProvider({ children }) {
-  const { user, isImpersonating } = useAuth();
+  const { user, isImpersonating, startImpersonation: authStartImpersonation } = useAuth();
   const [tenants, setTenants] = useState([]);
   const [activeTenant, setActiveTenant] = useState(null);
   const [loadingTenants, setLoadingTenants] = useState(false);
@@ -28,7 +28,8 @@ export function TenantProvider({ children }) {
 
     try {
       setLoadingTenants(true);
-      const list = await API.getTenants();
+      const res = await API.getTenants();
+      const list = Array.isArray(res) ? res : (res?.tenants || []);
       setTenants(list);
       
       // Default to user's assigned tenant, or first accessible tenant
@@ -36,6 +37,8 @@ export function TenantProvider({ children }) {
         const matched = list.find(t => t.id === user.tenantId) || list[0];
         setActiveTenant(matched);
         applyTheme(matched.theme_color || 'emerald');
+      } else {
+        setActiveTenant(null);
       }
     } catch (err) {
       console.error('Could not load tenants:', err);
@@ -48,9 +51,9 @@ export function TenantProvider({ children }) {
     loadTenants();
   }, [user, isImpersonating]);
 
-  const applyTheme = (themeKey) => {
-    const preset = THEME_PRESETS[themeKey] || THEME_PRESETS.emerald;
-    document.documentElement.style.setProperty('--primary', preset.primary);
+  const applyTheme = (themeKeyOrColor) => {
+    const preset = THEME_PRESETS.find(p => p.id === themeKeyOrColor || p.value === themeKeyOrColor) || THEME_PRESETS[0];
+    document.documentElement.style.setProperty('--primary', preset.value);
     document.documentElement.style.setProperty('--primary-dark', preset.dark);
     document.documentElement.style.setProperty('--primary-light', preset.light);
   };
@@ -65,19 +68,36 @@ export function TenantProvider({ children }) {
 
   const refreshTenant = async () => {
     if (!activeTenant) return;
-    const updated = await API.getTenant(activeTenant.id);
-    setActiveTenant(updated);
-    applyTheme(updated.theme_color || 'emerald');
+    try {
+      const updated = await API.getTenant(activeTenant.id);
+      if (updated) {
+        setActiveTenant(updated);
+        applyTheme(updated.theme_color || 'emerald');
+      }
+    } catch (e) {
+      console.error('Failed to refresh tenant:', e);
+    }
+  };
+
+  const startImpersonation = async (targetTenantId) => {
+    if (authStartImpersonation) {
+      const res = await authStartImpersonation(targetTenantId);
+      await loadTenants();
+      return res;
+    }
   };
 
   return (
     <TenantContext.Provider value={{
       tenants,
       activeTenant,
+      currentTenant: activeTenant, // convenient alias for currentTenant
       loadingTenants,
       switchTenant,
       refreshTenant,
       applyTheme,
+      themeColors: THEME_PRESETS,
+      startImpersonation,
       loadTenants
     }}>
       {children}
@@ -86,5 +106,20 @@ export function TenantProvider({ children }) {
 }
 
 export function useTenant() {
-  return useContext(TenantContext);
+  const context = useContext(TenantContext);
+  if (!context) {
+    return {
+      tenants: [],
+      activeTenant: null,
+      currentTenant: null,
+      loadingTenants: false,
+      switchTenant: () => {},
+      refreshTenant: () => {},
+      applyTheme: () => {},
+      themeColors: THEME_PRESETS,
+      startImpersonation: async () => {},
+      loadTenants: async () => {}
+    };
+  }
+  return context;
 }

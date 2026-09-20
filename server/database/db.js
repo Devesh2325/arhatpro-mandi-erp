@@ -358,6 +358,51 @@ async function seedInitialData() {
         ('JV-1', 'tenant-sgfc', 'JV-2026-001', '2026-09-21', 'Cash in Hand (रोकड़)', 'Aggarwal Wholesale Mart (AGW)', 45000, 'Spot cash partial payment', 'Radhe Shyam (Munshi)');
     `);
   }
+
+  // Check if tenant-rat exists
+  const rat = await queryOne(`SELECT * FROM tenants WHERE id = 'tenant-rat'`);
+  if (!rat) {
+    // 2. Tenant Royal Apple Traders (Balwinder Singh)
+    await run(`
+      INSERT INTO tenants (id, firm_name, hindi_name, tagline, proprietor, shop_no, mandi_name, apmc_license_no, gstin, phone, bank_name, account_no, ifsc, upi_id, standard_commission, palledari_rate_per_box, theme_color, status, owner_user_id)
+      VALUES ('tenant-rat', 'Royal Apple Traders', 'रॉयल एप्पल ट्रेडर्स', 'Premium Apple Commission Agents', 'Balwinder Singh', 'Shop No. B-12, Subzi Mandi', 'Azadpur Mandi, Delhi - 110033', 'DL-APMC-F-11029', '07BBECG9876F1Z2', '+91 98110 12345', 'State Bank of India, Azadpur', '0349002100088990', 'SBIN0001234', 'royalapple@sbi', 2.5, 12, 'maroon', 'Active', 'usr-rat-admin');
+    `);
+
+    // Subscription
+    await run(`
+      INSERT INTO subscriptions (id, tenant_id, plan, status, valid_until, price)
+      VALUES ('sub-rat', 'tenant-rat', 'Yearly', 'Active', '2027-09-21', 19999);
+    `);
+
+    // User
+    await run(`
+      INSERT INTO users (id, tenant_id, name, email, phone, pin, password, role, role_label, permissions)
+      VALUES ('usr-rat-admin', 'tenant-rat', 'Balwinder Singh', 'balwinder@mandi.in', '9811012345', '1234', '1234', 'shop_admin', 'Agency Owner / Partner', 'Full Control');
+    `);
+
+    // Commodities
+    await run(`
+      INSERT INTO commodities (id, tenant_id, name_en, name_hi, category, default_unit, unit_weight_kg, tare_deduction_kg, standard_commission_pct, palledari_rate_per_unit, active)
+      VALUES 
+        ('COMM-RAT-1', 'tenant-rat', 'Apple - Kinnaur Special', 'सेब - किन्नौर', 'Fruit', 'Box (20kg)', 20, 1.5, 2.5, 12, 1),
+        ('COMM-RAT-2', 'tenant-rat', 'Tomato - Hybrid Green', 'टमाटर - हाइब्रिड', 'Vegetable', 'Crate (25kg)', 25, 1.0, 2.0, 5, 1);
+    `);
+
+    // Parties
+    await run(`
+      INSERT INTO parties (id, tenant_id, short_code, name, type, mobile, address, credit_limit, current_balance)
+      VALUES 
+        ('P-RAT-1', 'tenant-rat', 'KSP', 'Kisan Seva Kendra', 'Farmer', '+91 98765 11223', 'Theog, Shimla (HP)', 0, 0),
+        ('P-RAT-2', 'tenant-rat', 'DMC', 'Delhi Metro Fruits', 'Buyer', '+91 98101 22334', 'Okhla Mandi, Delhi', 300000, 45000);
+    `);
+
+    // Accounts
+    await run(`
+      INSERT INTO accounts (id, tenant_id, party_name, short_code, contact, address, total_purchases, total_paid, outstanding_udhaar, credit_limit, overdue_days, status)
+      VALUES 
+        ('ACC-RAT-1', 'tenant-rat', 'Delhi Metro Fruits', 'DMC', '+91 98101 22334', 'Okhla Mandi', 145000, 100000, 45000, 300000, 5, 'Good');
+    `);
+  }
 }
 
 module.exports = {
