@@ -49,6 +49,7 @@ export default function Reports() {
   const [selectedPurcha, setSelectedPurcha] = useState(null);
   const [selectedStatutoryLot, setSelectedStatutoryLot] = useState(null);
   const [statutorySubTab, setStatutorySubTab] = useState('TEEP'); // TEEP, JFORM, FORMM
+  const [purchaFormat, setPurchaFormat] = useState('LETTERPAD'); // 'LETTERPAD' or 'THERMAL'
 
   useEffect(() => {
     loadAllReportData();
@@ -1062,66 +1063,123 @@ export default function Reports() {
               ))}
             </div>
 
-            {/* Select Lot */}
-            {statutorySubTab !== 'FORMM' && lots.length > 0 && (
-              <div className="flex items-center gap-2 text-xs">
-                <span className="font-bold text-slate-500">Select Lot:</span>
-                <select
-                  value={selectedStatutoryLot?.id || ''}
-                  onChange={(e) => {
-                    const found = lots.find(l => l.id.toString() === e.target.value.toString());
-                    setSelectedStatutoryLot(found || null);
-                  }}
-                  className="p-1.5 border border-slate-300 rounded-lg font-bold bg-white focus:ring-1 focus:ring-emerald-600 outline-none"
-                >
-                  {lots.map(l => (
-                    <option key={l.id} value={l.id}>
-                      {l.lot_number || l.id} — {l.farmer_name} ({l.commodity_name})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+            {/* Controls: Select Lot & Print */}
+            <div className="flex items-center gap-2">
+              {statutorySubTab !== 'FORMM' && lots.length > 0 && (
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className="font-bold text-slate-500">Lot:</span>
+                  <select
+                    value={selectedStatutoryLot?.id || ''}
+                    onChange={(e) => {
+                      const found = lots.find(l => l.id.toString() === e.target.value.toString());
+                      setSelectedStatutoryLot(found || null);
+                    }}
+                    className="p-1.5 border border-slate-300 rounded-lg font-bold bg-white focus:ring-1 focus:ring-emerald-600 outline-none"
+                  >
+                    {lots.map(l => (
+                      <option key={l.id} value={l.id}>
+                        {l.lot_number || l.id} — {l.farmer_name} ({l.commodity_name})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <button
+                onClick={() => window.print()}
+                className="px-3.5 py-1.5 bg-slate-900 hover:bg-black text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer print:hidden transition-all"
+                title="Print official letterpad document"
+              >
+                <Printer className="w-3.5 h-3.5" /> Print Letterpad (प्रिंट)
+              </button>
+            </div>
           </div>
 
-          {/* Sub-Tab 1: Teep Preview */}
+          {/* Sub-Tab 1: Consignor Sealed Teep Preview on Mandi Agency Letterpad */}
           {statutorySubTab === 'TEEP' && selectedStatutoryLot && (
-            <div className="bg-white p-8 rounded-3xl border border-slate-300 shadow-lg max-w-3xl mx-auto space-y-6 text-slate-800 print:shadow-none print:border-none print:p-0">
-              <div className="border-b-2 border-slate-900 pb-4 text-center space-y-1">
-                <div className="text-2xl font-black uppercase tracking-wider text-slate-900">
-                  {tenant?.firm_name || 'ARHATPRO TRADING CO.'}
+            <div className="bg-white p-8 sm:p-10 rounded-3xl border-4 border-double border-slate-900 shadow-xl max-w-3xl mx-auto space-y-5 text-slate-800 print:shadow-none print:border-4 print:border-slate-900 print:p-6 print:m-0 print:max-w-none print:w-full">
+              
+              {/* Invocations */}
+              <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 border-b border-slate-300 pb-1 px-1">
+                <span>॥ श्री गणेशाय नमः ॥</span>
+                <span>॥ शुभ लाभ ॥</span>
+                <span>॥ ॐ नमो भगवते वासुदेवाय नमः ॥</span>
+              </div>
+
+              {/* Letterhead Top Row */}
+              <div className="flex items-start justify-between gap-4 pt-1">
+                {/* Logo */}
+                <div 
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center font-black text-3xl shadow-sm border-2 border-slate-400 overflow-hidden shrink-0"
+                  style={{ backgroundColor: 'var(--primary-dark, #0f172a)', color: '#ffffff' }}
+                >
+                  {tenant?.logo_url ? (
+                    <img src={tenant.logo_url} alt="Logo" className="w-full h-full object-contain p-1" />
+                  ) : (
+                    <span>{tenant?.logo_icon || '🍎'}</span>
+                  )}
                 </div>
-                <div className="text-xs font-bold text-slate-600">
-                  LICENSED COMMISSION AGENT • {tenant?.mandi_name || 'APMC AZADPUR, DELHI'}
+
+                {/* Firm Details (Center) */}
+                <div className="text-center flex-1 space-y-0.5 min-w-0">
+                  <div className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight leading-tight">
+                    {tenant?.hindi_name || 'श्री गणेश फ्रूट कंपनी'}
+                  </div>
+                  <div className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-800">
+                    {tenant?.firm_name || 'SHREE GANESH FRUIT COMPANY'}
+                  </div>
+                  <div className="text-[10px] sm:text-[11px] font-bold text-slate-600 uppercase tracking-wide">
+                    COMMISSION AGENT &amp; GENERAL ORDER SUPPLIERS (थोक आढ़ती एवं कमीशन एजेंट)
+                  </div>
+                  <div className="text-[10px] sm:text-[11px] text-slate-500 font-medium">
+                    {tenant?.shop_no || 'Shop No. C-42'}, {tenant?.mandi_name || 'New Subzi Mandi, Azadpur, Delhi-110033'}
+                  </div>
                 </div>
-                <div className="text-xs text-slate-500">
-                  {tenant?.shop_no || 'Shop No. C-42'} • Phone: {tenant?.phone || '+91 98110 23456'} • Lic: {tenant?.apmc_license_no || 'DL-APMC-09142'}
-                </div>
-                <div className="inline-block mt-2 px-4 py-1 bg-slate-900 text-white text-xs font-black uppercase rounded tracking-widest">
-                  CONSIGNOR ACCOUNT SALE / पक्का टीप
+
+                {/* Statutory Numbers (Right) */}
+                <div className="text-right text-[10px] font-mono space-y-0.5 shrink-0 bg-slate-50 p-2.5 rounded-xl border border-slate-300">
+                  <div><span className="text-slate-500">APMC Lic:</span> <span className="font-bold text-slate-900">{tenant?.apmc_license_no || 'DL-APMC-09142'}</span></div>
+                  <div><span className="text-slate-500">GSTIN:</span> <span className="font-bold text-slate-900">{tenant?.gstin || '07AAAAA0000A1Z5'}</span></div>
+                  <div><span className="text-slate-500">Phone:</span> <span className="font-bold text-slate-900">{tenant?.phone || '+91 98110 23456'}</span></div>
+                  {tenant?.proprietor && <div><span className="text-slate-500">Prop:</span> <span className="font-bold text-slate-900">{tenant.proprietor}</span></div>}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 text-xs">
+              {/* Banking & Digital UPI Band */}
+              <div className="bg-slate-50 border-t border-b border-slate-300 py-1.5 px-3 text-[10px] font-mono flex flex-wrap justify-between items-center text-slate-700 rounded-lg">
+                <span><b>🏦 Bank:</b> {tenant?.bank_name || 'State Bank of India'} (A/C: {tenant?.account_no || '30492819201'})</span>
+                <span><b>IFSC:</b> {tenant?.ifsc || 'SBIN0001234'}</span>
+                <span className="text-emerald-800 font-bold"><b>⚡ UPI:</b> {tenant?.upi_id || 'mandi@upi'}</span>
+              </div>
+
+              {/* Title Banner */}
+              <div className="text-center">
+                <span className="inline-block px-5 py-1 bg-slate-900 text-white rounded-lg text-xs font-black uppercase tracking-widest shadow-xs">
+                  CONSIGNOR ACCOUNT SALE / पक्का टीप (कृषक विक्रय हिसाब पर्चा)
+                </span>
+              </div>
+
+              {/* Consignor Particulars */}
+              <div className="grid grid-cols-2 gap-4 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200">
                 <div className="space-y-1">
-                  <div><span className="font-bold text-slate-500">Consignor / Farmer:</span> <span className="font-black text-slate-900 text-sm">{selectedStatutoryLot.farmer_name}</span></div>
-                  <div><span className="font-bold text-slate-500">Origin / Village:</span> {selectedStatutoryLot.farmer_location || 'Himachal/Kashmir'}</div>
-                  <div><span className="font-bold text-slate-500">Truck No:</span> <span className="font-mono font-bold">{selectedStatutoryLot.truck_no || 'DL-01-AB-8899'}</span></div>
+                  <div><span className="font-bold text-slate-500">Consignor / Farmer (किसान):</span> <span className="font-black text-slate-900 text-sm ml-1">{selectedStatutoryLot.farmer_name}</span></div>
+                  <div><span className="font-bold text-slate-500">Origin / Village (स्थान):</span> <span className="ml-1">{selectedStatutoryLot.farmer_location || 'Himachal / Kashmir / Punjab'}</span></div>
+                  <div><span className="font-bold text-slate-500">Truck / Vehicle No (गाड़ी नं):</span> <span className="font-mono font-bold ml-1">{selectedStatutoryLot.truck_no || 'DL-01-AB-8899'}</span></div>
                 </div>
                 <div className="space-y-1 text-right">
-                  <div><span className="font-bold text-slate-500">Teep Slip No:</span> <span className="font-mono font-black text-purple-700">TP-{selectedStatutoryLot.lot_number || selectedStatutoryLot.id}</span></div>
-                  <div><span className="font-bold text-slate-500">Arrival Date:</span> {new Date(selectedStatutoryLot.created_at || Date.now()).toLocaleDateString('en-IN')}</div>
-                  <div><span className="font-bold text-slate-500">Settlement Date:</span> {new Date().toLocaleDateString('en-IN')}</div>
+                  <div><span className="font-bold text-slate-500">Teep Slip No (टीप क्र.):</span> <span className="font-mono font-black text-purple-800 ml-1">TP-{selectedStatutoryLot.lot_number || selectedStatutoryLot.id}</span></div>
+                  <div><span className="font-bold text-slate-500">Arrival Date (आवक तिथि):</span> <span className="ml-1">{new Date(selectedStatutoryLot.created_at || Date.now()).toLocaleDateString('en-IN')}</span></div>
+                  <div><span className="font-bold text-slate-500">Settlement Date (भुगतान तिथि):</span> <span className="ml-1">{new Date().toLocaleDateString('en-IN')}</span></div>
                 </div>
               </div>
 
+              {/* Calculation Table */}
               <table className="w-full text-xs text-left border border-slate-300">
                 <thead className="bg-slate-100 font-bold border-b border-slate-300">
                   <tr>
-                    <th className="p-2.5">Commodity / Produce</th>
-                    <th className="p-2.5 text-center">Bags / Crates</th>
-                    <th className="p-2.5 text-right">Auction Rate (Avg)</th>
-                    <th className="p-2.5 text-right">Gross Amount (₹)</th>
+                    <th className="p-2.5">Commodity / Produce (जिंस)</th>
+                    <th className="p-2.5 text-center">Bags / Crates (नग)</th>
+                    <th className="p-2.5 text-right">Auction Rate (औसत दर)</th>
+                    <th className="p-2.5 text-right">Gross Amount (सकल राशि)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1139,8 +1197,8 @@ export default function Reports() {
                     return (
                       <>
                         <tr className="border-b border-slate-200">
-                          <td className="p-2.5 font-bold">{selectedStatutoryLot.commodity_name}</td>
-                          <td className="p-2.5 text-center font-bold">{bags}</td>
+                          <td className="p-2.5 font-bold text-slate-900">{selectedStatutoryLot.commodity_name}</td>
+                          <td className="p-2.5 text-center font-bold font-mono">{bags}</td>
                           <td className="p-2.5 text-right font-mono">₹{estRate.toLocaleString()}</td>
                           <td className="p-2.5 text-right font-mono font-bold">₹{gross.toLocaleString()}</td>
                         </tr>
@@ -1150,31 +1208,31 @@ export default function Reports() {
                         </tr>
                         <tr className="border-t border-slate-300">
                           <td colSpan="4" className="p-2 bg-slate-100 font-bold text-slate-700 uppercase tracking-wider text-[10px]">
-                            Statutory Mandi Deductions / कटौती विवरण
+                            Statutory Mandi Deductions / अधिकृत कटौती विवरण
                           </td>
                         </tr>
                         <tr className="text-slate-600">
-                          <td colSpan="3" className="px-2.5 py-1">Freight Advance to Driver (अग्रिम भाड़ा):</td>
-                          <td className="px-2.5 py-1 text-right font-mono">₹{freightAdvance.toLocaleString()}</td>
+                          <td colSpan="3" className="px-2.5 py-1">Freight Advance paid to Driver (गाड़ी भाड़ा अग्रिम):</td>
+                          <td className="px-2.5 py-1 text-right font-mono text-slate-900">₹{freightAdvance.toLocaleString()}</td>
                         </tr>
                         <tr className="text-slate-600">
-                          <td colSpan="3" className="px-2.5 py-1">Palledari / Unloading @ ₹3/bag (पल्लेदारी):</td>
-                          <td className="px-2.5 py-1 text-right font-mono">₹{unloading.toLocaleString()}</td>
+                          <td colSpan="3" className="px-2.5 py-1">Palledari / Unloading Labor @ ₹3/bag (हमाली / पल्लेदारी):</td>
+                          <td className="px-2.5 py-1 text-right font-mono text-slate-900">₹{unloading.toLocaleString()}</td>
                         </tr>
                         <tr className="text-slate-600">
-                          <td colSpan="3" className="px-2.5 py-1">Commission / Arhat @ 6.0% (आढ़त):</td>
-                          <td className="px-2.5 py-1 text-right font-mono">₹{commission.toLocaleString()}</td>
+                          <td colSpan="3" className="px-2.5 py-1">Commission / Arhat @ 6.0% (आढ़त कमीशन):</td>
+                          <td className="px-2.5 py-1 text-right font-mono text-slate-900">₹{commission.toLocaleString()}</td>
                         </tr>
                         <tr className="text-slate-600">
-                          <td colSpan="3" className="px-2.5 py-1">Market Fee / Mandi Cess @ 1.0% (मंडी शुल्क):</td>
-                          <td className="px-2.5 py-1 text-right font-mono">₹{apmcFee.toLocaleString()}</td>
+                          <td colSpan="3" className="px-2.5 py-1">APMC Market Fee Cess @ 1.0% (मंडी शुल्क):</td>
+                          <td className="px-2.5 py-1 text-right font-mono text-slate-900">₹{apmcFee.toLocaleString()}</td>
                         </tr>
-                        <tr className="border-t border-slate-300 font-bold text-rose-700">
-                          <td colSpan="3" className="p-2.5 text-right">Total Deductions (कुल कटौती):</td>
-                          <td className="p-2.5 text-right font-mono">₹{totalDeductions.toLocaleString()}</td>
+                        <tr className="border-t border-slate-300 font-bold text-rose-700 bg-rose-50/50">
+                          <td colSpan="3" className="p-2.5 text-right uppercase">Total Deductions (कुल कटौती):</td>
+                          <td className="p-2.5 text-right font-mono text-sm">₹{totalDeductions.toLocaleString()}</td>
                         </tr>
                         <tr className="border-t-2 border-slate-900 bg-emerald-50 font-black text-emerald-950 text-sm">
-                          <td colSpan="3" className="p-3 text-right uppercase tracking-wide">Net Payout to Farmer (शुद्ध देय राशि):</td>
+                          <td colSpan="3" className="p-3 text-right uppercase tracking-wide">Net Payout to Farmer (किसान को शुद्ध देय राशि):</td>
                           <td className="p-3 text-right font-mono text-base font-black text-emerald-700">₹{netPayable.toLocaleString()}</td>
                         </tr>
                       </>
@@ -1183,33 +1241,78 @@ export default function Reports() {
                 </tbody>
               </table>
 
-              <div className="pt-6 border-t border-slate-300 grid grid-cols-2 text-xs font-bold text-slate-500">
-                <div>
-                  <div>Farmer / Receiver Signature</div>
-                  <div className="text-[10px] font-normal text-slate-400 mt-0.5">Payment credited via Bank Transfer / Cash</div>
+              {/* Signatures & Bank Acknowledgement */}
+              <div className="pt-6 border-t-2 border-slate-300 grid grid-cols-2 text-xs font-bold text-slate-600">
+                <div className="space-y-1">
+                  <div>Farmer / Receiver Signature: __________________</div>
+                  <div className="text-[10px] font-normal text-slate-400">Payment credited via Bank RTGS / NEFT / Mandi Cash</div>
                 </div>
-                <div className="text-right">
-                  <div>For {tenant?.firm_name || 'ARHATPRO TRADING CO.'}</div>
-                  <div className="text-[10px] font-normal text-slate-400 mt-0.5">Authorized Partner / Munshi Stamp</div>
+                <div className="text-right space-y-1">
+                  <div>For {tenant?.firm_name || 'SHREE GANESH FRUIT CO.'}</div>
+                  <div className="text-[10px] font-normal text-slate-400">Authorized Partner / Munshi Stamp &amp; Sign</div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Sub-Tab 2: Form J */}
+          {/* Sub-Tab 2: APMC Form 'J' on Mandi Agency Letterpad */}
           {statutorySubTab === 'JFORM' && selectedStatutoryLot && (
-            <div className="bg-white p-8 rounded-3xl border border-slate-300 shadow-lg max-w-3xl mx-auto space-y-6 text-slate-800 print:shadow-none print:border-none print:p-0">
-              <div className="text-center space-y-1 border-b-2 border-slate-900 pb-4">
-                <div className="text-xs font-bold text-slate-500 uppercase">FORM 'J' [See Rule 24(1)]</div>
-                <div className="text-xl font-black uppercase tracking-wider text-slate-900">DELHI AGRICULTURAL PRODUCE MARKETING COMMITTEE</div>
-                <div className="text-xs font-semibold text-slate-700">Sale Voucher of Agricultural Produce under APMC Act, 1998</div>
+            <div className="bg-white p-8 sm:p-10 rounded-3xl border-4 border-double border-slate-900 shadow-xl max-w-3xl mx-auto space-y-5 text-slate-800 print:shadow-none print:border-4 print:border-slate-900 print:p-6 print:m-0 print:max-w-none print:w-full">
+              
+              {/* Invocations */}
+              <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 border-b border-slate-300 pb-1 px-1">
+                <span>॥ श्री गणेशाय नमः ॥</span>
+                <span>॥ सत्यमेव जयते ॥</span>
+                <span>॥ APMC ACT, 1998 ॥</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 text-xs">
-                <div><span className="font-bold text-slate-500">Certificate No:</span> <span className="font-mono font-bold">JF-2026-{selectedStatutoryLot.id}</span></div>
-                <div><span className="font-bold text-slate-500">Market Yard:</span> Azadpur Mandi, Delhi</div>
-                <div><span className="font-bold text-slate-500">Farmer / Seller:</span> <span className="font-bold text-slate-900">{selectedStatutoryLot.farmer_name}</span></div>
-                <div><span className="font-bold text-slate-500">Commission Agent:</span> {tenant?.firm_name || 'ARHATPRO TRADING CO.'} (Lic # {tenant?.apmc_license_no || 'B-4421'})</div>
+              {/* Letterhead Top Row */}
+              <div className="flex items-start justify-between gap-4 pt-1">
+                <div 
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center font-black text-3xl shadow-sm border-2 border-slate-400 overflow-hidden shrink-0"
+                  style={{ backgroundColor: 'var(--primary-dark, #0f172a)', color: '#ffffff' }}
+                >
+                  {tenant?.logo_url ? (
+                    <img src={tenant.logo_url} alt="Logo" className="w-full h-full object-contain p-1" />
+                  ) : (
+                    <span>{tenant?.logo_icon || '⚖️'}</span>
+                  )}
+                </div>
+
+                <div className="text-center flex-1 space-y-0.5 min-w-0">
+                  <div className="text-xl sm:text-2xl font-black text-slate-950 uppercase">
+                    DELHI AGRICULTURAL PRODUCE MARKETING COMMITTEE
+                  </div>
+                  <div className="text-xs sm:text-sm font-black uppercase text-slate-800">
+                    {tenant?.firm_name || 'SHREE GANESH FRUIT COMPANY'}
+                  </div>
+                  <div className="text-[10px] sm:text-[11px] font-bold text-slate-600">
+                    LICENSED COMMISSION AGENT (कमीशन एजेंट लाइसेंस नं. {tenant?.apmc_license_no || 'DL-APMC-09142'})
+                  </div>
+                  <div className="text-[10px] text-slate-500">
+                    Market Yard: {tenant?.mandi_name || 'New Subzi Mandi, Azadpur, Delhi-110033'} • Shop {tenant?.shop_no || 'C-42'}
+                  </div>
+                </div>
+
+                <div className="text-right text-[10px] font-mono space-y-0.5 shrink-0 bg-slate-50 p-2.5 rounded-xl border border-slate-300">
+                  <div><span className="text-slate-500">Cert No:</span> <span className="font-bold text-slate-900">JF-2026-{selectedStatutoryLot.id}</span></div>
+                  <div><span className="text-slate-500">Date:</span> <span className="font-bold text-slate-900">{new Date().toLocaleDateString('en-IN')}</span></div>
+                  <div><span className="text-slate-500">GSTIN:</span> <span className="font-bold text-slate-900">{tenant?.gstin || '07AAAAA0000A1Z5'}</span></div>
+                </div>
+              </div>
+
+              {/* Title Banner */}
+              <div className="text-center">
+                <span className="inline-block px-5 py-1 bg-slate-900 text-white rounded-lg text-xs font-black uppercase tracking-widest shadow-xs">
+                  FORM 'J' [See Rule 24(1)] / कृषि उपज विक्रय प्रमाण पत्र (SALE VOUCHER)
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div><span className="font-bold text-slate-500">Seller / Producer (विक्रेता कृषक):</span> <span className="font-bold text-slate-900 ml-1">{selectedStatutoryLot.farmer_name}</span></div>
+                <div><span className="font-bold text-slate-500">Origin / Belts:</span> <span className="ml-1">{selectedStatutoryLot.farmer_location || 'Himachal Pradesh'}</span></div>
+                <div><span className="font-bold text-slate-500">Commission Agent:</span> <span className="font-bold text-slate-900 ml-1">{tenant?.firm_name} (Shop {tenant?.shop_no})</span></div>
+                <div><span className="font-bold text-slate-500">Auction Reference:</span> <span className="font-mono font-bold ml-1">AUC-LOT-{selectedStatutoryLot.lot_number || selectedStatutoryLot.id}</span></div>
               </div>
 
               <table className="w-full text-xs text-left border border-slate-300">
@@ -1217,82 +1320,119 @@ export default function Reports() {
                   <tr>
                     <th className="p-2.5">Name of Agricultural Produce</th>
                     <th className="p-2.5 text-center">No. of Bags / Weight</th>
-                    <th className="p-2.5 text-right">Agreed Price (₹)</th>
-                    <th className="p-2.5 text-right">Market Charges (₹)</th>
-                    <th className="p-2.5 text-right">Net Value Paid (₹)</th>
+                    <th className="p-2.5 text-right">Agreed Auction Rate (₹)</th>
+                    <th className="p-2.5 text-right">Statutory Charges (₹)</th>
+                    <th className="p-2.5 text-right">Net Realized Value (₹)</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr className="border-b border-slate-200">
                     <td className="p-2.5 font-bold">{selectedStatutoryLot.commodity_name}</td>
-                    <td className="p-2.5 text-center">{selectedStatutoryLot.total_quantity || 150} Bags</td>
+                    <td className="p-2.5 text-center font-mono font-bold">{selectedStatutoryLot.total_quantity || 150} Bags</td>
                     <td className="p-2.5 text-right font-mono">₹2,85,000</td>
-                    <td className="p-2.5 text-right font-mono text-rose-600">₹19,200</td>
-                    <td className="p-2.5 text-right font-mono font-bold text-emerald-700">₹2,65,800</td>
+                    <td className="p-2.5 text-right font-mono text-rose-700">₹19,200</td>
+                    <td className="p-2.5 text-right font-mono font-black text-emerald-800 text-sm">₹2,65,800</td>
                   </tr>
                 </tbody>
               </table>
 
-              <div className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-200">
-                I hereby certify that the agricultural produce mentioned above was sold in the market yard through open auction in my presence and the charges levied are strictly in accordance with APMC bye-laws.
+              <div className="text-xs text-slate-700 leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                <b>Statutory Declaration:</b> I hereby certify that the agricultural produce described above was weighed, inspected, and sold through open auction in the market yard strictly in accordance with Delhi Agricultural Produce Marketing (Regulation) Act, 1998 and bye-laws thereunder.
               </div>
 
-              <div className="pt-6 border-t border-slate-300 flex justify-between text-xs font-bold text-slate-500">
-                <div>Seller / Farmer Signature: ________</div>
-                <div>Secretary / Inspector, APMC: ________</div>
+              <div className="pt-6 border-t-2 border-slate-300 flex justify-between text-xs font-bold text-slate-600">
+                <div>Seller / Farmer Signature: ________________</div>
+                <div>Secretary / Inspector, APMC Azadpur: ________________</div>
               </div>
             </div>
           )}
 
-          {/* Sub-Tab 3: Form M Return */}
+          {/* Sub-Tab 3: Form 'M' Monthly Return on Mandi Agency Letterpad */}
           {statutorySubTab === 'FORMM' && (
-            <div className="bg-white p-8 rounded-3xl border border-slate-300 shadow-lg max-w-3xl mx-auto space-y-6 text-slate-800 print:shadow-none print:border-none print:p-0">
-              <div className="text-center space-y-1 border-b-2 border-slate-900 pb-4">
-                <div className="text-xs font-bold text-slate-500 uppercase">FORM 'M' [See Rule 29(1)]</div>
-                <div className="text-xl font-black uppercase tracking-wider text-slate-900">MONTHLY RETURN OF MARKET FEE &amp; RURAL DEVELOPMENT FUND</div>
-                <div className="text-xs font-semibold text-slate-700">Office of the Secretary, APMC Azadpur, Delhi</div>
+            <div className="bg-white p-8 sm:p-10 rounded-3xl border-4 border-double border-slate-900 shadow-xl max-w-3xl mx-auto space-y-5 text-slate-800 print:shadow-none print:border-4 print:border-slate-900 print:p-6 print:m-0 print:max-w-none print:w-full">
+              
+              {/* Invocations */}
+              <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 border-b border-slate-300 pb-1 px-1">
+                <span>॥ श्री गणेशाय नमः ॥</span>
+                <span>॥ APMC DELHI STATUTORY RETURN ॥</span>
+                <span>॥ शुभम् ॥</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 text-xs">
-                <div><span className="font-bold text-slate-500">Firm Name:</span> {tenant?.firm_name || 'ARHATPRO TRADING CO.'}</div>
-                <div><span className="font-bold text-slate-500">Return Period:</span> {new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</div>
-                <div><span className="font-bold text-slate-500">APMC License:</span> {tenant?.apmc_license_no || 'APMC-AZD-DEL-4421'}</div>
-                <div><span className="font-bold text-slate-500">Filing Date:</span> {new Date().toLocaleDateString('en-IN')}</div>
+              {/* Letterhead Top Row */}
+              <div className="flex items-start justify-between gap-4 pt-1">
+                <div 
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center font-black text-3xl shadow-sm border-2 border-slate-400 overflow-hidden shrink-0"
+                  style={{ backgroundColor: 'var(--primary-dark, #0f172a)', color: '#ffffff' }}
+                >
+                  {tenant?.logo_url ? (
+                    <img src={tenant.logo_url} alt="Logo" className="w-full h-full object-contain p-1" />
+                  ) : (
+                    <span>{tenant?.logo_icon || '🏢'}</span>
+                  )}
+                </div>
+
+                <div className="text-center flex-1 space-y-0.5 min-w-0">
+                  <div className="text-xl sm:text-2xl font-black text-slate-950 uppercase">
+                    OFFICE OF THE SECRETARY, APMC AZADPUR, DELHI
+                  </div>
+                  <div className="text-xs sm:text-sm font-black uppercase text-slate-800">
+                    {tenant?.firm_name || 'SHREE GANESH FRUIT COMPANY'}
+                  </div>
+                  <div className="text-[10px] sm:text-[11px] font-bold text-slate-600">
+                    MONTHLY RETURN OF MARKET FEE &amp; RURAL DEVELOPMENT FUND (RDF)
+                  </div>
+                  <div className="text-[10px] text-slate-500">
+                    {tenant?.shop_no}, {tenant?.mandi_name} • APMC Lic: {tenant?.apmc_license_no || 'DL-APMC-09142'}
+                  </div>
+                </div>
+
+                <div className="text-right text-[10px] font-mono space-y-0.5 shrink-0 bg-slate-50 p-2.5 rounded-xl border border-slate-300">
+                  <div><span className="text-slate-500">Period:</span> <span className="font-bold text-slate-900">{new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</span></div>
+                  <div><span className="text-slate-500">Filing Date:</span> <span className="font-bold text-slate-900">{new Date().toLocaleDateString('en-IN')}</span></div>
+                  <div><span className="text-slate-500">Challan Ref:</span> <span className="font-bold text-slate-900">CPN-2026-990812</span></div>
+                </div>
+              </div>
+
+              {/* Title Banner */}
+              <div className="text-center">
+                <span className="inline-block px-5 py-1 bg-slate-900 text-white rounded-lg text-xs font-black uppercase tracking-widest shadow-xs">
+                  FORM 'M' [See Rule 29(1)] / मासिक मंडी शुल्क विवरणी
+                </span>
               </div>
 
               <table className="w-full text-xs text-left border border-slate-300">
                 <thead className="bg-slate-100 font-bold border-b border-slate-300">
                   <tr>
-                    <th className="p-2.5">Category</th>
-                    <th className="p-2.5 text-center">Consignments</th>
-                    <th className="p-2.5 text-right">Gross Turn (₹)</th>
-                    <th className="p-2.5 text-right">APMC Fee @ 1%</th>
+                    <th className="p-2.5">Category of Produce</th>
+                    <th className="p-2.5 text-center">Consignments Inward</th>
+                    <th className="p-2.5 text-right">Gross Turnover (₹)</th>
+                    <th className="p-2.5 text-right">Market Fee @ 1%</th>
                     <th className="p-2.5 text-right">RDF @ 1%</th>
-                    <th className="p-2.5 text-right">Total Cess (₹)</th>
+                    <th className="p-2.5 text-right">Total Cess Remitted (₹)</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr className="border-b border-slate-200">
-                    <td className="p-2.5 font-bold">Fruits (Apple, Kinnow, Mango)</td>
-                    <td className="p-2.5 text-center">{filteredArrivals.length} Trucks</td>
-                    <td className="p-2.5 text-right font-mono">₹24,50,000</td>
+                    <td className="p-2.5 font-bold">Fruits &amp; Vegetables Produce</td>
+                    <td className="p-2.5 text-center font-mono">{filteredArrivals.length} Trucks</td>
+                    <td className="p-2.5 text-right font-mono font-bold">₹24,50,000</td>
                     <td className="p-2.5 text-right font-mono">₹24,500</td>
                     <td className="p-2.5 text-right font-mono">₹24,500</td>
-                    <td className="p-2.5 text-right font-mono font-bold">₹49,000</td>
+                    <td className="p-2.5 text-right font-mono font-bold text-emerald-800">₹49,000</td>
                   </tr>
                   <tr className="font-black bg-slate-100 text-sm">
-                    <td colSpan="2" className="p-2.5 uppercase">Consolidated Total:</td>
+                    <td colSpan="2" className="p-2.5 uppercase">Consolidated Monthly Total:</td>
                     <td className="p-2.5 text-right font-mono">₹24,50,000</td>
                     <td className="p-2.5 text-right font-mono">₹24,500</td>
                     <td className="p-2.5 text-right font-mono">₹24,500</td>
-                    <td className="p-2.5 text-right font-mono text-purple-900">₹49,000</td>
+                    <td className="p-2.5 text-right font-mono text-purple-900 font-black">₹49,000</td>
                   </tr>
                 </tbody>
               </table>
 
-              <div className="pt-6 border-t border-slate-300 flex justify-between text-xs font-bold text-slate-500">
-                <div>Challan Ref: <b>CPN-2026-990812</b></div>
-                <div>Authorized Signature &amp; Stamp</div>
+              <div className="pt-6 border-t-2 border-slate-300 flex justify-between text-xs font-bold text-slate-600">
+                <div>Challan Ref: <b>CPN-2026-990812 (Remitted Online)</b></div>
+                <div>Authorized Signatory &amp; Commission Agent Stamp</div>
               </div>
             </div>
           )}
@@ -1300,112 +1440,257 @@ export default function Reports() {
       )}
 
       {/* =========================================================================
-          THERMAL 80MM BUYER PURCHA MODAL
+          BUYER MANDI PURCHA MODAL (DUAL VIEW: LETTERPAD & THERMAL 80MM)
       ========================================================================== */}
       {selectedPurcha && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 font-mono text-xs max-h-[90vh] overflow-y-auto border border-slate-300">
-            {/* Modal Controls */}
-            <div className="flex justify-between items-center border-b pb-3 print:hidden">
-              <span className="font-bold text-slate-800 text-xs font-sans">Buyer Mandi Purcha (80mm Thermal)</span>
-              <button onClick={() => setSelectedPurcha(null)} className="text-slate-400 hover:text-slate-700 text-lg cursor-pointer">✕</button>
-            </div>
-
-            {/* Slip Printable Content */}
-            <div className="space-y-3 text-slate-900">
-              <div className="text-center space-y-0.5 border-b pb-2">
-                <div className="font-black text-base uppercase">{tenant?.firm_name || 'ARHATPRO TRADING CO.'}</div>
-                <div className="text-[10px] text-slate-600">{tenant?.mandi_name || 'APMC Azadpur, Delhi'} • Shop {tenant?.shop_no || 'C-42'}</div>
-                <div className="text-[10px] text-slate-500">Lic: {tenant?.apmc_license_no || 'DL-APMC-09142'} • Ph: {tenant?.phone || '9811012345'}</div>
-                <div className="text-[11px] font-black uppercase mt-1 bg-slate-100 py-0.5 rounded">
-                  *** BUYER PURCHA / कच्चा पर्चा ***
-                </div>
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto border border-slate-300">
+            {/* Modal Controls Bar */}
+            <div className="flex flex-wrap justify-between items-center border-b pb-3 print:hidden gap-2">
+              <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => setPurchaFormat('LETTERPAD')}
+                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                    purchaFormat === 'LETTERPAD'
+                      ? 'bg-white text-slate-900 shadow-xs font-black'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  📄 लेटरपैड पक्का पर्चा (Letterpad)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPurchaFormat('THERMAL')}
+                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                    purchaFormat === 'THERMAL'
+                      ? 'bg-white text-slate-900 shadow-xs font-black'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  🧾 80mm थर्मल कच्चा पर्चा (POS)
+                </button>
               </div>
 
-              <div className="space-y-1 text-[11px]">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Purcha No:</span>
-                  <span className="font-bold">{selectedPurcha.sale_code || selectedPurcha.id}</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="px-3 py-1.5 bg-slate-900 hover:bg-black text-white rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Printer className="w-3.5 h-3.5" /> Print
+                </button>
+                <button onClick={() => setSelectedPurcha(null)} className="text-slate-400 hover:text-slate-700 text-lg p-1 cursor-pointer">✕</button>
+              </div>
+            </div>
+
+            {/* FORMAT 1: AUTHENTIC MANDI LETTERPAD PURCHA */}
+            {purchaFormat === 'LETTERPAD' ? (
+              <div className="border-4 border-double border-slate-900 p-6 sm:p-8 rounded-2xl space-y-5 text-slate-900 bg-white print:border-4 print:border-slate-900 print:shadow-none print:p-6 print:m-0">
+                {/* Invocations */}
+                <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 border-b border-slate-300 pb-1 px-1">
+                  <span>॥ श्री गणेशाय नमः ॥</span>
+                  <span>॥ शुभ लाभ ॥</span>
+                  <span>॥ ॐ ॥</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Date &amp; Time:</span>
-                  <span>{selectedPurcha.dateFormatted || 'Today'} {selectedPurcha.time || ''}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Buyer Name:</span>
-                  <span className="font-black text-slate-900">{selectedPurcha.buyer_name}</span>
-                </div>
-                {selectedPurcha.buyer_contact && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Buyer Phone:</span>
-                    <span>{selectedPurcha.buyer_contact}</span>
+
+                {/* Letterhead Top Row */}
+                <div className="flex items-start justify-between gap-4 pt-1">
+                  <div 
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl shadow-sm border border-slate-300 overflow-hidden shrink-0"
+                    style={{ backgroundColor: 'var(--primary-dark, #0f172a)', color: '#ffffff' }}
+                  >
+                    {tenant?.logo_url ? (
+                      <img src={tenant.logo_url} alt="Logo" className="w-full h-full object-contain p-1" />
+                    ) : (
+                      <span>{tenant?.logo_icon || '🍎'}</span>
+                    )}
                   </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Farmer / Lot:</span>
-                  <span>{selectedPurcha.farmer_name || 'Kisan'} ({selectedPurcha.lot_id || 'LOT'})</span>
+
+                  <div className="text-center flex-1 space-y-0.5 min-w-0">
+                    <div className="text-xl sm:text-2xl font-black text-slate-950">
+                      {tenant?.hindi_name || 'श्री गणेश फ्रूट कंपनी'}
+                    </div>
+                    <div className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-800">
+                      {tenant?.firm_name || 'SHREE GANESH FRUIT COMPANY'}
+                    </div>
+                    <div className="text-[10px] font-bold text-slate-600 uppercase">
+                      COMMISSION AGENT &amp; GENERAL ORDER SUPPLIERS (थोक आढ़ती)
+                    </div>
+                    <div className="text-[10px] text-slate-500">
+                      {tenant?.shop_no || 'Shop No. C-42'}, {tenant?.mandi_name || 'New Subzi Mandi, Azadpur, Delhi-110033'}
+                    </div>
+                  </div>
+
+                  <div className="text-right text-[10px] font-mono space-y-0.5 shrink-0 bg-slate-50 p-2 rounded-xl border border-slate-200">
+                    <div><span className="text-slate-500">APMC Lic:</span> <span className="font-bold">{tenant?.apmc_license_no || 'DL-APMC-09142'}</span></div>
+                    <div><span className="text-slate-500">GSTIN:</span> <span className="font-bold">{tenant?.gstin || '07AAAAA0000A1Z5'}</span></div>
+                    <div><span className="text-slate-500">Phone:</span> <span className="font-bold">{tenant?.phone || '+91 98110 23456'}</span></div>
+                  </div>
+                </div>
+
+                {/* Banking Band */}
+                <div className="bg-slate-50 border-t border-b border-slate-300 py-1 px-3 text-[10px] font-mono flex flex-wrap justify-between items-center text-slate-700 rounded">
+                  <span><b>Bank:</b> {tenant?.bank_name || 'State Bank of India'} (A/C: {tenant?.account_no || '30492819201'})</span>
+                  <span><b>IFSC:</b> {tenant?.ifsc || 'SBIN0001234'}</span>
+                  <span className="text-emerald-800 font-bold"><b>UPI:</b> {tenant?.upi_id || 'mandi@upi'}</span>
+                </div>
+
+                {/* Banner */}
+                <div className="text-center">
+                  <span className="inline-block px-4 py-1 bg-slate-900 text-white rounded-lg text-xs font-black uppercase tracking-wider shadow-xs">
+                    BUYER MANDI INVOICE / खरीदार पक्का पर्चा
+                  </span>
+                </div>
+
+                {/* Particulars */}
+                <div className="grid grid-cols-2 gap-4 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <div className="space-y-1">
+                    <div><span className="font-bold text-slate-500">Buyer Name (खरीदार):</span> <span className="font-black text-slate-900 text-sm ml-1">{selectedPurcha.buyer_name}</span></div>
+                    {selectedPurcha.buyer_contact && <div><span className="font-bold text-slate-500">Contact / Phone:</span> <span className="font-mono ml-1">{selectedPurcha.buyer_contact}</span></div>}
+                    <div><span className="font-bold text-slate-500">Farmer Lot:</span> <span className="ml-1">{selectedPurcha.farmer_name || 'Kisan'} ({selectedPurcha.lot_id || 'LOT'})</span></div>
+                  </div>
+                  <div className="space-y-1 text-right">
+                    <div><span className="font-bold text-slate-500">Purcha Slip No:</span> <span className="font-mono font-black text-purple-900 ml-1">{selectedPurcha.sale_code || selectedPurcha.id}</span></div>
+                    <div><span className="font-bold text-slate-500">Date &amp; Time:</span> <span className="ml-1">{selectedPurcha.dateFormatted || 'Today'} {selectedPurcha.time || ''}</span></div>
+                    <div><span className="font-bold text-slate-500">Payment Terms:</span> <span className="font-bold text-slate-800 ml-1">15 Days Credit</span></div>
+                  </div>
+                </div>
+
+                {/* Items Table */}
+                <table className="w-full text-xs text-left border border-slate-300">
+                  <thead className="bg-slate-100 font-bold border-b border-slate-300">
+                    <tr>
+                      <th className="p-2.5">Produce Description (विवरण)</th>
+                      <th className="p-2.5 text-center">Bags / Crates (नग)</th>
+                      <th className="p-2.5 text-right">Rate / Bag (भाव)</th>
+                      <th className="p-2.5 text-right">Produce Amount (सकल)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-slate-200">
+                      <td className="p-2.5 font-bold text-slate-900">{selectedPurcha.commodity_name || 'Produce'}</td>
+                      <td className="p-2.5 text-center font-bold font-mono">{selectedPurcha.quantity}</td>
+                      <td className="p-2.5 text-right font-mono">₹{parseFloat(selectedPurcha.rate || 0).toLocaleString()}</td>
+                      <td className="p-2.5 text-right font-mono font-bold text-slate-900">₹{selectedPurcha.gross?.toLocaleString()}</td>
+                    </tr>
+                    <tr className="text-slate-600 bg-slate-50/50">
+                      <td colSpan="3" className="px-2.5 py-1 text-right font-medium">Buyer Dami @ 2.0% (दामी):</td>
+                      <td className="px-2.5 py-1 text-right font-mono font-bold text-slate-900">₹{selectedPurcha.dami?.toLocaleString()}</td>
+                    </tr>
+                    <tr className="text-slate-600 bg-slate-50/50">
+                      <td colSpan="3" className="px-2.5 py-1 text-right font-medium">Loading &amp; Palledari Charges:</td>
+                      <td className="px-2.5 py-1 text-right font-mono font-bold text-slate-900">₹{(selectedPurcha.quantity * 2).toLocaleString()}</td>
+                    </tr>
+                    <tr className="border-t-2 border-slate-900 bg-purple-50 font-black text-purple-950 text-sm">
+                      <td colSpan="3" className="p-3 text-right uppercase tracking-wide">Total Net Payable (कुल देय राशि):</td>
+                      <td className="p-3 text-right font-mono text-base font-black text-purple-900">
+                        ₹{(selectedPurcha.netBill + (selectedPurcha.quantity * 2)).toLocaleString()}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* Disclaimers & Signatures */}
+                <div className="text-[10px] text-slate-600 leading-relaxed bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                  <b>Statutory Notice:</b> Payment is due strictly within 15 calendar days per Delhi Agricultural Produce Marketing (Regulation) Act. Overdue accounts attract 18% p.a. delayed interest. All disputes subject to APMC Azadpur jurisdiction.
+                </div>
+
+                <div className="pt-4 border-t-2 border-slate-300 flex justify-between text-xs font-bold text-slate-600">
+                  <div>Buyer / Consignee Signature: ________________</div>
+                  <div>For {tenant?.firm_name} (Munshi Stamp)</div>
                 </div>
               </div>
+            ) : (
+              /* FORMAT 2: THERMAL 80MM POS RECEIPT */
+              <div className="max-w-sm mx-auto space-y-3 font-mono text-xs text-slate-900 p-4 border border-dashed border-slate-300 rounded-2xl bg-white print:border-none print:p-0">
+                <div className="text-center space-y-0.5 border-b pb-2">
+                  <div className="font-black text-base uppercase">{tenant?.firm_name || 'ARHATPRO TRADING CO.'}</div>
+                  <div className="text-[10px] text-slate-600">{tenant?.mandi_name || 'APMC Azadpur, Delhi'} • Shop {tenant?.shop_no || 'C-42'}</div>
+                  <div className="text-[10px] text-slate-500">Lic: {tenant?.apmc_license_no || 'DL-APMC-09142'} • Ph: {tenant?.phone || '9811012345'}</div>
+                  <div className="text-[11px] font-black uppercase mt-1 bg-slate-100 py-0.5 rounded">
+                    *** BUYER PURCHA / कच्चा पर्चा ***
+                  </div>
+                </div>
 
-              <table className="w-full text-[11px] border-t border-b border-dashed border-slate-400 py-1 my-2">
-                <thead>
-                  <tr className="border-b border-dashed border-slate-300 text-slate-500">
-                    <th className="py-1 text-left">Item</th>
-                    <th className="py-1 text-center">Qty</th>
-                    <th className="py-1 text-right">Rate</th>
-                    <th className="py-1 text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="py-1 font-bold">{selectedPurcha.commodity_name || 'Produce'}</td>
-                    <td className="py-1 text-center font-bold">{selectedPurcha.quantity}</td>
-                    <td className="py-1 text-right font-mono">₹{parseFloat(selectedPurcha.rate || 0).toLocaleString()}</td>
-                    <td className="py-1 text-right font-mono font-bold">₹{selectedPurcha.gross?.toLocaleString()}</td>
-                  </tr>
-                </tbody>
-              </table>
+                <div className="space-y-1 text-[11px]">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Purcha No:</span>
+                    <span className="font-bold">{selectedPurcha.sale_code || selectedPurcha.id}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Date &amp; Time:</span>
+                    <span>{selectedPurcha.dateFormatted || 'Today'} {selectedPurcha.time || ''}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Buyer Name:</span>
+                    <span className="font-black text-slate-900">{selectedPurcha.buyer_name}</span>
+                  </div>
+                  {selectedPurcha.buyer_contact && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Buyer Phone:</span>
+                      <span>{selectedPurcha.buyer_contact}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Farmer / Lot:</span>
+                    <span>{selectedPurcha.farmer_name || 'Kisan'} ({selectedPurcha.lot_id || 'LOT'})</span>
+                  </div>
+                </div>
 
-              <div className="space-y-1 text-[11px]">
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Produce Value (सकल):</span>
-                  <span className="font-bold">₹{selectedPurcha.gross?.toLocaleString()}</span>
+                <table className="w-full text-[11px] border-t border-b border-dashed border-slate-400 py-1 my-2">
+                  <thead>
+                    <tr className="border-b border-dashed border-slate-300 text-slate-500">
+                      <th className="py-1 text-left">Item</th>
+                      <th className="py-1 text-center">Qty</th>
+                      <th className="py-1 text-right">Rate</th>
+                      <th className="py-1 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="py-1 font-bold">{selectedPurcha.commodity_name || 'Produce'}</td>
+                      <td className="py-1 text-center font-bold">{selectedPurcha.quantity}</td>
+                      <td className="py-1 text-right font-mono">₹{parseFloat(selectedPurcha.rate || 0).toLocaleString()}</td>
+                      <td className="py-1 text-right font-mono font-bold">₹{selectedPurcha.gross?.toLocaleString()}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div className="space-y-1 text-[11px]">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Produce Value (सकल):</span>
+                    <span className="font-bold">₹{selectedPurcha.gross?.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Buyer Dami @ 2.0%:</span>
+                    <span>₹{selectedPurcha.dami?.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Unloading / Palledari:</span>
+                    <span>₹{(selectedPurcha.quantity * 2).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between font-black text-sm border-t border-slate-900 pt-1">
+                    <span>TOTAL PAYABLE:</span>
+                    <span className="text-purple-900">₹{(selectedPurcha.netBill + (selectedPurcha.quantity * 2)).toLocaleString()}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Buyer Dami @ 2.0%:</span>
-                  <span>₹{selectedPurcha.dami?.toLocaleString()}</span>
+
+                <div className="text-[9px] text-slate-500 leading-tight pt-1 border-t border-dashed border-slate-300">
+                  Payment due within 15 days as per APMC rules. Delayed payment incurs 18% p.a. interest.
                 </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Unloading / Palledari:</span>
-                  <span>₹{(selectedPurcha.quantity * 2).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between font-black text-sm border-t border-slate-900 pt-1">
-                  <span>TOTAL PAYABLE:</span>
-                  <span className="text-purple-900">₹{(selectedPurcha.netBill + (selectedPurcha.quantity * 2)).toLocaleString()}</span>
+
+                <div className="flex justify-between pt-4 text-[10px] text-slate-600">
+                  <div>Buyer Signature</div>
+                  <div>Munshi Signature</div>
                 </div>
               </div>
+            )}
 
-              <div className="text-[9px] text-slate-500 leading-tight pt-1 border-t border-dashed border-slate-300">
-                Payment due within 15 days as per APMC rules. Delayed payment incurs 18% p.a. interest.
-              </div>
-
-              <div className="flex justify-between pt-4 text-[10px] text-slate-600">
-                <div>Buyer Signature</div>
-                <div>Munshi Signature</div>
-              </div>
-            </div>
-
-            {/* Modal Actions */}
-            <div className="flex gap-2 pt-3 border-t print:hidden">
-              <button
-                onClick={() => window.print()}
-                className="flex-1 py-2.5 bg-slate-900 hover:bg-black text-white rounded-xl font-bold font-sans text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-              >
-                <Printer className="w-3.5 h-3.5" /> Print 80mm Slip
-              </button>
+            {/* Modal Bottom Close */}
+            <div className="flex justify-end pt-3 border-t print:hidden">
               <button
                 onClick={() => setSelectedPurcha(null)}
-                className="px-4 py-2.5 border border-slate-300 hover:bg-slate-50 rounded-xl font-bold font-sans text-xs text-slate-700 cursor-pointer"
+                className="px-5 py-2 border border-slate-300 hover:bg-slate-50 rounded-xl font-bold text-xs text-slate-700 cursor-pointer"
               >
                 Close
               </button>

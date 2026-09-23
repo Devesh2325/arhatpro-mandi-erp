@@ -279,6 +279,32 @@ async function initSchema() {
     );
   `);
 
+  // Safe migrations for table extensions
+  const safeAlter = async (table, columnDef) => {
+    try {
+      await run(`ALTER TABLE ${table} ADD COLUMN ${columnDef}`);
+    } catch (e) {
+      // Column already exists, ignore
+    }
+  };
+
+  await safeAlter('tenants', 'logo_url TEXT');
+  await safeAlter('parties', 'bank_name TEXT');
+  await safeAlter('parties', 'account_no TEXT');
+  await safeAlter('parties', 'ifsc TEXT');
+  await safeAlter('parties', 'upi_id TEXT');
+  await safeAlter('parties', 'account_holder TEXT');
+  await safeAlter('parties', 'pan TEXT');
+  await safeAlter('parties', 'gstin TEXT');
+  await safeAlter('parties', 'state TEXT');
+  await safeAlter('parties', 'city TEXT');
+  await safeAlter('parties', 'pincode TEXT');
+  await safeAlter('parties', 'father_name TEXT');
+  await safeAlter('parties', 'alternate_mobile TEXT');
+  await safeAlter('parties', 'payment_terms_days INTEGER DEFAULT 15');
+  await safeAlter('parties', 'opening_balance REAL DEFAULT 0');
+  await safeAlter('parties', 'balance_type TEXT DEFAULT "Dr"');
+
   await seedInitialData();
 }
 

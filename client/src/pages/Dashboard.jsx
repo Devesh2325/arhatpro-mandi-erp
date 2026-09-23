@@ -39,6 +39,9 @@ export default function Dashboard({ setActiveTab }) {
   const [cashbook, setCashbook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [journeyView, setJourneyView] = useState('workflow'); // 'workflow' or 'clock'
+  const [journeyDismissed, setJourneyDismissed] = useState(() => {
+    return localStorage.getItem('mandi_journey_dismissed') === 'true';
+  });
 
   useEffect(() => {
     loadDashboardData();
@@ -154,6 +157,8 @@ export default function Dashboard({ setActiveTab }) {
 
   const completedCount = journeySteps.filter(s => s.isCompleted).length;
   const progressPercent = Math.round((completedCount / journeySteps.length) * 100);
+  const allMilestonesDone = completedCount >= journeySteps.length;
+  const shouldShowJourney = !allMilestonesDone && !journeyDismissed;
 
   const todayDate = new Date().toLocaleDateString('en-IN', {
     weekday: 'long',
@@ -206,6 +211,29 @@ export default function Dashboard({ setActiveTab }) {
         </div>
       </div>
 
+      {/* Milestone Completion & Dismissal Indicator */}
+      {(allMilestonesDone || journeyDismissed) && (
+        <div className="bg-white px-5 py-3 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span className="font-bold text-slate-800">
+              {allMilestonesDone ? '🎉 All Mandi Milestones Completed (सभी चरण पूर्ण)' : 'Trading Milestones Section Hidden (चरण सूची छुपाई गई)'}
+            </span>
+            <span className="text-slate-400 font-mono">({completedCount}/{journeySteps.length} Milestones)</span>
+          </div>
+          <button
+            onClick={() => {
+              const nextState = !journeyDismissed;
+              setJourneyDismissed(nextState);
+              localStorage.setItem('mandi_journey_dismissed', nextState.toString());
+            }}
+            className="text-xs font-bold text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
+          >
+            {journeyDismissed ? 'Show Milestones Journey (चरण देखें)' : 'Hide Milestones (छुपाएं)'}
+          </button>
+        </div>
+      )}
+
       {/* 2. New User Onboarding Highlight (Shown if workspace has no transactions yet) */}
       {isNewUser && (
         <div className="bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-blue-500/10 border-2 border-emerald-500/30 p-5 rounded-3xl space-y-3">
@@ -242,7 +270,8 @@ export default function Dashboard({ setActiveTab }) {
         </div>
       )}
 
-      {/* 3. Mandi Trading User Journey & Workflow (मंडी व्यापार यात्रा) */}
+      {/* 3. Mandi Trading User Journey & Workflow (मंडी व्यापार यात्रा - Hidden once milestones done or dismissed) */}
+      {shouldShowJourney && (
       <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
           <div className="space-y-1">
@@ -285,6 +314,16 @@ export default function Dashboard({ setActiveTab }) {
                 Mandi Clock (समय चक्र)
               </button>
             </div>
+            <button
+              onClick={() => {
+                setJourneyDismissed(true);
+                localStorage.setItem('mandi_journey_dismissed', 'true');
+              }}
+              className="px-2.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-400 hover:text-slate-700 font-bold text-xs cursor-pointer transition-colors"
+              title="Hide milestone section from dashboard"
+            >
+              ✕ Hide
+            </button>
           </div>
         </div>
 
@@ -414,6 +453,7 @@ export default function Dashboard({ setActiveTab }) {
           </div>
         )}
       </div>
+      )}
 
       {/* 4. Quick Action Buttons Grid */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">

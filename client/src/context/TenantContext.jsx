@@ -19,6 +19,21 @@ export function TenantProvider({ children }) {
   const [activeTenant, setActiveTenant] = useState(null);
   const [loadingTenants, setLoadingTenants] = useState(false);
 
+  const [currentTheme, setCurrentTheme] = useState(() => THEME_PRESETS[0]);
+
+  const applyTheme = (themeKeyOrColor) => {
+    const preset = THEME_PRESETS.find(p => p.id === themeKeyOrColor || p.value === themeKeyOrColor) || THEME_PRESETS[0];
+    setCurrentTheme(preset);
+    document.documentElement.style.setProperty('--primary', preset.value);
+    document.documentElement.style.setProperty('--primary-dark', preset.dark);
+    document.documentElement.style.setProperty('--primary-light', preset.light);
+    document.documentElement.style.setProperty('--theme-primary', preset.value);
+    document.documentElement.style.setProperty('--theme-active-bg', preset.value);
+    document.documentElement.style.setProperty('--theme-accent', preset.value);
+    document.documentElement.style.setProperty('--theme-light', preset.light);
+    document.documentElement.style.setProperty('--theme-dark', preset.dark);
+  };
+
   const loadTenants = async () => {
     if (!user) {
       setTenants([]);
@@ -50,13 +65,6 @@ export function TenantProvider({ children }) {
   useEffect(() => {
     loadTenants();
   }, [user, isImpersonating]);
-
-  const applyTheme = (themeKeyOrColor) => {
-    const preset = THEME_PRESETS.find(p => p.id === themeKeyOrColor || p.value === themeKeyOrColor) || THEME_PRESETS[0];
-    document.documentElement.style.setProperty('--primary', preset.value);
-    document.documentElement.style.setProperty('--primary-dark', preset.dark);
-    document.documentElement.style.setProperty('--primary-light', preset.light);
-  };
 
   const switchTenant = (tenantId) => {
     const target = tenants.find(t => t.id === tenantId);
@@ -96,6 +104,7 @@ export function TenantProvider({ children }) {
       switchTenant,
       refreshTenant,
       applyTheme,
+      currentTheme,
       themeColors: THEME_PRESETS,
       startImpersonation,
       loadTenants
@@ -116,6 +125,7 @@ export function useTenant() {
       switchTenant: () => {},
       refreshTenant: () => {},
       applyTheme: () => {},
+      currentTheme: THEME_PRESETS[0],
       themeColors: THEME_PRESETS,
       startImpersonation: async () => {},
       loadTenants: async () => {}

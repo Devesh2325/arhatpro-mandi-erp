@@ -38,6 +38,7 @@ export default function Settings() {
   const [partySearch, setPartySearch] = useState('');
 
   // 1. Profile & Bank Form
+  // 1. Profile & Bank Form
   const [profileForm, setProfileForm] = useState({
     firm_name: '',
     hindi_name: '',
@@ -51,7 +52,9 @@ export default function Settings() {
     upi_id: '',
     bank_name: '',
     account_no: '',
-    ifsc: ''
+    ifsc: '',
+    logo_icon: '🍎',
+    logo_url: ''
   });
 
   // 2. Statutory Rates Form
@@ -69,16 +72,38 @@ export default function Settings() {
     bill_disclaimer: 'Payment is due within 15 calendar days as per Delhi APMC Act. Delayed payment incurs 18% p.a. statutory interest.'
   });
 
-  // Modals state
-  const [showAddPartyModal, setShowAddPartyModal] = useState(false);
-  const [partyForm, setPartyForm] = useState({
+  // Modals state - Party Master
+  const initialPartyState = {
     shortCode: '',
     name: '',
     type: 'Buyer',
+    fatherName: '',
     mobile: '',
+    alternateMobile: '',
+    bankName: '',
+    accountNo: '',
+    ifsc: '',
+    upiId: '',
+    accountHolder: '',
+    pan: '',
+    gstin: '',
     address: '',
-    creditLimit: '200000'
-  });
+    city: '',
+    state: '',
+    pincode: '',
+    creditLimit: '200000',
+    openingBalance: '0',
+    balanceType: 'Dr',
+    paymentTermsDays: '15'
+  };
+
+  const [showAddPartyModal, setShowAddPartyModal] = useState(false);
+  const [partyForm, setPartyForm] = useState(initialPartyState);
+  const [partyModalTab, setPartyModalTab] = useState('BASIC'); // 'BASIC', 'BANK', 'TAX'
+
+  const [showEditPartyModal, setShowEditPartyModal] = useState(false);
+  const [editPartyForm, setEditPartyForm] = useState({ id: '', ...initialPartyState });
+  const [editPartyModalTab, setEditPartyModalTab] = useState('BASIC');
 
   const [showAddCommodityModal, setShowAddCommodityModal] = useState(false);
   const [commodityForm, setCommodityForm] = useState({
@@ -129,7 +154,9 @@ export default function Settings() {
         upi_id: tenant.upi_id || '',
         bank_name: tenant.bank_name || '',
         account_no: tenant.account_no || '',
-        ifsc: tenant.ifsc || ''
+        ifsc: tenant.ifsc || '',
+        logo_icon: tenant.logo_icon || '🍎',
+        logo_url: tenant.logo_url || ''
       });
 
       setRatesForm({
@@ -249,25 +276,89 @@ export default function Settings() {
     }
   };
 
+  // Logo Image Upload Handler
+  const handleLogoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setMessage({ type: 'error', text: 'Logo image must be smaller than 2MB.' });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setProfileForm(prev => ({ ...prev, logo_url: event.target.result }));
+      setMessage({ type: 'success', text: 'Logo image loaded! Click "Save Profile & Banking" to apply permanently.' });
+    };
+    reader.readAsDataURL(file);
+  };
+
   // 5. Add Party
   const handleAddPartySubmit = async (e) => {
     e.preventDefault();
     setMessage(null);
     try {
       await api.addParty({
-        shortCode: partyForm.shortCode.toUpperCase(),
-        name: partyForm.name,
-        type: partyForm.type,
-        mobile: partyForm.mobile,
-        address: partyForm.address,
-        creditLimit: parseFloat(partyForm.creditLimit) || 0
+        ...partyForm,
+        shortCode: partyForm.shortCode.toUpperCase().trim(),
+        creditLimit: parseFloat(partyForm.creditLimit) || 0,
+        openingBalance: parseFloat(partyForm.openingBalance) || 0,
+        paymentTermsDays: parseInt(partyForm.paymentTermsDays) || 15
       });
-      setMessage({ type: 'success', text: `Party "${partyForm.name}" [${partyForm.shortCode.toUpperCase()}] added!` });
+      setMessage({ type: 'success', text: `Party "${partyForm.name}" [${partyForm.shortCode.toUpperCase()}] added successfully!` });
       setShowAddPartyModal(false);
-      setPartyForm({ shortCode: '', name: '', type: 'Buyer', mobile: '', address: '', creditLimit: '200000' });
+      setPartyForm(initialPartyState);
       loadParties();
     } catch (err) {
       setMessage({ type: 'error', text: err.message || 'Failed to add party.' });
+    }
+  };
+
+  // Edit Party Handlers
+  const handleOpenEditParty = (p) => {
+    setEditPartyForm({
+      id: p.id,
+      shortCode: p.short_code || '',
+      name: p.name || '',
+      type: p.type || 'Buyer',
+      fatherName: p.father_name || '',
+      mobile: p.mobile || '',
+      alternateMobile: p.alternate_mobile || '',
+      bankName: p.bank_name || '',
+      accountNo: p.account_no || '',
+      ifsc: p.ifsc || '',
+      upiId: p.upi_id || '',
+      accountHolder: p.account_holder || '',
+      pan: p.pan || '',
+      gstin: p.gstin || '',
+      address: p.address || '',
+      city: p.city || '',
+      state: p.state || '',
+      pincode: p.pincode || '',
+      creditLimit: (p.credit_limit || 200000).toString(),
+      openingBalance: (p.opening_balance || 0).toString(),
+      balanceType: p.balance_type || 'Dr',
+      paymentTermsDays: (p.payment_terms_days || 15).toString()
+    });
+    setEditPartyModalTab('BASIC');
+    setShowEditPartyModal(true);
+  };
+
+  const handleSaveEditParty = async (e) => {
+    e.preventDefault();
+    setMessage(null);
+    try {
+      await api.updateParty(editPartyForm.id, {
+        ...editPartyForm,
+        shortCode: editPartyForm.shortCode.toUpperCase().trim(),
+        creditLimit: parseFloat(editPartyForm.creditLimit) || 0,
+        openingBalance: parseFloat(editPartyForm.openingBalance) || 0,
+        paymentTermsDays: parseInt(editPartyForm.paymentTermsDays) || 15
+      });
+      setMessage({ type: 'success', text: `Party "${editPartyForm.name}" [${editPartyForm.shortCode.toUpperCase()}] updated successfully!` });
+      setShowEditPartyModal(false);
+      loadParties();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Failed to update party.' });
     }
   };
 
@@ -445,6 +536,86 @@ export default function Settings() {
           <div className="border-b border-slate-100 pb-3">
             <h3 className="text-sm font-bold text-slate-900">Firm Profile &amp; Banking Details (फर्म विवरण)</h3>
             <p className="text-slate-500 text-[11px]">Printed on official bills, J-Forms, Purcha slips and Teep vouchers.</p>
+          </div>
+
+          {/* Logo & Agency Brand Identity Section */}
+          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="font-bold text-slate-800 text-xs block">Agency Logo &amp; Brand Icon (फर्म का लोगो व प्रतीक चिन्ह)</span>
+                <span className="text-[11px] text-slate-500">Appears on sidebar, invoices, Form J vouchers, and letterhead headers.</span>
+              </div>
+              {profileForm.logo_url && (
+                <button
+                  type="button"
+                  onClick={() => setProfileForm({ ...profileForm, logo_url: '' })}
+                  className="text-rose-600 hover:text-rose-800 text-[11px] font-bold cursor-pointer"
+                >
+                  Remove Image Logo ✕
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              {/* Logo Preview */}
+              <div 
+                className="w-16 h-16 rounded-2xl flex items-center justify-center font-black text-3xl shadow-sm border border-slate-300 overflow-hidden shrink-0"
+                style={{ backgroundColor: 'var(--primary-dark, #0f172a)', color: '#ffffff' }}
+              >
+                {profileForm.logo_url ? (
+                  <img src={profileForm.logo_url} alt="Logo" className="w-full h-full object-contain p-1" />
+                ) : (
+                  <span>{profileForm.logo_icon || '🍎'}</span>
+                )}
+              </div>
+
+              {/* Upload & URL Inputs */}
+              <div className="flex-1 space-y-2 w-full">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Upload Logo Image (PNG / JPG / WebP)</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      className="w-full text-[11px] file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-900 file:text-white hover:file:bg-black cursor-pointer text-slate-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Or Logo Image URL (वेब लिंक)</label>
+                    <input
+                      type="url"
+                      placeholder="https://example.com/logo.png"
+                      value={profileForm.logo_url}
+                      onChange={(e) => setProfileForm({ ...profileForm, logo_url: e.target.value })}
+                      className="w-full p-2 bg-white border border-slate-300 rounded-xl font-mono text-[11px]"
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Emoji Picker */}
+                <div>
+                  <label className="font-bold text-slate-600 block mb-1 text-[11px]">Or Choose Standard Mandi Emoji Icon (प्रतीक इमोजी)</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {['🍎', '🥭', '🍇', '🍌', '🥔', '🧅', '🌾', '🌽', '🥦', '🥑', '🏢', '📦', '⚖️', '💰', '🚚'].map(emoji => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => setProfileForm({ ...profileForm, logo_icon: emoji })}
+                        className={`w-7 h-7 text-base rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                          profileForm.logo_icon === emoji && !profileForm.logo_url
+                            ? 'bg-slate-900 text-white ring-2 ring-slate-900/30 shadow-xs'
+                            : 'bg-white border border-slate-200 hover:bg-slate-100'
+                        }`}
+                        title={`Select ${emoji}`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -830,10 +1001,10 @@ export default function Settings() {
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase text-[10px]">
                 <tr>
                   <th className="p-3">Short Code</th>
-                  <th className="p-3">Party Name &amp; Address</th>
+                  <th className="p-3">Party Name &amp; Details</th>
                   <th className="p-3 text-center">Type</th>
-                  <th className="p-3">Mobile Phone</th>
-                  <th className="p-3 text-right">Credit Limit (₹)</th>
+                  <th className="p-3">Mobile &amp; Bank / UPI</th>
+                  <th className="p-3 text-right">Credit &amp; Terms</th>
                   <th className="p-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -845,10 +1016,22 @@ export default function Settings() {
                 ) : (
                   filteredParties.map(p => (
                     <tr key={p.id} className="hover:bg-slate-50">
-                      <td className="p-3 font-mono font-black text-emerald-800">{p.short_code}</td>
+                      <td className="p-3 font-mono font-black text-emerald-800 text-sm">{p.short_code}</td>
                       <td className="p-3 font-bold text-slate-900">
-                        {p.name}
-                        {p.address && <span className="block text-[10px] font-normal text-slate-400">{p.address}</span>}
+                        <div className="flex items-center gap-1.5">
+                          <span>{p.name}</span>
+                          {p.father_name && <span className="text-[10px] text-slate-500 font-normal">s/o {p.father_name}</span>}
+                        </div>
+                        {(p.address || p.city) && (
+                          <span className="block text-[10px] font-normal text-slate-400">
+                            {[p.address, p.city, p.state].filter(Boolean).join(', ')}
+                          </span>
+                        )}
+                        {(p.gstin || p.pan) && (
+                          <span className="block text-[9px] font-mono text-slate-400">
+                            {p.gstin ? `GST: ${p.gstin}` : `PAN: ${p.pan}`}
+                          </span>
+                        )}
                       </td>
                       <td className="p-3 text-center">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -857,12 +1040,42 @@ export default function Settings() {
                           {p.type}
                         </span>
                       </td>
-                      <td className="p-3 font-mono text-slate-600">{p.mobile || '—'}</td>
-                      <td className="p-3 text-right font-mono font-bold">₹{(p.credit_limit || 0).toLocaleString()}</td>
+                      <td className="p-3 text-slate-700">
+                        <div className="font-mono text-xs">{p.mobile || '—'}</div>
+                        {(p.bank_name || p.account_no) && (
+                          <div className="text-[10px] font-mono text-slate-500 flex items-center gap-1">
+                            <span>🏦 {p.bank_name || 'Bank'}</span>
+                            {p.account_no && <span>• ...{p.account_no.slice(-4)}</span>}
+                          </div>
+                        )}
+                        {p.upi_id && (
+                          <div className="text-[10px] font-mono text-emerald-700 font-bold">
+                            ⚡ {p.upi_id}
+                          </div>
+                        )}
+                      </td>
                       <td className="p-3 text-right">
+                        <div className="font-mono font-bold text-slate-900">₹{(p.credit_limit || 0).toLocaleString()}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          {p.payment_terms_days ? `${p.payment_terms_days} days` : '15 days'} credit
+                        </div>
+                        {p.opening_balance > 0 && (
+                          <div className="text-[9px] font-mono text-amber-700 font-bold">
+                            Op: ₹{p.opening_balance} ({p.balance_type || 'Dr'})
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-3 text-right space-x-1.5 whitespace-nowrap">
+                        <button
+                          onClick={() => handleOpenEditParty(p)}
+                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer transition-colors border border-blue-200"
+                          title="Edit Party Details & Bank (विवरण संपादित करें)"
+                        >
+                          <Edit className="w-3 h-3" /> Edit
+                        </button>
                         <button
                           onClick={() => handleDeleteParty(p.id, p.name)}
-                          className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded"
+                          className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
                           title="Delete Party"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1014,84 +1227,615 @@ export default function Settings() {
       {/* ================= MODAL 1: ADD PARTY ================= */}
       {showAddPartyModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl space-y-4">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b pb-3">
-              <h3 className="font-bold text-slate-900 text-sm">Add New Party (नया पार्टी कोड)</h3>
-              <button onClick={() => setShowAddPartyModal(false)} className="text-slate-400">✕</button>
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">Add New Party Master (नई पार्टी प्रविष्टि)</h3>
+                <p className="text-[11px] text-slate-500">Configure buyer / farmer profile, bank settlement, and credit limit.</p>
+              </div>
+              <button onClick={() => setShowAddPartyModal(false)} className="text-slate-400 hover:text-slate-700 text-lg cursor-pointer">✕</button>
             </div>
-            <form onSubmit={handleAddPartySubmit} className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Short Code *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. AGW"
-                    value={partyForm.shortCode}
-                    onChange={(e) => setPartyForm({ ...partyForm, shortCode: e.target.value.toUpperCase() })}
-                    className="w-full p-2 border border-slate-300 rounded-xl font-mono uppercase font-black text-emerald-800"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Type *</label>
-                  <select
-                    value={partyForm.type}
-                    onChange={(e) => setPartyForm({ ...partyForm, type: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-xl font-bold"
-                  >
-                    <option value="Buyer">Buyer (खरीदार)</option>
-                    <option value="Farmer">Farmer (किसान)</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Full Legal / Trade Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Aggarwal Wholesale Mart"
-                  value={partyForm.name}
-                  onChange={(e) => setPartyForm({ ...partyForm, name: e.target.value })}
-                  className="w-full p-2 border border-slate-300 rounded-xl font-bold"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Mobile Phone *</label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="+91 98..."
-                    value={partyForm.mobile}
-                    onChange={(e) => setPartyForm({ ...partyForm, mobile: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-xl font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Credit Limit (₹)</label>
-                  <input
-                    type="number"
-                    value={partyForm.creditLimit}
-                    onChange={(e) => setPartyForm({ ...partyForm, creditLimit: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-xl font-mono"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Address / Mandi Shop</label>
-                <input
-                  type="text"
-                  placeholder="Shop 14, Mandi Yard"
-                  value={partyForm.address}
-                  onChange={(e) => setPartyForm({ ...partyForm, address: e.target.value })}
-                  className="w-full p-2 border border-slate-300 rounded-xl"
-                />
-              </div>
-              <div className="flex gap-2 pt-2">
-                <button type="submit" className="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold">
-                  Save Party Code
+
+            {/* Modal Internal Tabs */}
+            <div className="flex border-b border-slate-200 gap-1 pb-1 text-xs font-bold">
+              {[
+                { id: 'BASIC', label: '1. Basic & Contact (संपर्क)' },
+                { id: 'BANK', label: '2. Bank & UPI (खाता)' },
+                { id: 'TAX', label: '3. Tax, Address & Credit (उधारी)' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setPartyModalTab(tab.id)}
+                  className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                    partyModalTab === tab.id
+                      ? 'bg-emerald-700 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {tab.label}
                 </button>
-                <button type="button" onClick={() => setShowAddPartyModal(false)} className="px-4 py-2.5 border rounded-xl">
+              ))}
+            </div>
+
+            <form onSubmit={handleAddPartySubmit} className="space-y-3.5 text-xs">
+              {/* TAB 1: BASIC & CONTACT */}
+              {partyModalTab === 'BASIC' && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Short Code *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. AGW"
+                        value={partyForm.shortCode}
+                        onChange={(e) => setPartyForm({ ...partyForm, shortCode: e.target.value.toUpperCase() })}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl font-mono uppercase font-black text-emerald-800 focus:ring-2 focus:ring-emerald-600 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Type *</label>
+                      <select
+                        value={partyForm.type}
+                        onChange={(e) => setPartyForm({ ...partyForm, type: e.target.value })}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl font-bold bg-white focus:ring-2 focus:ring-emerald-600 outline-none"
+                      >
+                        <option value="Buyer">Buyer (खरीदार / व्यापारी)</option>
+                        <option value="Farmer">Farmer (किसान / उत्पादक)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Full Legal / Trade Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Aggarwal Wholesale Mart"
+                      value={partyForm.name}
+                      onChange={(e) => setPartyForm({ ...partyForm, name: e.target.value })}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl font-bold focus:ring-2 focus:ring-emerald-600 outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Proprietor / Father's Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Ramesh Aggarwal"
+                        value={partyForm.fatherName}
+                        onChange={(e) => setPartyForm({ ...partyForm, fatherName: e.target.value })}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Primary Mobile Phone *</label>
+                      <input
+                        type="tel"
+                        required
+                        placeholder="+91 98..."
+                        value={partyForm.mobile}
+                        onChange={(e) => setPartyForm({ ...partyForm, mobile: e.target.value })}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl font-mono focus:ring-2 focus:ring-emerald-600 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Alternate Phone / WhatsApp</label>
+                    <input
+                      type="tel"
+                      placeholder="Optional alternate mobile"
+                      value={partyForm.alternateMobile}
+                      onChange={(e) => setPartyForm({ ...partyForm, alternateMobile: e.target.value })}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: BANK & UPI */}
+              {partyModalTab === 'BANK' && (
+                <div className="space-y-3">
+                  <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-900 text-[11px]">
+                    Used for direct RTGS/NEFT online payments to farmers and collecting UPI payments from buyers.
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Account Holder Name</label>
+                    <input
+                      type="text"
+                      placeholder="As per bank passbook"
+                      value={partyForm.accountHolder}
+                      onChange={(e) => setPartyForm({ ...partyForm, accountHolder: e.target.value })}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl font-bold"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Bank Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. State Bank of India, HDFC"
+                        value={partyForm.bankName}
+                        onChange={(e) => setPartyForm({ ...partyForm, bankName: e.target.value })}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Account Number</label>
+                      <input
+                        type="text"
+                        placeholder="Bank account number"
+                        value={partyForm.accountNo}
+                        onChange={(e) => setPartyForm({ ...partyForm, accountNo: e.target.value })}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">IFSC Code</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. SBIN0001234"
+                        value={partyForm.ifsc}
+                        onChange={(e) => setPartyForm({ ...partyForm, ifsc: e.target.value.toUpperCase() })}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl font-mono uppercase"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">UPI ID (VPA)</label>
+                      <input
+                        type="text"
+                        placeholder="party@upi"
+                        value={partyForm.upiId}
+                        onChange={(e) => setPartyForm({ ...partyForm, upiId: e.target.value })}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl font-mono text-emerald-800 font-bold"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: TAX, ADDRESS & CREDIT */}
+              {partyModalTab === 'TAX' && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">PAN Number</label>
+                      <input
+                        type="text"
+                        placeholder="ABCDE1234F"
+                        value={partyForm.pan}
+                        onChange={(e) => setPartyForm({ ...partyForm, pan: e.target.value.toUpperCase() })}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl font-mono uppercase"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">GSTIN Number</label>
+                      <input
+                        type="text"
+                        placeholder="07AAAAA0000A1Z5"
+                        value={partyForm.gstin}
+                        onChange={(e) => setPartyForm({ ...partyForm, gstin: e.target.value.toUpperCase() })}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl font-mono uppercase"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Address / Mandi Shop No.</label>
+                    <input
+                      type="text"
+                      placeholder="Shop 14, New Subzi Mandi"
+                      value={partyForm.address}
+                      onChange={(e) => setPartyForm({ ...partyForm, address: e.target.value })}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">City / District</label>
+                      <input
+                        type="text"
+                        placeholder="Delhi / Shimla"
+                        value={partyForm.city}
+                        onChange={(e) => setPartyForm({ ...partyForm, city: e.target.value })}
+                        className="w-full p-2 border border-slate-300 rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">State</label>
+                      <input
+                        type="text"
+                        placeholder="Delhi / HP"
+                        value={partyForm.state}
+                        onChange={(e) => setPartyForm({ ...partyForm, state: e.target.value })}
+                        className="w-full p-2 border border-slate-300 rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">PIN Code</label>
+                      <input
+                        type="text"
+                        placeholder="110033"
+                        value={partyForm.pincode}
+                        onChange={(e) => setPartyForm({ ...partyForm, pincode: e.target.value })}
+                        className="w-full p-2 border border-slate-300 rounded-xl font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Credit Limit (₹)</label>
+                      <input
+                        type="number"
+                        value={partyForm.creditLimit}
+                        onChange={(e) => setPartyForm({ ...partyForm, creditLimit: e.target.value })}
+                        className="w-full p-2 border border-slate-300 rounded-xl font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Opening Balance (₹)</label>
+                      <input
+                        type="number"
+                        value={partyForm.openingBalance}
+                        onChange={(e) => setPartyForm({ ...partyForm, openingBalance: e.target.value })}
+                        className="w-full p-2 border border-slate-300 rounded-xl font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Balance Type</label>
+                      <select
+                        value={partyForm.balanceType}
+                        onChange={(e) => setPartyForm({ ...partyForm, balanceType: e.target.value })}
+                        className="w-full p-2 border border-slate-300 rounded-xl font-bold bg-white"
+                      >
+                        <option value="Dr">Dr (लेना / Receivable)</option>
+                        <option value="Cr">Cr (देना / Payable)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Payment Credit Terms (Days - उधार दिवस)</label>
+                    <input
+                      type="number"
+                      value={partyForm.paymentTermsDays}
+                      onChange={(e) => setPartyForm({ ...partyForm, paymentTermsDays: e.target.value })}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl font-mono"
+                    />
+                    <span className="text-[10px] text-slate-400">Standard APMC credit cycle is 15 calendar days.</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-3 border-t">
+                <button 
+                  type="submit" 
+                  className="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Save className="w-4 h-4" /> Save Party Code (पार्टी सुरक्षित करें)
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setShowAddPartyModal(false)} 
+                  className="px-4 py-2.5 border border-slate-300 hover:bg-slate-50 rounded-xl font-bold text-slate-600 cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL 1B: EDIT PARTY ================= */}
+      {showEditPartyModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-3">
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">Edit Party Details (पार्टी विवरण संपादित करें)</h3>
+                <p className="text-[11px] text-slate-500 font-mono">Code: {editPartyForm.shortCode} • ID: {editPartyForm.id}</p>
+              </div>
+              <button onClick={() => setShowEditPartyModal(false)} className="text-slate-400 hover:text-slate-700 text-lg cursor-pointer">✕</button>
+            </div>
+
+            {/* Modal Internal Tabs */}
+            <div className="flex border-b border-slate-200 gap-1 pb-1 text-xs font-bold">
+              {[
+                { id: 'BASIC', label: '1. Basic & Contact (संपर्क)' },
+                { id: 'BANK', label: '2. Bank & UPI (खाता)' },
+                { id: 'TAX', label: '3. Tax, Address & Credit (उधारी)' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setEditPartyModalTab(tab.id)}
+                  className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                    editPartyModalTab === tab.id
+                      ? 'bg-blue-700 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <form onSubmit={handleSaveEditParty} className="space-y-3.5 text-xs">
+              {/* TAB 1: BASIC & CONTACT */}
+              {editPartyModalTab === 'BASIC' && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Short Code *</label>
+                      <input
+                        type="text"
+                        required
+                        value={editPartyForm.shortCode}
+                        onChange={(e) => setEditPartyForm({ ...editPartyForm, shortCode: e.target.value.toUpperCase() })}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl font-mono uppercase font-black text-blue-900 focus:ring-2 focus:ring-blue-600 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Type *</label>
+                      <select
+                        value={editPartyForm.type}
+                        onChange={(e) => setEditPartyForm({ ...editPartyForm, type: e.target.value })}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl font-bold bg-white focus:ring-2 focus:ring-blue-600 outline-none"
+                      >
+                        <option value="Buyer">Buyer (खरीदार / व्यापारी)</option>
+                        <option value="Farmer">Farmer (किसान / उत्पादक)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Full Legal / Trade Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={editPartyForm.name}
+                      onChange={(e) => setEditPartyForm({ ...editPartyForm, name: e.target.value })}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl font-bold focus:ring-2 focus:ring-blue-600 outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Proprietor / Father's Name</label>
+                      <input
+                        type="text"
+                        value={editPartyForm.fatherName}
+                        onChange={(e) => setEditPartyForm({ ...editPartyForm, fatherName: e.target.value })}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Primary Mobile Phone *</label>
+                      <input
+                        type="tel"
+                        required
+                        value={editPartyForm.mobile}
+                        onChange={(e) => setEditPartyForm({ ...editPartyForm, mobile: e.target.value })}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl font-mono focus:ring-2 focus:ring-blue-600 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Alternate Phone / WhatsApp</label>
+                    <input
+                      type="tel"
+                      value={editPartyForm.alternateMobile}
+                      onChange={(e) => setEditPartyForm({ ...editPartyForm, alternateMobile: e.target.value })}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: BANK & UPI */}
+              {editPartyModalTab === 'BANK' && (
+                <div className="space-y-3">
+                  <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 text-blue-900 text-[11px]">
+                    Banking information for farmer RTGS/NEFT payments and digital UPI settlement.
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Account Holder Name</label>
+                    <input
+                      type="text"
+                      placeholder="Account holder name"
+                      value={editPartyForm.accountHolder}
+                      onChange={(e) => setEditPartyForm({ ...editPartyForm, accountHolder: e.target.value })}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl font-bold"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Bank Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. State Bank of India"
+                        value={editPartyForm.bankName}
+                        onChange={(e) => setEditPartyForm({ ...editPartyForm, bankName: e.target.value })}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Account Number</label>
+                      <input
+                        type="text"
+                        placeholder="Account Number"
+                        value={editPartyForm.accountNo}
+                        onChange={(e) => setEditPartyForm({ ...editPartyForm, accountNo: e.target.value })}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">IFSC Code</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. SBIN0001234"
+                        value={editPartyForm.ifsc}
+                        onChange={(e) => setEditPartyForm({ ...editPartyForm, ifsc: e.target.value.toUpperCase() })}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl font-mono uppercase"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">UPI ID (VPA)</label>
+                      <input
+                        type="text"
+                        placeholder="party@upi"
+                        value={editPartyForm.upiId}
+                        onChange={(e) => setEditPartyForm({ ...editPartyForm, upiId: e.target.value })}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl font-mono text-blue-900 font-bold"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: TAX, ADDRESS & CREDIT */}
+              {editPartyModalTab === 'TAX' && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">PAN Number</label>
+                      <input
+                        type="text"
+                        placeholder="ABCDE1234F"
+                        value={editPartyForm.pan}
+                        onChange={(e) => setEditPartyForm({ ...editPartyForm, pan: e.target.value.toUpperCase() })}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl font-mono uppercase"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">GSTIN Number</label>
+                      <input
+                        type="text"
+                        placeholder="07AAAAA0000A1Z5"
+                        value={editPartyForm.gstin}
+                        onChange={(e) => setEditPartyForm({ ...editPartyForm, gstin: e.target.value.toUpperCase() })}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl font-mono uppercase"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Address / Mandi Shop No.</label>
+                    <input
+                      type="text"
+                      placeholder="Shop 14, Mandi Yard"
+                      value={editPartyForm.address}
+                      onChange={(e) => setEditPartyForm({ ...editPartyForm, address: e.target.value })}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">City / District</label>
+                      <input
+                        type="text"
+                        placeholder="City"
+                        value={editPartyForm.city}
+                        onChange={(e) => setEditPartyForm({ ...editPartyForm, city: e.target.value })}
+                        className="w-full p-2 border border-slate-300 rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">State</label>
+                      <input
+                        type="text"
+                        placeholder="State"
+                        value={editPartyForm.state}
+                        onChange={(e) => setEditPartyForm({ ...editPartyForm, state: e.target.value })}
+                        className="w-full p-2 border border-slate-300 rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">PIN Code</label>
+                      <input
+                        type="text"
+                        placeholder="PIN"
+                        value={editPartyForm.pincode}
+                        onChange={(e) => setEditPartyForm({ ...editPartyForm, pincode: e.target.value })}
+                        className="w-full p-2 border border-slate-300 rounded-xl font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Credit Limit (₹)</label>
+                      <input
+                        type="number"
+                        value={editPartyForm.creditLimit}
+                        onChange={(e) => setEditPartyForm({ ...editPartyForm, creditLimit: e.target.value })}
+                        className="w-full p-2 border border-slate-300 rounded-xl font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Opening Balance (₹)</label>
+                      <input
+                        type="number"
+                        value={editPartyForm.openingBalance}
+                        onChange={(e) => setEditPartyForm({ ...editPartyForm, openingBalance: e.target.value })}
+                        className="w-full p-2 border border-slate-300 rounded-xl font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Balance Type</label>
+                      <select
+                        value={editPartyForm.balanceType}
+                        onChange={(e) => setEditPartyForm({ ...editPartyForm, balanceType: e.target.value })}
+                        className="w-full p-2 border border-slate-300 rounded-xl font-bold bg-white"
+                      >
+                        <option value="Dr">Dr (लेना / Receivable)</option>
+                        <option value="Cr">Cr (देना / Payable)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Payment Credit Terms (Days - उधार दिवस)</label>
+                    <input
+                      type="number"
+                      value={editPartyForm.paymentTermsDays}
+                      onChange={(e) => setEditPartyForm({ ...editPartyForm, paymentTermsDays: e.target.value })}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-3 border-t">
+                <button 
+                  type="submit" 
+                  className="flex-1 py-2.5 bg-blue-700 hover:bg-blue-800 text-white rounded-xl font-bold shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Save className="w-4 h-4" /> Update Party Details (विवरण अपडेट करें)
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setShowEditPartyModal(false)} 
+                  className="px-4 py-2.5 border border-slate-300 hover:bg-slate-50 rounded-xl font-bold text-slate-600 cursor-pointer"
+                >
                   Cancel
                 </button>
               </div>

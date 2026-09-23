@@ -103,9 +103,14 @@ router.get('/parties', authenticate, async (req, res) => {
 router.post('/parties', authenticate, async (req, res) => {
   try {
     const tenantId = req.user.tenantId;
-    const { shortCode, name, type, mobile, address, creditLimit } = req.body;
+    const { 
+      shortCode, name, type, mobile, address, creditLimit,
+      bankName, accountNo, ifsc, upiId, accountHolder,
+      pan, gstin, state, city, pincode, fatherName, alternateMobile,
+      paymentTermsDays, openingBalance, balanceType
+    } = req.body;
 
-    const cleanCode = shortCode.trim().toUpperCase();
+    const cleanCode = (shortCode || ('P' + Date.now().toString().slice(-4))).trim().toUpperCase();
     const existing = await queryOne(`SELECT id FROM parties WHERE tenant_id = ? AND short_code = ?`, [tenantId, cleanCode]);
     if (existing) {
       return res.status(409).json({ error: `Short code "${cleanCode}" already exists.` });
@@ -113,21 +118,125 @@ router.post('/parties', authenticate, async (req, res) => {
 
     const id = 'P-' + Date.now();
     await run(`
-      INSERT INTO parties (id, tenant_id, short_code, name, type, mobile, address, credit_limit, current_balance)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
-    `, [id, tenantId, cleanCode, name.trim(), type || 'Buyer', mobile.trim(), address || '', parseFloat(creditLimit) || 0]);
+      INSERT INTO parties (
+        id, tenant_id, short_code, name, type, mobile, address, credit_limit, current_balance,
+        bank_name, account_no, ifsc, upi_id, account_holder,
+        pan, gstin, state, city, pincode, father_name, alternate_mobile,
+        payment_terms_days, opening_balance, balance_type
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      id, tenantId, cleanCode, name.trim(), type || 'Buyer', (mobile || '').trim(), address || '', 
+      parseFloat(creditLimit) || 0, parseFloat(openingBalance) || 0,
+      bankName || '', accountNo || '', ifsc || '', upiId || '', accountHolder || name.trim(),
+      pan || '', gstin || '', state || 'Delhi', city || 'Delhi', pincode || '', 
+      fatherName || '', alternateMobile || '', parseInt(paymentTermsDays) || 15,
+      parseFloat(openingBalance) || 0, balanceType || 'Dr'
+    ]);
 
     // If Buyer, also create entry in accounts table
     if (type === 'Buyer') {
       await run(`
         INSERT INTO accounts (id, tenant_id, party_name, short_code, contact, address, credit_limit, outstanding_udhaar)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 0)
-      `, ['ACC-' + Date.now(), tenantId, name.trim(), cleanCode, mobile.trim(), address || '', parseFloat(creditLimit) || 0]);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        'ACC-' + Date.now(), tenantId, name.trim(), cleanCode, (mobile || '').trim(), address || '', 
+        parseFloat(creditLimit) || 0, parseFloat(openingBalance) || 0
+      ]);
     }
 
-    res.status(201).json({ message: 'Party added!', id, shortCode: cleanCode });
+    res.status(201).json({ message: 'Party registered successfully!', id, shortCode: cleanCode });
   } catch (err) {
-    res.status(500).json({ error: 'Could not create party.' });
+    res.status(500).json({ error: 'Could not create party: ' + err.message });
+  }
+});
+
+router.put('/parties/:id', authenticate, async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    const { id } = req.params;
+    const { 
+      shortCode, name, type, mobile, address, creditLimit,
+      bankName, accountNo, ifsc, upiId, accountHolder,
+      pan, gstin, state, city, pincode, fatherName, alternateMobile,
+      paymentTermsDays, openingBalance, balanceType
+    } = req.body;
+
+    await run(`
+      UPDATE parties SET
+        short_code = COALESCE(?, short_code),
+        name = COALESCE(?, name),
+        type = COALESCE(?, type),
+        mobile = COALESCE(?, mobile),
+        address = COALESCE(?, address),
+        credit_limit = COALESCE(?, credit_limit),
+        bank_name = COALESCE(?, bank_name),
+        account_no = COALESCE(?, account_no),
+        ifsc = COALESCE(?, ifsc),
+        upi_id = COALESCE(?, upi_id),
+        account_holder = COALESCE(?, account_holder),
+        pan = COALESCE(?, pan),
+        gstin = COALESCE(?, gstin),
+        state = COALESCE(?, state),
+        city = COALESCE(?, city),
+        pincode = COALESCE(?, pincode),
+        father_name = COALESCE(?, father_name),
+        alternate_mobile = COALESCE(?, alternate_mobile),
+        payment_terms_days = COALESCE(?, payment_terms_days),
+        opening_balance = COALESCE(?, opening_balance),
+        balance_type = COALESCE(?, balance_type)
+      WHERE id = ? AND tenant_id = ?
+    `, [
+      shortCode ? shortCode.trim().toUpperCase() : null,
+      name ? name.trim() : null,
+      type || null,
+      mobile || null,
+      address || null,
+      creditLimit !== undefined ? parseFloat(creditLimit) : null,
+      bankName || null,
+      accountNo || null,
+      ifsc || null,
+      upiId || null,
+      accountHolder || null,
+      pan || null,
+      gstin || null,
+      state || null,
+      city || null,
+      pincode || null,
+      fatherName || null,
+      alternateMobile || null,
+      paymentTermsDays !== undefined ? parseInt(paymentTermsDays) : null,
+      openingBalance !== undefined ? parseFloat(openingBalance) : null,
+      balanceType || null,
+      id,
+      tenantId
+    ]);
+
+    // Update corresponding account if exists
+    if (shortCode || name) {
+      await run(`
+        UPDATE accounts SET
+          party_name = COALESCE(?, party_name),
+          short_code = COALESCE(?, short_code),
+          contact = COALESCE(?, contact),
+          address = COALESCE(?, address),
+          credit_limit = COALESCE(?, credit_limit)
+        WHERE tenant_id = ? AND (short_code = ? OR party_name = ?)
+      `, [
+        name ? name.trim() : null,
+        shortCode ? shortCode.trim().toUpperCase() : null,
+        mobile || null,
+        address || null,
+        creditLimit !== undefined ? parseFloat(creditLimit) : null,
+        tenantId,
+        shortCode ? shortCode.trim().toUpperCase() : '',
+        name ? name.trim() : ''
+      ]);
+    }
+
+    res.json({ message: 'Party details updated successfully!', id });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not update party: ' + err.message });
   }
 });
 

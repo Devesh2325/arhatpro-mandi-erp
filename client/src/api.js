@@ -100,6 +100,7 @@ export const API = {
     return arr;
   },
   addParty: (data) => apiRequest('/trade/parties', 'POST', data),
+  updateParty: (id, data) => apiRequest(`/trade/parties/${id}`, 'PUT', data),
   deleteParty: (id) => apiRequest(`/trade/parties/${id}`, 'DELETE'),
   getArrivals: async () => {
     const data = await apiRequest('/trade/arrivals');

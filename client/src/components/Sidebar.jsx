@@ -53,8 +53,15 @@ export default function Sidebar({ activeTab, setActiveTab }) {
         {/* Agency Identity & Switcher */}
         <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2.5">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white font-black text-xl shadow-xs shrink-0">
-              {tenant?.logo_icon || '🍎'}
+            <div 
+              className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-xl shadow-xs shrink-0 overflow-hidden border border-slate-300/40"
+              style={{ backgroundColor: 'var(--primary-dark, #0f172a)', color: '#ffffff' }}
+            >
+              {tenant?.logo_url ? (
+                <img src={tenant.logo_url} alt="Firm Logo" className="w-full h-full object-contain p-0.5" />
+              ) : (
+                <span>{tenant?.logo_icon || '🍎'}</span>
+              )}
             </div>
             <div className="min-w-0">
               <h1 className="font-black text-slate-900 text-sm leading-tight truncate">
@@ -79,7 +86,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
               value={tenant?.id || ''}
               onChange={(e) => switchTenant(e.target.value)}
               disabled={tenants.length <= 1}
-              className="w-full text-xs font-bold bg-white border border-slate-300 text-slate-700 py-1.5 px-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
+              className="w-full text-xs font-bold bg-white border border-slate-300 text-slate-700 py-1.5 px-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
               title={tenants.length <= 1 ? "Single Agency Workspace (Isolated)" : "Switch Agency Workspace"}
             >
               {tenants.map(t => (
@@ -104,15 +111,22 @@ export default function Sidebar({ activeTab, setActiveTab }) {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
+                style={isActive ? {
+                  backgroundColor: 'var(--primary, #15803d)',
+                  color: '#ffffff',
+                  boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.2)'
+                } : {}}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl font-bold transition-all text-left cursor-pointer ${
                   isActive 
-                    ? 'bg-slate-900 text-white shadow-xs' 
+                    ? 'text-white' 
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-400' : 'text-slate-500'}`} />
+                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-500'}`} />
                 <span className="flex-1">{item.label}</span>
-                <span className="text-[9px] font-mono opacity-60 bg-slate-200/50 px-1.5 py-0.5 rounded">
+                <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${
+                  isActive ? 'bg-black/25 text-white' : 'opacity-60 bg-slate-200/50 text-slate-600'
+                }`}>
                   {item.shortcut}
                 </span>
               </button>

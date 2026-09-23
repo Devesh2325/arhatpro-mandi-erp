@@ -65,7 +65,7 @@ router.put('/:id', authenticate, async (req, res) => {
     const {
       firm_name, hindi_name, tagline, proprietor, shop_no, mandi_name, apmc_license_no,
       gstin, phone, bank_name, account_no, ifsc, upi_id, standard_commission,
-      palledari_rate_per_box, bill_format, bill_disclaimer, logo_icon, theme_color
+      palledari_rate_per_box, bill_format, bill_disclaimer, logo_icon, logo_url, theme_color
     } = req.body;
 
     await run(`
@@ -88,12 +88,13 @@ router.put('/:id', authenticate, async (req, res) => {
         bill_format = COALESCE(?, bill_format),
         bill_disclaimer = COALESCE(?, bill_disclaimer),
         logo_icon = COALESCE(?, logo_icon),
+        logo_url = COALESCE(?, logo_url),
         theme_color = COALESCE(?, theme_color)
       WHERE id = ?
     `, [
       firm_name, hindi_name, tagline, proprietor, shop_no, mandi_name, apmc_license_no,
       gstin, phone, bank_name, account_no, ifsc, upi_id, standard_commission,
-      palledari_rate_per_box, bill_format, bill_disclaimer, logo_icon, theme_color,
+      palledari_rate_per_box, bill_format, bill_disclaimer, logo_icon, logo_url, theme_color,
       tId
     ]);
 
