@@ -35,6 +35,60 @@ router.post('/commodities', authenticate, async (req, res) => {
   }
 });
 
+router.put('/commodities/:id', authenticate, async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    const { id } = req.params;
+    const { nameEn, nameHi, category, defaultUnit, unitWeightKg, tareDeductionKg, standardCommissionPct, palledariRatePerUnit, active } = req.body;
+
+    const existing = await queryOne(`SELECT id FROM commodities WHERE id = ? AND tenant_id = ?`, [id, tenantId]);
+    if (!existing) {
+      return res.status(404).json({ error: 'Commodity not found.' });
+    }
+
+    await run(`
+      UPDATE commodities SET
+        name_en = ?,
+        name_hi = ?,
+        category = ?,
+        default_unit = ?,
+        unit_weight_kg = ?,
+        tare_deduction_kg = ?,
+        standard_commission_pct = ?,
+        palledari_rate_per_unit = ?,
+        active = ?
+      WHERE id = ? AND tenant_id = ?
+    `, [
+      nameEn ? nameEn.trim() : 'Produce',
+      nameHi || '',
+      category || 'Fruit',
+      defaultUnit || 'Box (20kg)',
+      parseFloat(unitWeightKg) || 20,
+      parseFloat(tareDeductionKg) || 1.0,
+      parseFloat(standardCommissionPct) || 2.5,
+      parseFloat(palledariRatePerUnit) || 10,
+      active !== undefined ? (active ? 1 : 0) : 1,
+      id,
+      tenantId
+    ]);
+
+    res.json({ message: 'Commodity configuration updated successfully!', id });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not update commodity: ' + err.message });
+  }
+});
+
+router.delete('/commodities/:id', authenticate, async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    const { id } = req.params;
+    await run(`DELETE FROM commodities WHERE id = ? AND tenant_id = ?`, [id, tenantId]);
+    res.json({ message: 'Commodity deleted successfully.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not delete commodity: ' + err.message });
+  }
+});
+
 // ================= 2. PARTIES (Farmers & Buyers) =================
 router.get('/parties', authenticate, async (req, res) => {
   try {
@@ -255,6 +309,77 @@ router.post('/quick-trade', authenticate, async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to process quick trade: ' + err.message });
+  }
+});
+
+// ================= 6. MANDI COMPREHENSIVE REPORTS =================
+router.get('/reports/data', authenticate, async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    const { fromDate, toDate } = req.query;
+
+    let arrivalQuery = `SELECT * FROM arrivals WHERE tenant_id = ?`;
+    let arrivalParams = [tenantId];
+    if (fromDate) {
+      arrivalQuery += ` AND date >= ?`;
+      arrivalParams.push(fromDate);
+    }
+    if (toDate) {
+      arrivalQuery += ` AND date <= ?`;
+      arrivalParams.push(toDate);
+    }
+    arrivalQuery += ` ORDER BY date DESC, time DESC`;
+    const arrivals = await query(arrivalQuery, arrivalParams);
+
+    // Fetch joined sales with lot information
+    let salesQuery = `
+      SELECT 
+        s.id,
+        s.lot_id,
+        s.sale_code,
+        s.buyer_name,
+        s.buyer_contact,
+        s.quantity,
+        s.rate,
+        s.gross_amount,
+        s.time,
+        s.payment_mode,
+        s.created_at,
+        l.commodity_name,
+        l.variety,
+        l.farmer_name,
+        l.farmer_location,
+        l.farmer_phone,
+        l.truck_no,
+        l.unit,
+        l.freight_advance_paid
+      FROM split_sales s
+      JOIN sales_lots l ON s.lot_id = l.id
+      WHERE s.tenant_id = ?
+    `;
+    let salesParams = [tenantId];
+    if (fromDate) {
+      salesQuery += ` AND DATE(s.created_at) >= ?`;
+      salesParams.push(fromDate);
+    }
+    if (toDate) {
+      salesQuery += ` AND DATE(s.created_at) <= ?`;
+      salesParams.push(toDate);
+    }
+    salesQuery += ` ORDER BY s.created_at DESC`;
+    const sales = await query(salesQuery, salesParams);
+
+    const accounts = await query(`SELECT * FROM accounts WHERE tenant_id = ? ORDER BY party_name ASC`, [tenantId]);
+    const parties = await query(`SELECT * FROM parties WHERE tenant_id = ? ORDER BY name ASC`, [tenantId]);
+
+    res.json({
+      arrivals,
+      sales,
+      accounts,
+      parties
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch reports data: ' + err.message });
   }
 });
 

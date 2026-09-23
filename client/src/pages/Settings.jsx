@@ -18,7 +18,8 @@ import {
   Search, 
   X,
   CreditCard,
-  QrCode
+  QrCode,
+  Edit
 } from 'lucide-react';
 
 export default function Settings() {
@@ -89,6 +90,20 @@ export default function Settings() {
     tareDeductionKg: '1.0',
     standardCommissionPct: '6.0',
     palledariRatePerUnit: '10'
+  });
+
+  const [showEditCommodityModal, setShowEditCommodityModal] = useState(false);
+  const [editCommodityForm, setEditCommodityForm] = useState({
+    id: '',
+    nameEn: '',
+    nameHi: '',
+    category: 'Fruit',
+    defaultUnit: 'Box (20kg)',
+    unitWeightKg: '20',
+    tareDeductionKg: '1.0',
+    standardCommissionPct: '6.0',
+    palledariRatePerUnit: '10',
+    active: 1
   });
 
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
@@ -289,6 +304,48 @@ export default function Settings() {
       loadCommodities();
     } catch (err) {
       setMessage({ type: 'error', text: err.message || 'Failed to add commodity.' });
+    }
+  };
+
+  // Edit Commodity Handlers
+  const handleOpenEditCommodity = (c) => {
+    setEditCommodityForm({
+      id: c.id,
+      nameEn: c.name_en || c.name || '',
+      nameHi: c.name_hi || '',
+      category: c.category || 'Fruit',
+      defaultUnit: c.default_unit || 'Box (20kg)',
+      unitWeightKg: (c.unit_weight_kg || 20).toString(),
+      tareDeductionKg: (c.tare_deduction_kg || 1.0).toString(),
+      standardCommissionPct: (c.standard_commission_pct || 6.0).toString(),
+      palledariRatePerUnit: (c.palledari_rate_per_unit || 10).toString(),
+      active: c.active !== undefined ? c.active : 1
+    });
+    setShowEditCommodityModal(true);
+  };
+
+  const handleSaveEditCommodity = async (e) => {
+    e.preventDefault();
+    setMessage(null);
+    try {
+      await api.updateCommodity(editCommodityForm.id, editCommodityForm);
+      setMessage({ type: 'success', text: `Commodity "${editCommodityForm.nameEn}" updated successfully!` });
+      setShowEditCommodityModal(false);
+      loadCommodities();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Failed to update commodity.' });
+    }
+  };
+
+  const handleDeleteCommodity = async (id, name) => {
+    if (!window.confirm(`Are you sure you want to delete commodity "${name}"?`)) return;
+    setMessage(null);
+    try {
+      await api.deleteCommodity(id);
+      setMessage({ type: 'success', text: `Commodity "${name}" deleted successfully.` });
+      loadCommodities();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Failed to delete commodity.' });
     }
   };
 
@@ -846,11 +903,12 @@ export default function Settings() {
                   <th className="p-3 text-right">Tare Deduction</th>
                   <th className="p-3 text-right">Commission %</th>
                   <th className="p-3 text-right">Palledari (₹)</th>
+                  <th className="p-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {commodities.length === 0 ? (
-                  <tr><td colSpan="6" className="text-center py-8 text-slate-400">No commodities registered yet.</td></tr>
+                  <tr><td colSpan="7" className="text-center py-8 text-slate-400">No commodities registered yet.</td></tr>
                 ) : (
                   commodities.map(c => (
                     <tr key={c.id} className="hover:bg-slate-50">
@@ -867,6 +925,22 @@ export default function Settings() {
                       <td className="p-3 text-right font-mono">{c.tare_deduction_kg || 1.0} kg</td>
                       <td className="p-3 text-right font-mono font-bold text-emerald-700">{c.standard_commission_pct || 6.0}%</td>
                       <td className="p-3 text-right font-mono">₹{c.palledari_rate_per_unit || 10}</td>
+                      <td className="p-3 text-right space-x-1.5 whitespace-nowrap">
+                        <button
+                          onClick={() => handleOpenEditCommodity(c)}
+                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer transition-colors border border-blue-200"
+                          title="Edit Commodity (फसल कॉन्फ़िगरेशन एडिट करें)"
+                        >
+                          <Edit className="w-3 h-3" /> Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCommodity(c.id, c.name_en || c.name)}
+                          className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
+                          title="Delete Commodity"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -1091,10 +1165,145 @@ export default function Settings() {
                 </div>
               </div>
               <div className="flex gap-2 pt-2">
-                <button type="submit" className="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold">
+                <button type="submit" className="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold cursor-pointer">
                   Save Commodity
                 </button>
-                <button type="button" onClick={() => setShowAddCommodityModal(false)} className="px-4 py-2.5 border rounded-xl">
+                <button type="button" onClick={() => setShowAddCommodityModal(false)} className="px-4 py-2.5 border rounded-xl cursor-pointer">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL 2B: EDIT COMMODITY CONFIGURATION ================= */}
+      {showEditCommodityModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-3">
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">Edit Commodity Configuration (फसल कॉन्फ़िगरेशन एडिट करें)</h3>
+                <p className="text-[11px] text-slate-500 font-mono">ID: {editCommodityForm.id}</p>
+              </div>
+              <button onClick={() => setShowEditCommodityModal(false)} className="text-slate-400 hover:text-slate-700 text-lg p-1 cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleSaveEditCommodity} className="space-y-3.5 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Commodity Name (English) *</label>
+                <input
+                  type="text"
+                  required
+                  value={editCommodityForm.nameEn}
+                  onChange={(e) => setEditCommodityForm({ ...editCommodityForm, nameEn: e.target.value })}
+                  className="w-full p-2.5 border border-slate-300 rounded-xl font-bold focus:ring-2 focus:ring-emerald-600 outline-none"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Hindi Name (हिंदी नाम)</label>
+                  <input
+                    type="text"
+                    value={editCommodityForm.nameHi}
+                    onChange={(e) => setEditCommodityForm({ ...editCommodityForm, nameHi: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-600 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Category (श्रेणी)</label>
+                  <select
+                    value={editCommodityForm.category}
+                    onChange={(e) => setEditCommodityForm({ ...editCommodityForm, category: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl font-bold bg-white focus:ring-2 focus:ring-emerald-600 outline-none"
+                  >
+                    <option value="Fruit">Fruit (फल)</option>
+                    <option value="Vegetable">Vegetable (सब्जी)</option>
+                    <option value="Grain">Grain (अनाज)</option>
+                    <option value="Exotic">Exotic Produce</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Default Unit (पैकिंग प्रकार)</label>
+                  <input
+                    type="text"
+                    value={editCommodityForm.defaultUnit}
+                    onChange={(e) => setEditCommodityForm({ ...editCommodityForm, defaultUnit: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-600 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Unit Weight (Kg)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={editCommodityForm.unitWeightKg}
+                    onChange={(e) => setEditCommodityForm({ ...editCommodityForm, unitWeightKg: e.target.value })}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl font-mono focus:ring-2 focus:ring-emerald-600 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Tare Wt (Kg)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={editCommodityForm.tareDeductionKg}
+                    onChange={(e) => setEditCommodityForm({ ...editCommodityForm, tareDeductionKg: e.target.value })}
+                    className="w-full p-2 border border-slate-300 rounded-xl font-mono focus:ring-2 focus:ring-emerald-600 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Commission %</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={editCommodityForm.standardCommissionPct}
+                    onChange={(e) => setEditCommodityForm({ ...editCommodityForm, standardCommissionPct: e.target.value })}
+                    className="w-full p-2 border border-slate-300 rounded-xl font-mono font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-600 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Palledari (₹)</label>
+                  <input
+                    type="number"
+                    step="1"
+                    value={editCommodityForm.palledariRatePerUnit}
+                    onChange={(e) => setEditCommodityForm({ ...editCommodityForm, palledariRatePerUnit: e.target.value })}
+                    className="w-full p-2 border border-slate-300 rounded-xl font-mono focus:ring-2 focus:ring-emerald-600 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="commodityActive"
+                  checked={editCommodityForm.active === 1 || editCommodityForm.active === true}
+                  onChange={(e) => setEditCommodityForm({ ...editCommodityForm, active: e.target.checked ? 1 : 0 })}
+                  className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                />
+                <label htmlFor="commodityActive" className="text-xs font-bold text-slate-700 cursor-pointer">
+                  Active Produce (व्यापार एवं नीलामी हेतु सक्रिय)
+                </label>
+              </div>
+
+              <div className="flex gap-2 pt-3 border-t">
+                <button 
+                  type="submit" 
+                  className="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Save className="w-4 h-4" /> Update Commodity Configuration
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setShowEditCommodityModal(false)} 
+                  className="px-4 py-2.5 border border-slate-300 hover:bg-slate-50 rounded-xl font-bold text-slate-600 cursor-pointer"
+                >
                   Cancel
                 </button>
               </div>

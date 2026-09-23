@@ -87,6 +87,12 @@ export const API = {
     return arr;
   },
   addCommodity: (data) => apiRequest('/trade/commodities', 'POST', data),
+  updateCommodity: (id, data) => apiRequest(`/trade/commodities/${id}`, 'PUT', data),
+  deleteCommodity: (id) => apiRequest(`/trade/commodities/${id}`, 'DELETE'),
+  getReportsData: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return apiRequest(`/trade/reports/data${q ? '?' + q : ''}`);
+  },
   getParties: async () => {
     const data = await apiRequest('/trade/parties');
     const arr = Array.isArray(data) ? [...data] : (data?.parties ? [...data.parties] : []);
