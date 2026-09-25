@@ -1,13 +1,48 @@
-const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
 
-const dbPath = path.resolve(__dirname, 'mandi.sqlite');
-const db = new sqlite3.Database(dbPath);
+const isPostgres = !!(process.env.DATABASE_URL || process.env.SUPABASE_DB_URL);
+let pgPool = null;
+let sqliteDb = null;
+
+if (isPostgres) {
+  const connectionString = process.env.DATABASE_URL || process.env.SUPABASE_DB_URL;
+  pgPool = new Pool({
+    connectionString,
+    ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false }
+  });
+  console.log('⚡ Connected to Supabase Cloud PostgreSQL Database');
+} else {
+  const dbPath = path.resolve(__dirname, 'mandi.sqlite');
+  sqliteDb = new sqlite3.Database(dbPath);
+  console.log('📦 Connected to Local SQLite Database (mandi.sqlite)');
+}
+
+// Convert SQLite ? placeholders to PostgreSQL $1, $2, etc.
+function toPgSql(sql) {
+  let idx = 1;
+  return sql.replace(/\?/g, () => `$${idx++}`);
+}
+
+// Normalize SQL DDL types for PostgreSQL
+function normalizeDdl(sql) {
+  if (!isPostgres) return sql;
+  return sql
+    .replace(/\bDATETIME\b/gi, 'TIMESTAMPTZ')
+    .replace(/\bREAL\b/gi, 'NUMERIC')
+    .replace(/\bPRAGMA foreign_keys = ON;?\b/gi, '');
+}
 
 // Promisified query helper (SELECT)
-function query(sql, params = []) {
+async function query(sql, params = []) {
+  if (isPostgres) {
+    const res = await pgPool.query(toPgSql(sql), params);
+    return res.rows;
+  }
   return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
+    sqliteDb.all(sql, params, (err, rows) => {
       if (err) reject(err);
       else resolve(rows);
     });
@@ -15,9 +50,13 @@ function query(sql, params = []) {
 }
 
 // Promisified single row query helper (SELECT LIMIT 1)
-function queryOne(sql, params = []) {
+async function queryOne(sql, params = []) {
+  if (isPostgres) {
+    const res = await pgPool.query(toPgSql(sql), params);
+    return res.rows[0] || null;
+  }
   return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
+    sqliteDb.get(sql, params, (err, row) => {
       if (err) reject(err);
       else resolve(row);
     });
@@ -25,9 +64,17 @@ function queryOne(sql, params = []) {
 }
 
 // Promisified run helper (INSERT, UPDATE, DELETE)
-function run(sql, params = []) {
+async function run(sql, params = []) {
+  if (isPostgres) {
+    const cleanSql = normalizeDdl(sql).trim();
+    if (!cleanSql || cleanSql.toUpperCase().startsWith('PRAGMA')) {
+      return { lastID: null, changes: 0 };
+    }
+    const res = await pgPool.query(toPgSql(cleanSql), params);
+    return { lastID: null, changes: res.rowCount };
+  }
   return new Promise((resolve, reject) => {
-    db.run(sql, params, function(err) {
+    sqliteDb.run(sql, params, function(err) {
       if (err) reject(err);
       else resolve({ lastID: this.lastID, changes: this.changes });
     });
@@ -432,7 +479,9 @@ async function seedInitialData() {
 }
 
 module.exports = {
-  db,
+  db: sqliteDb,
+  pgPool,
+  isPostgres,
   query,
   queryOne,
   run,
