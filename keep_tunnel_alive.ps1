@@ -25,17 +25,24 @@ while ($true) {
     }
     
     while (-not $process.HasExited) {
-        Start-Sleep -Seconds 45
+        Start-Sleep -Seconds 30
         if ($tunnelUrl) {
             try {
-                Invoke-WebRequest -Uri $tunnelUrl -UseBasicParsing -TimeoutSec 10 | Out-Null
+                $resp = Invoke-WebRequest -Uri $tunnelUrl -UseBasicParsing -TimeoutSec 10
+                if ($resp.StatusCode -ne 200) {
+                    Write-Host "Heartbeat non-200 ($($resp.StatusCode)). Restarting SSH..."
+                    Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+                    break
+                }
                 Write-Host "Heartbeat ping sent to $tunnelUrl at $(Get-Date -Format 'HH:mm:ss')"
             } catch {
-                # Ignore transient network errors
+                Write-Host "Heartbeat failed ($($_.Exception.Message)). Restarting SSH..."
+                Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+                break
             }
         }
     }
     
-    Write-Host "SSH process exited. Reconnecting in 5 seconds..."
-    Start-Sleep -Seconds 5
+    Write-Host "SSH process finished. Reconnecting in 3 seconds..."
+    Start-Sleep -Seconds 3
 }

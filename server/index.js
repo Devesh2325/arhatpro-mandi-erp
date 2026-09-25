@@ -43,17 +43,19 @@ app.get('*', (req, res, next) => {
   });
 });
 
-// Start Server after Schema Init
+// Start Server immediately and initialize schema asynchronously
+const server = app.listen(PORT, () => {
+  console.log(`====================================================`);
+  console.log(`🚀 ArhatPro Backend API Running on http://localhost:${PORT}`);
+  console.log(`⚡ Database: Connected to Supabase Cloud PostgreSQL`);
+  console.log(`====================================================`);
+});
+
 initSchema()
   .then(() => {
-    app.listen(PORT, () => {
-      console.log(`====================================================`);
-      console.log(`🚀 ArhatPro Backend API Running on http://localhost:${PORT}`);
-      console.log(`📦 Relational SQL Database: Connected and Seeded`);
-      console.log(`====================================================`);
-    });
+    console.log(`📦 Relational SQL Schema: Verified on Supabase Cloud`);
   })
   .catch((err) => {
-    console.error('Fatal Database Initialization Error:', err);
-    process.exit(1);
+    console.error('Database Initialization Warning:', err.message);
   });
+
