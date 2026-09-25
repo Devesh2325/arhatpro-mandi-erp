@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useTenant, THEME_PRESETS } from '../context/TenantContext';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { 
   Building2, 
   Palette, 
@@ -26,6 +27,7 @@ export default function Settings() {
   const { currentTenant, activeTenant, applyTheme, refreshTenant } = useTenant();
   const tenant = currentTenant || activeTenant;
   const { user } = useAuth();
+  const { language, t } = useLanguage();
 
   const [activeTab, setActiveTab] = useState('PROFILE'); // PROFILE, THEME, STATUTORY, PRINTER, PARTIES, COMMODITIES, TEAM
   const [loading, setLoading] = useState(false);
@@ -483,10 +485,10 @@ export default function Settings() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
           <Building2 className="w-7 h-7 text-emerald-700" />
-          Mandi Settings &amp; Master Configuration (मास्टर सेटिंग्स)
+          {t('Mandi Settings & Master Configuration', 'मंडी सेटिंग्स एवं मास्टर कॉन्फ़िगरेशन')}
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          Full control of your APMC agency identity, banking, multi-theme branding, party short codes, commodities &amp; team.
+          {t('Full control of your APMC agency identity, banking, multi-theme branding, party short codes, commodities & team.', 'अपनी एपीएमसी एजेंसी विवरण, बैंक खाता, थीम रंग, पार्टी शॉर्ट कोड, फसल सूची और मुनीम स्टाफ का पूर्ण प्रबंधन।')}
         </p>
       </div>
 
@@ -502,21 +504,21 @@ export default function Settings() {
       {/* Settings Navigation Tabs (Same as previous system) */}
       <div className="flex border-b border-gray-200 gap-2 overflow-x-auto pb-1 text-xs font-bold select-none">
         {[
-          { id: 'PROFILE', label: '1. Firm Profile & Bank', icon: Building2 },
-          { id: 'THEME', label: '2. Multi-Theme Palette', icon: Palette },
-          { id: 'STATUTORY', label: '3. Statutory APMC Rates', icon: Scale },
-          { id: 'PRINTER', label: '4. Printer & Formats', icon: Printer },
-          { id: 'PARTIES', label: '5. Party Master (Short Code)', icon: Tag },
-          { id: 'COMMODITIES', label: '6. Commodity Master', icon: Apple },
-          { id: 'TEAM', label: '7. Staff & Munshis', icon: Users }
-        ].map(t => {
-          const Icon = t.icon;
-          const isActive = activeTab === t.id;
+          { id: 'PROFILE', labelEn: '1. Firm Profile & Bank', labelHi: '1. फर्म विवरण व बैंक', icon: Building2 },
+          { id: 'THEME', labelEn: '2. Multi-Theme Palette', labelHi: '2. थीम रंग चयन', icon: Palette },
+          { id: 'STATUTORY', labelEn: '3. Statutory APMC Rates', labelHi: '3. मंडी शुल्क दरें', icon: Scale },
+          { id: 'PRINTER', labelEn: '4. Printer & Formats', labelHi: '4. प्रिंटर व फॉर्मेट', icon: Printer },
+          { id: 'PARTIES', labelEn: '5. Party Master', labelHi: '5. पार्टी मास्टर (शॉर्ट कोड)', icon: Tag },
+          { id: 'COMMODITIES', labelEn: '6. Commodity Master', labelHi: '6. फसल मास्टर', icon: Apple },
+          { id: 'TEAM', labelEn: '7. Staff & Munshis', labelHi: '7. स्टाफ एवं मुनीम', icon: Users }
+        ].map(tItem => {
+          const Icon = tItem.icon;
+          const isActive = activeTab === tItem.id;
           return (
             <button
-              key={t.id}
+              key={tItem.id}
               type="button"
-              onClick={() => { setActiveTab(t.id); setMessage(null); }}
+              onClick={() => { setActiveTab(tItem.id); setMessage(null); }}
               className={`px-3 py-2.5 rounded-xl flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${
                 isActive
                   ? 'bg-slate-900 text-white shadow-xs'
@@ -524,7 +526,7 @@ export default function Settings() {
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
-              {t.label}
+              {language === 'hi' ? tItem.labelHi : tItem.labelEn}
             </button>
           );
         })}
@@ -534,7 +536,7 @@ export default function Settings() {
       {activeTab === 'PROFILE' && (
         <form onSubmit={handleSaveProfile} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5 text-xs">
           <div className="border-b border-slate-100 pb-3">
-            <h3 className="text-sm font-bold text-slate-900">Firm Profile &amp; Banking Details (फर्म विवरण)</h3>
+            <h3 className="text-sm font-bold text-slate-900">{t('Firm Profile & Banking Details', 'फर्म विवरण एवं बैंक खाते की जानकारी')}</h3>
             <p className="text-slate-500 text-[11px]">Printed on official bills, J-Forms, Purcha slips and Teep vouchers.</p>
           </div>
 
@@ -542,7 +544,7 @@ export default function Settings() {
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3.5">
             <div className="flex items-center justify-between">
               <div>
-                <span className="font-bold text-slate-800 text-xs block">Agency Logo &amp; Brand Icon (फर्म का लोगो व प्रतीक चिन्ह)</span>
+                <span className="font-bold text-slate-800 text-xs block">{t('Agency Logo & Brand Icon', 'फर्म का लोगो एवं प्रतीक चिन्ह')}</span>
                 <span className="text-[11px] text-slate-500">Appears on sidebar, invoices, Form J vouchers, and letterhead headers.</span>
               </div>
               {profileForm.logo_url && (
@@ -582,7 +584,7 @@ export default function Settings() {
                     />
                   </div>
                   <div>
-                    <label className="font-bold text-slate-700 block mb-1">Or Logo Image URL (वेब लिंक)</label>
+                    <label className="font-bold text-slate-700 block mb-1">{t('Or Logo Image URL', 'या लोगो इमेज यूआरएल')}</label>
                     <input
                       type="url"
                       placeholder="https://example.com/logo.png"
@@ -595,7 +597,7 @@ export default function Settings() {
 
                 {/* Quick Emoji Picker */}
                 <div>
-                  <label className="font-bold text-slate-600 block mb-1 text-[11px]">Or Choose Standard Mandi Emoji Icon (प्रतीक इमोजी)</label>
+                  <label className="font-bold text-slate-600 block mb-1 text-[11px]">{t('Or Choose Standard Mandi Emoji Icon', 'या मानक मंडी इमोजी प्रतीक चुनें')}</label>
                   <div className="flex flex-wrap gap-1.5">
                     {['🍎', '🥭', '🍇', '🍌', '🥔', '🧅', '🌾', '🌽', '🥦', '🥑', '🏢', '📦', '⚖️', '💰', '🚚'].map(emoji => (
                       <button
@@ -630,7 +632,7 @@ export default function Settings() {
               />
             </div>
             <div>
-              <label className="font-bold text-slate-700 block mb-1">Hindi Name (हिंदी नाम)</label>
+              <label className="font-bold text-slate-700 block mb-1">{t('Hindi Name', 'हिंदी नाम')}</label>
               <input
                 type="text"
                 placeholder="e.g. श्री गणेश फ्रूट कंपनी"
@@ -707,7 +709,7 @@ export default function Settings() {
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
             <div className="font-bold text-slate-800 flex items-center gap-2">
               <CreditCard className="w-4 h-4 text-emerald-700" />
-              <span>Banking &amp; Digital UPI Settlement (बैंक खाता)</span>
+              <span>{t('Banking & Digital UPI Settlement', 'बैंक खाता एवं डिजिटल यूपीआई विवरण')}</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <div>
@@ -768,7 +770,7 @@ export default function Settings() {
       {activeTab === 'THEME' && (
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5 text-xs">
           <div className="border-b border-slate-100 pb-3">
-            <h3 className="text-sm font-bold text-slate-900">Multi-Theme Palette (थीम रंग चयन)</h3>
+            <h3 className="text-sm font-bold text-slate-900">{t('Multi-Theme Palette', 'थीम रंग चयन')}</h3>
             <p className="text-slate-500 text-[11px]">Select a tailored wholesale market color theme. Changes apply instantly across the entire interface and save permanently.</p>
           </div>
 
@@ -825,7 +827,7 @@ export default function Settings() {
       {activeTab === 'STATUTORY' && (
         <form onSubmit={handleSaveRates} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5 text-xs max-w-2xl">
           <div className="border-b border-slate-100 pb-3">
-            <h3 className="text-sm font-bold text-slate-900">Statutory APMC Delhi Rates &amp; Bye-Laws (मंडी शुल्क दरें)</h3>
+            <h3 className="text-sm font-bold text-slate-900">{t('Statutory APMC Delhi Rates & Bye-Laws', 'मंडी शुल्क एवं कानूनी दरें')}</h3>
             <p className="text-slate-500 text-[11px]">Applied to auction lots, consignor settlement Teeps, and buyer purcha calculations.</p>
           </div>
 
@@ -909,7 +911,7 @@ export default function Settings() {
       {activeTab === 'PRINTER' && (
         <form onSubmit={handleSavePrinter} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5 text-xs max-w-2xl">
           <div className="border-b border-slate-100 pb-3">
-            <h3 className="text-sm font-bold text-slate-900">Printer Format &amp; Custom Disclaimers (प्रिंटर फॉर्मेट)</h3>
+            <h3 className="text-sm font-bold text-slate-900">{t('Printer Format & Custom Disclaimers', 'प्रिंटर फॉर्मेट एवं कानूनी नियम')}</h3>
             <p className="text-slate-500 text-[11px]">Configure default invoice print layout for thermal receipt rolls or standard A4 documents.</p>
           </div>
 
@@ -973,7 +975,7 @@ export default function Settings() {
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden text-xs space-y-4 p-5">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
-              <h3 className="text-sm font-bold text-slate-900">Party Master (शॉर्ट कोड मास्टर)</h3>
+              <h3 className="text-sm font-bold text-slate-900">{t('Party Master (Short Codes)', 'पार्टी मास्टर (शॉर्ट कोड)')}</h3>
               <p className="text-slate-500 text-[11px]">Manage buyer short codes (AGW, RJD) and farmer accounts for instant auction allocation.</p>
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -1800,20 +1802,20 @@ export default function Settings() {
                       />
                     </div>
                     <div>
-                      <label className="font-bold text-slate-700 block mb-1">Balance Type</label>
+                      <label className="font-bold text-slate-700 block mb-1">{t('Balance Type', 'बैलेंस प्रकार')}</label>
                       <select
                         value={editPartyForm.balanceType}
                         onChange={(e) => setEditPartyForm({ ...editPartyForm, balanceType: e.target.value })}
                         className="w-full p-2 border border-slate-300 rounded-xl font-bold bg-white"
                       >
-                        <option value="Dr">Dr (लेना / Receivable)</option>
-                        <option value="Cr">Cr (देना / Payable)</option>
+                        <option value="Dr">{t('Dr (Receivable)', 'Dr (लेना)')}</option>
+                        <option value="Cr">{t('Cr (Payable)', 'Cr (देना)')}</option>
                       </select>
                     </div>
                   </div>
 
                   <div>
-                    <label className="font-bold text-slate-700 block mb-1">Payment Credit Terms (Days - उधार दिवस)</label>
+                    <label className="font-bold text-slate-700 block mb-1">{t('Payment Credit Terms (Days)', 'उधार भुगतान अवधि (दिन)')}</label>
                     <input
                       type="number"
                       value={editPartyForm.paymentTermsDays}
@@ -1829,14 +1831,14 @@ export default function Settings() {
                   type="submit" 
                   className="flex-1 py-2.5 bg-blue-700 hover:bg-blue-800 text-white rounded-xl font-bold shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
                 >
-                  <Save className="w-4 h-4" /> Update Party Details (विवरण अपडेट करें)
+                  <Save className="w-4 h-4" /> {t('Update Party Details', 'विवरण अपडेट करें')}
                 </button>
                 <button 
                   type="button" 
                   onClick={() => setShowEditPartyModal(false)} 
                   className="px-4 py-2.5 border border-slate-300 hover:bg-slate-50 rounded-xl font-bold text-slate-600 cursor-pointer"
                 >
-                  Cancel
+                  {t('Cancel', 'रद्द करें')}
                 </button>
               </div>
             </form>
@@ -1849,12 +1851,12 @@ export default function Settings() {
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl space-y-4">
             <div className="flex justify-between items-center border-b pb-3">
-              <h3 className="font-bold text-slate-900 text-sm">Add Commodity (फसल मास्टर)</h3>
+              <h3 className="font-bold text-slate-900 text-sm">{t('Add Commodity', 'नई फसल जोड़ें')}</h3>
               <button onClick={() => setShowAddCommodityModal(false)} className="text-slate-400">✕</button>
             </div>
             <form onSubmit={handleAddCommoditySubmit} className="space-y-3 text-xs">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Commodity Name (English) *</label>
+                <label className="font-bold text-slate-700 block mb-1">{t('Commodity Name (English) *', 'फसल का नाम (अंग्रेज़ी) *')}</label>
                 <input
                   type="text"
                   required
@@ -1866,7 +1868,7 @@ export default function Settings() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Hindi Name</label>
+                  <label className="font-bold text-slate-700 block mb-1">{t('Hindi Name', 'हिन्दी नाम')}</label>
                   <input
                     type="text"
                     placeholder="सेब - रॉयल"
@@ -1876,21 +1878,21 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Category</label>
+                  <label className="font-bold text-slate-700 block mb-1">{t('Category', 'श्रेणी')}</label>
                   <select
                     value={commodityForm.category}
                     onChange={(e) => setCommodityForm({ ...commodityForm, category: e.target.value })}
                     className="w-full p-2 border border-slate-300 rounded-xl font-bold"
                   >
-                    <option value="Fruit">Fruit (फल)</option>
-                    <option value="Vegetable">Vegetable (सब्जी)</option>
-                    <option value="Grain">Grain (अनाज)</option>
+                    <option value="Fruit">{t('Fruit', 'फल')}</option>
+                    <option value="Vegetable">{t('Vegetable', 'सब्जी')}</option>
+                    <option value="Grain">{t('Grain', 'अनाज')}</option>
                   </select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Default Unit</label>
+                  <label className="font-bold text-slate-700 block mb-1">{t('Default Unit', 'मानक इकाई')}</label>
                   <input
                     type="text"
                     value={commodityForm.defaultUnit}
@@ -1899,7 +1901,7 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Unit Weight (Kg)</label>
+                  <label className="font-bold text-slate-700 block mb-1">{t('Unit Weight (Kg)', 'इकाई वजन (किलो)')}</label>
                   <input
                     type="number"
                     value={commodityForm.unitWeightKg}
@@ -1910,10 +1912,10 @@ export default function Settings() {
               </div>
               <div className="flex gap-2 pt-2">
                 <button type="submit" className="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold cursor-pointer">
-                  Save Commodity
+                  {t('Save Commodity', 'फसल सुरक्षित करें')}
                 </button>
                 <button type="button" onClick={() => setShowAddCommodityModal(false)} className="px-4 py-2.5 border rounded-xl cursor-pointer">
-                  Cancel
+                  {t('Cancel', 'रद्द करें')}
                 </button>
               </div>
             </form>
@@ -1927,14 +1929,14 @@ export default function Settings() {
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b pb-3">
               <div>
-                <h3 className="font-bold text-slate-900 text-sm">Edit Commodity Configuration (फसल कॉन्फ़िगरेशन एडिट करें)</h3>
+                <h3 className="font-bold text-slate-900 text-sm">{t('Edit Commodity Configuration', 'फसल कॉन्फ़िगरेशन एडिट करें')}</h3>
                 <p className="text-[11px] text-slate-500 font-mono">ID: {editCommodityForm.id}</p>
               </div>
               <button onClick={() => setShowEditCommodityModal(false)} className="text-slate-400 hover:text-slate-700 text-lg p-1 cursor-pointer">✕</button>
             </div>
             <form onSubmit={handleSaveEditCommodity} className="space-y-3.5 text-xs">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Commodity Name (English) *</label>
+                <label className="font-bold text-slate-700 block mb-1">{t('Commodity Name (English) *', 'फसल का नाम (अंग्रेज़ी) *')}</label>
                 <input
                   type="text"
                   required
@@ -1945,7 +1947,7 @@ export default function Settings() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Hindi Name (हिंदी नाम)</label>
+                  <label className="font-bold text-slate-700 block mb-1">{t('Hindi Name', 'हिन्दी नाम')}</label>
                   <input
                     type="text"
                     value={editCommodityForm.nameHi}
@@ -1954,23 +1956,23 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Category (श्रेणी)</label>
+                  <label className="font-bold text-slate-700 block mb-1">{t('Category', 'श्रेणी')}</label>
                   <select
                     value={editCommodityForm.category}
                     onChange={(e) => setEditCommodityForm({ ...editCommodityForm, category: e.target.value })}
                     className="w-full p-2.5 border border-slate-300 rounded-xl font-bold bg-white focus:ring-2 focus:ring-emerald-600 outline-none"
                   >
-                    <option value="Fruit">Fruit (फल)</option>
-                    <option value="Vegetable">Vegetable (सब्जी)</option>
-                    <option value="Grain">Grain (अनाज)</option>
-                    <option value="Exotic">Exotic Produce</option>
+                    <option value="Fruit">{t('Fruit', 'फल')}</option>
+                    <option value="Vegetable">{t('Vegetable', 'सब्जी')}</option>
+                    <option value="Grain">{t('Grain', 'अनाज')}</option>
+                    <option value="Exotic">{t('Exotic Produce', 'विदेशी उत्पाद')}</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Default Unit (पैकिंग प्रकार)</label>
+                  <label className="font-bold text-slate-700 block mb-1">{t('Default Unit', 'पैकिंग प्रकार')}</label>
                   <input
                     type="text"
                     value={editCommodityForm.defaultUnit}
@@ -1979,7 +1981,7 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Unit Weight (Kg)</label>
+                  <label className="font-bold text-slate-700 block mb-1">{t('Unit Weight (Kg)', 'इकाई वजन (किलो)')}</label>
                   <input
                     type="number"
                     step="0.1"
@@ -1992,7 +1994,7 @@ export default function Settings() {
 
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Tare Wt (Kg)</label>
+                  <label className="font-bold text-slate-700 block mb-1">{t('Tare Wt (Kg)', 'बारदाना वजन (किलो)')}</label>
                   <input
                     type="number"
                     step="0.1"
@@ -2002,7 +2004,7 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Commission %</label>
+                  <label className="font-bold text-slate-700 block mb-1">{t('Commission %', 'आढ़त %')}</label>
                   <input
                     type="number"
                     step="0.1"
@@ -2012,7 +2014,7 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Palledari (₹)</label>
+                  <label className="font-bold text-slate-700 block mb-1">{t('Palledari (₹)', 'पल्लेदारी (₹)')}</label>
                   <input
                     type="number"
                     step="1"
@@ -2032,7 +2034,7 @@ export default function Settings() {
                   className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
                 />
                 <label htmlFor="commodityActive" className="text-xs font-bold text-slate-700 cursor-pointer">
-                  Active Produce (व्यापार एवं नीलामी हेतु सक्रिय)
+                  {t('Active Produce for Trading & Auctions', 'व्यापार एवं नीलामी हेतु सक्रिय फसल')}
                 </label>
               </div>
 
@@ -2041,14 +2043,14 @@ export default function Settings() {
                   type="submit" 
                   className="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
                 >
-                  <Save className="w-4 h-4" /> Update Commodity Configuration
+                  <Save className="w-4 h-4" /> {t('Update Commodity Configuration', 'फसल कॉन्फ़िगरेशन अपडेट करें')}
                 </button>
                 <button 
                   type="button" 
                   onClick={() => setShowEditCommodityModal(false)} 
                   className="px-4 py-2.5 border border-slate-300 hover:bg-slate-50 rounded-xl font-bold text-slate-600 cursor-pointer"
                 >
-                  Cancel
+                  {t('Cancel', 'रद्द करें')}
                 </button>
               </div>
             </form>
@@ -2061,12 +2063,12 @@ export default function Settings() {
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl space-y-4">
             <div className="flex justify-between items-center border-b pb-3">
-              <h3 className="font-bold text-slate-900 text-sm">Add Staff / Munshi (मुनीम)</h3>
+              <h3 className="font-bold text-slate-900 text-sm">{t('Add Staff / Munshi', 'मुनीम / स्टाफ जोड़ें')}</h3>
               <button onClick={() => setShowAddMemberModal(false)} className="text-slate-400">✕</button>
             </div>
             <form onSubmit={handleAddMemberSubmit} className="space-y-3 text-xs">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Full Name *</label>
+                <label className="font-bold text-slate-700 block mb-1">{t('Full Name *', 'पूरा नाम *')}</label>
                 <input
                   type="text"
                   required
@@ -2077,20 +2079,20 @@ export default function Settings() {
                 />
               </div>
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Role *</label>
+                <label className="font-bold text-slate-700 block mb-1">{t('Role *', 'पद / भूमिका *')}</label>
                 <select
                   value={memberForm.role}
                   onChange={(e) => setMemberForm({ ...memberForm, role: e.target.value })}
                   className="w-full p-2 border border-slate-300 rounded-xl font-bold"
                 >
-                  <option value="Munshi (Data Entry)">Munshi / Data Entry (आवक-बिक्री)</option>
-                  <option value="Accountant (Cashier)">Accountant / Cashier (रोकड़िया / मुनीम)</option>
-                  <option value="Shop Admin">Shop Admin (मालिक / पार्टनर - Full Access)</option>
+                  <option value="Munshi (Data Entry)">{t('Munshi / Data Entry (Arrivals & Sales)', 'मुनीम / आवक-बिक्री प्रविष्टि')}</option>
+                  <option value="Accountant (Cashier)">{t('Accountant / Cashier (Ledgers & Cash)', 'रोकड़िया / मुनीम (खाता एवं रोकड़)')}</option>
+                  <option value="Shop Admin">{t('Shop Admin / Partner (Full Access)', 'मालिक / पार्टनर (पूर्ण अधिकार)')}</option>
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Mobile Phone *</label>
+                  <label className="font-bold text-slate-700 block mb-1">{t('Mobile Phone *', 'मोबाइल फोन *')}</label>
                   <input
                     type="tel"
                     required
@@ -2101,7 +2103,7 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">4-Digit PIN *</label>
+                  <label className="font-bold text-slate-700 block mb-1">{t('4-Digit PIN *', '4-अंकीय पिन *')}</label>
                   <input
                     type="password"
                     required
@@ -2114,10 +2116,10 @@ export default function Settings() {
               </div>
               <div className="flex gap-2 pt-2">
                 <button type="submit" className="flex-1 py-2.5 bg-purple-700 hover:bg-purple-800 text-white rounded-xl font-bold">
-                  Confirm &amp; Add Staff
+                  {t('Confirm & Add Staff', 'पुष्टि करें और स्टाफ जोड़ें')}
                 </button>
                 <button type="button" onClick={() => setShowAddMemberModal(false)} className="px-4 py-2.5 border rounded-xl">
-                  Cancel
+                  {t('Cancel', 'रद्द करें')}
                 </button>
               </div>
             </form>

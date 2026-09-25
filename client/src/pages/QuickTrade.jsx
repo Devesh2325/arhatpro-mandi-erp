@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { API } from '../api';
 import { useTenant } from '../context/TenantContext';
+import { useLanguage } from '../context/LanguageContext';
 import { 
   Zap, 
   Plus, 
@@ -16,6 +17,7 @@ import {
 
 export default function QuickTrade() {
   const { activeTenant } = useTenant();
+  const { t, isHindi } = useLanguage();
 
   // Fresh initial states - completely clean for new users
   const [truckNo, setTruckNo] = useState('');
@@ -220,13 +222,13 @@ export default function QuickTrade() {
             <span className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
               ⚡
             </span>
-            <h1 className="text-xl font-black text-slate-900">Unified Trade & Single Form Engine</h1>
+            <h1 className="text-xl font-black text-slate-900">{t('Unified Trade & Single Form Engine', 'एकल व्यापार एवं त्वरित सौदा इंजन')}</h1>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
-              Fresh Trade Mode
+              {t('Fresh Trade Mode', 'नया सौदा मोड')}
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            एकल आवक-बिक्री प्रपत्र: Inward truck arrival, multi-lot split sales, palledari, and instant Teep generation in a single atomic form.
+            {t('Inward truck arrival, multi-lot split sales, palledari, and instant Teep generation in a single atomic form.', 'एकल फॉर्म: गाड़ी आवक, बहु-लॉट बिक्री, पल्लेदारी व तत्काल पक्का पर्चा निर्माण।')}
           </p>
         </div>
 
@@ -238,7 +240,7 @@ export default function QuickTrade() {
             title="Clear all fields for a fresh consignment"
           >
             <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-            Fresh Form (साफ़ करें)
+            {t('fresh_form')}
           </button>
 
           <button
@@ -248,11 +250,11 @@ export default function QuickTrade() {
             title="Fill sample demo data for quick testing"
           >
             <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-            Sample Data (डेमो भरें)
+            {t('sample_data')}
           </button>
 
           <div className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-right">
-            <span className="text-[10px] text-slate-400 font-bold uppercase block">Gross Realized Value</span>
+            <span className="text-[10px] text-slate-400 font-bold uppercase block">{t('Gross Realized Value', 'सकल बिक्री मूल्य')}</span>
             <span className="text-base font-black text-emerald-800">₹{totalGrossValue.toLocaleString('en-IN')}</span>
           </div>
         </div>
@@ -279,44 +281,44 @@ export default function QuickTrade() {
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
               <Truck className="w-4 h-4 text-emerald-700" />
-              <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide">1. Inward Truck & Farmer Details</h2>
+              <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide">{t('1. Inward Truck & Farmer Details', '1. गाड़ी आवक व किसान विवरण')}</h2>
             </div>
             <div className="flex items-center gap-2 text-xs text-slate-400">
               {farmers.length > 0 && (
                 <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
-                  <Users className="w-3 h-3" /> {farmers.length} Registered Farmers
+                  <Users className="w-3 h-3" /> {farmers.length} {t('Registered Farmers', 'पंजीकृत किसान')}
                 </span>
               )}
-              <span>Step 1 of 3</span>
+              <span>{t('Step 1 of 3', 'चरण 1 / 3')}</span>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
             <div>
-              <label className="font-bold text-slate-700 block mb-1">Truck / Vehicle No. *</label>
+              <label className="font-bold text-slate-700 block mb-1">{t('Truck / Vehicle No. *', 'गाड़ी / वाहन संख्या *')}</label>
               <input
                 type="text"
                 required
                 value={truckNo}
                 onChange={(e) => setTruckNo(e.target.value)}
-                placeholder="e.g. DL-01-AB-1234 / HP-10-B-9812"
+                placeholder="e.g. DL-01-AB-1234"
                 className="w-full p-2.5 border border-slate-300 rounded-xl font-mono font-bold uppercase placeholder:font-normal placeholder:normal-case placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none"
               />
             </div>
             <div>
-              <label className="font-bold text-slate-700 block mb-1">Farmer / Producer Name *</label>
+              <label className="font-bold text-slate-700 block mb-1">{t('Farmer / Producer Name *', 'किसान / उत्पादक का नाम *')}</label>
               <input
                 type="text"
                 required
                 list="farmers-datalist"
                 value={farmerName}
                 onChange={(e) => handleFarmerChange(e.target.value)}
-                placeholder="Type or select Kisan Name..."
+                placeholder={t('Type or select Kisan Name...', 'किसान का नाम चुनें या लिखें...')}
                 className="w-full p-2.5 border border-slate-300 rounded-xl font-bold placeholder:font-normal placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none"
               />
             </div>
             <div>
-              <label className="font-bold text-slate-700 block mb-1">Farmer Phone</label>
+              <label className="font-bold text-slate-700 block mb-1">{t('Farmer Phone', 'किसान मोबाइल')}</label>
               <input
                 type="text"
                 value={farmerPhone}
@@ -329,7 +331,7 @@ export default function QuickTrade() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
             <div>
-              <label className="font-bold text-slate-700 block mb-1">Commodity (फसल) *</label>
+              <label className="font-bold text-slate-700 block mb-1">{t('Commodity *', 'फसल / जिंस *')}</label>
               <select
                 value={commodity}
                 onChange={(e) => setCommodity(e.target.value)}
@@ -337,16 +339,16 @@ export default function QuickTrade() {
               >
                 {commoditiesList.map(c => (
                   <option key={c.id} value={c.name_en || c.name}>
-                    {c.name_en || c.name} ({c.name_hi || c.category || 'Mandi'})
+                    {isHindi ? (c.name_hi || c.name_en || c.name) : (c.name_en || c.name)}
                   </option>
                 ))}
                 {commoditiesList.length === 0 && (
-                  <option value="Apple - Royal Delicious">Apple - Royal Delicious (सेब)</option>
+                  <option value="Apple - Royal Delicious">{isHindi ? 'सेब - रॉयल डिलीशियस' : 'Apple - Royal Delicious'}</option>
                 )}
               </select>
             </div>
             <div>
-              <label className="font-bold text-slate-700 block mb-1">Total Truck Freight (भाड़ा) ₹</label>
+              <label className="font-bold text-slate-700 block mb-1">{t('Total Truck Freight (₹)', 'कुल गाड़ी भाड़ा (₹)')}</label>
               <input
                 type="number"
                 value={totalFreight}
@@ -356,7 +358,7 @@ export default function QuickTrade() {
               />
             </div>
             <div>
-              <label className="font-bold text-slate-700 block mb-1">Freight Advance Paid to Driver ₹</label>
+              <label className="font-bold text-slate-700 block mb-1">{t('Freight Advance Paid to Driver (₹)', 'चालक को पेशगी भाड़ा (₹)')}</label>
               <input
                 type="number"
                 value={freightAdvance}
@@ -372,8 +374,8 @@ export default function QuickTrade() {
         <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
-              <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide">2. Multi-Lot Marks & Grading</h2>
-              <span className="text-xs text-slate-500">Total Arrived Units: <strong className="text-slate-900">{totalArrived} Boxes / Bags</strong></span>
+              <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide">{t('2. Multi-Lot Marks & Grading', '2. लॉट मार्का व ग्रेडिंग')}</h2>
+              <span className="text-xs text-slate-500">{t('Total Arrived Units:', 'कुल आवक नग:')} <strong className="text-slate-900">{totalArrived} {t('Boxes / Bags', 'नग / बोरी')}</strong></span>
             </div>
             <button
               type="button"
@@ -381,7 +383,7 @@ export default function QuickTrade() {
               className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl flex items-center gap-1 cursor-pointer transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
-              + Add Sub-Lot
+              + {t('Add Sub-Lot', 'नया लॉट जोड़ें')}
             </button>
           </div>
 
@@ -400,7 +402,7 @@ export default function QuickTrade() {
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div>
-                    <label className="text-[10px] text-slate-400 font-bold block mb-0.5">Farmer Mark</label>
+                    <label className="text-[10px] text-slate-400 font-bold block mb-0.5">{t('Farmer Mark', 'किसान मार्का')}</label>
                     <input
                       type="text"
                       value={lot.mark}
@@ -414,7 +416,7 @@ export default function QuickTrade() {
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] text-slate-400 font-bold block mb-0.5">Variety / Grade</label>
+                    <label className="text-[10px] text-slate-400 font-bold block mb-0.5">{t('Variety / Grade', 'किस्म / ग्रेड')}</label>
                     <input
                       type="text"
                       value={lot.variety}
@@ -428,7 +430,7 @@ export default function QuickTrade() {
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] text-slate-400 font-bold block mb-0.5">Quantity (Units) *</label>
+                    <label className="text-[10px] text-slate-400 font-bold block mb-0.5">{t('Quantity (Units) *', 'मात्रा (नग/बोरी) *')}</label>
                     <input
                       type="number"
                       value={lot.qty}
@@ -451,14 +453,14 @@ export default function QuickTrade() {
         <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
-              <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide">3. Buyer Split Sales (खरीदार आवंटन)</h2>
+              <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide">{t('3. Buyer Split Sales', '3. खरीदार बिक्री व आवंटन')}</h2>
               <div className="flex items-center gap-2 mt-0.5 text-xs">
                 <span className={`font-bold ${totalAllocated === totalArrived && totalArrived > 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
-                  Allocated: {totalAllocated} / {totalArrived} Units
+                  {t('Allocated:', 'आवंटित:')} {totalAllocated} / {totalArrived} {t('Units', 'नग')}
                 </span>
                 {totalAllocated === totalArrived && totalArrived > 0 && (
                   <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full">
-                    ✓ 100% Balanced
+                    ✓ {t('100% Balanced', '100% संतुलित')}
                   </span>
                 )}
               </div>
@@ -469,7 +471,7 @@ export default function QuickTrade() {
               className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl flex items-center gap-1 cursor-pointer transition-colors border border-emerald-200"
             >
               <Plus className="w-3.5 h-3.5" />
-              + Add Buyer Split
+              + {t('Add Buyer Split', 'नया खरीदार जोड़ें')}
             </button>
           </div>
 
@@ -477,13 +479,13 @@ export default function QuickTrade() {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase text-[10px]">
-                  <th className="p-2">Target Lot</th>
-                  <th className="p-2">Buyer Name (Select / Type)</th>
-                  <th className="p-2">Buyer Phone</th>
-                  <th className="p-2">Quantity</th>
-                  <th className="p-2">Rate (₹)</th>
-                  <th className="p-2 text-right">Gross Amount</th>
-                  <th className="p-2 text-center">Action</th>
+                  <th className="p-2">{t('Target Lot', 'लॉट सं.')}</th>
+                  <th className="p-2">{t('buyer_name')}</th>
+                  <th className="p-2">{t('driver_phone', 'फोन')}</th>
+                  <th className="p-2">{t('quantity')}</th>
+                  <th className="p-2">{t('rate')}</th>
+                  <th className="p-2 text-right">{t('gross_amount')}</th>
+                  <th className="p-2 text-center">{t('actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -509,7 +511,7 @@ export default function QuickTrade() {
                         type="text"
                         list="buyers-datalist"
                         value={row.buyerName}
-                        placeholder="Type or select Vyapari..."
+                        placeholder={t('Type or select Buyer...', 'खरीदार का नाम चुनें या लिखें...')}
                         onChange={(e) => handleBuyerNameChange(idx, e.target.value)}
                         className="w-full p-2 border border-slate-300 rounded-lg font-bold placeholder:font-normal placeholder:text-slate-400 focus:border-emerald-600 outline-none"
                       />
@@ -581,7 +583,7 @@ export default function QuickTrade() {
           className="w-full py-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl font-black text-sm shadow-md transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           <Zap className="w-4 h-4 text-amber-300" />
-          {loading ? 'Processing Atomic Trade...' : '⚡ Seal Consignment & Generate Teep Voucher →'}
+          {loading ? t('Processing Atomic Trade...', 'प्रक्रिया जारी है...') : t('⚡ Seal Consignment & Generate Teep Voucher →', '⚡ सौदा सुरक्षित करें व पक्का टीप बनाएं →')}
         </button>
 
       </form>

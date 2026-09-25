@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useTenant } from '../context/TenantContext';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { 
   Zap, 
   Truck, 
@@ -32,6 +33,7 @@ import {
 export default function Dashboard({ setActiveTab }) {
   const { currentTenant } = useTenant();
   const { user } = useAuth();
+  const { t, isHindi } = useLanguage();
 
   const [arrivals, setArrivals] = useState([]);
   const [lots, setLots] = useState([]);
@@ -84,73 +86,67 @@ export default function Dashboard({ setActiveTab }) {
     {
       step: 1,
       id: 'settings',
-      title: 'Shop & Master Registry',
-      titleHi: 'दुकान व मास्टर सेटअप',
-      desc: 'APMC license, bank details, produce catalog, and farmer/buyer registry.',
+      title: t('Shop & Master Registry', 'दुकान व मास्टर सेटअप'),
+      desc: t('APMC license, bank details, produce catalog, and farmer/buyer registry.', 'एपीएमसी लाइसेंस, बैंक विवरण, फसल सूची, और किसान/खरीदार सेटअप।'),
       icon: Building2,
-      status: 'Setup Ready',
+      status: t('Setup Ready', 'तैयार'),
       isCompleted: true,
-      actionText: 'Configure Masters',
+      actionText: t('Configure Masters', 'मास्टर सेट करें'),
       badgeColor: 'bg-blue-100 text-blue-800 border-blue-200'
     },
     {
       step: 2,
       id: 'arrivals',
-      title: 'Inward Truck Arrival',
-      titleHi: 'गाड़ी आवक व गेट पास',
-      desc: 'Record vehicle challan, gross weight, driver advance, and print Mandi Gate Pass.',
+      title: t('Inward Truck Arrival', 'गाड़ी आवक व गेट पास'),
+      desc: t('Record vehicle challan, gross weight, driver advance, and print Mandi Gate Pass.', 'गाड़ी चालान, वजन, चालक पेशगी दर्ज करें और गेट पास जारी करें।'),
       icon: Truck,
-      status: arrivals.length > 0 ? `${arrivals.length} Trucks Logged` : 'Ready to Log',
+      status: arrivals.length > 0 ? (isHindi ? `${arrivals.length} गाड़ियाँ दर्ज` : `${arrivals.length} Trucks Logged`) : t('Ready to Log', 'दर्ज करने हेतु तैयार'),
       isCompleted: arrivals.length > 0,
-      actionText: 'Log Truck (F3)',
+      actionText: t('Log Truck (F3)', 'गाड़ी आवक (F3)'),
       badgeColor: arrivals.length > 0 ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-700 border-slate-200'
     },
     {
       step: 3,
       id: 'sales',
-      title: 'Yard Auction & Bidding',
-      titleHi: 'यार्ड नीलामी व खुली बोली',
-      desc: 'Stack lots on yard, announce farmer marks, conduct open auction, and hammer sales.',
+      title: t('Yard Auction & Bidding', 'यार्ड नीलामी व खुली बोली'),
+      desc: t('Stack lots on yard, announce farmer marks, conduct open auction, and hammer sales.', 'यार्ड पर लॉट लगाएं, खुली नीलामी करवाएं और बोली पर माल बेचें।'),
       icon: Gavel,
-      status: lots.length > 0 ? `${activeLotsCount} Active Yard Lots` : 'Ready for Auction',
+      status: lots.length > 0 ? (isHindi ? `${activeLotsCount} सक्रिय लॉट` : `${activeLotsCount} Active Lots`) : t('Ready for Auction', 'नीलामी हेतु तैयार'),
       isCompleted: lots.length > 0,
-      actionText: 'Start Bidding (F4)',
+      actionText: t('Start Bidding (F4)', 'बोली लगाएं (F4)'),
       badgeColor: lots.length > 0 ? 'bg-purple-100 text-purple-800 border-purple-200' : 'bg-slate-100 text-slate-700 border-slate-200'
     },
     {
       step: 4,
       id: 'quick-trade',
-      title: 'Unified Quick Trade',
-      titleHi: 'एकल सौदा (फास्ट लेन)',
-      desc: 'Single-form inward arrival, multi-buyer allocation, freight deduction & instant Teep.',
+      title: t('Unified Quick Trade', 'एकल सौदा (फास्ट लेन)'),
+      desc: t('Single-form inward arrival, multi-buyer allocation, freight deduction & instant Teep.', 'एकल फॉर्म: आवक, खरीदार आवंटन, भाड़ा कटौती व तत्काल पक्का पर्चा।'),
       icon: Zap,
-      status: '1-Click Fast Lane',
+      status: t('1-Click Fast Lane', '1-क्लिक फास्ट लेन'),
       isCompleted: arrivals.length > 0,
-      actionText: 'Quick Trade (F2)',
+      actionText: t('Quick Trade (F2)', 'एकल सौदा (F2)'),
       badgeColor: 'bg-amber-100 text-amber-800 border-amber-200'
     },
     {
       step: 5,
       id: 'reports',
-      title: 'APMC Teep & Invoicing',
-      titleHi: 'पक्का टीप व कानूनी बिल',
-      desc: 'Generate statutory Form J for farmers, Form I for buyers, and print 80mm POS slips.',
+      title: t('APMC Teep & Invoicing', 'पक्का टीप व कानूनी बिल'),
+      desc: t('Generate statutory Form J for farmers, Form I for buyers, and print 80mm POS slips.', 'किसानों हेतु फॉर्म जे, खरीदारों हेतु फॉर्म आई व थर्मल पर्चा प्रिंट करें।'),
       icon: FileText,
-      status: 'Statutory Form J/I',
+      status: t('Statutory Form J/I', 'वैधानिक फॉर्म जे/आई'),
       isCompleted: true,
-      actionText: 'Generate Bills',
+      actionText: t('Generate Bills', 'बिल तैयार करें'),
       badgeColor: 'bg-rose-100 text-rose-800 border-rose-200'
     },
     {
       step: 6,
       id: 'bahi-khata',
-      title: 'Rokad Closing & Khatoni',
-      titleHi: 'रोकड़ मिलान व बहीखाता',
-      desc: 'Evening cashbook reconciliation, Naqad Jama/Banam, debtor recovery & ledger balancing.',
+      title: t('Rokad Closing & Khatoni', 'रोकड़ मिलान व बहीखाता'),
+      desc: t('Evening cashbook reconciliation, Naqad Jama/Banam, debtor recovery & ledger balancing.', 'संध्या रोकड़ मिलान, नकद जमा/बनाम, उधारी वसूली व बहीखाता संतुलन।'),
       icon: DollarSign,
-      status: `₹${rokadClosing.toLocaleString()} in Hand`,
+      status: isHindi ? `₹${rokadClosing.toLocaleString()} हाथ में रोकड़` : `₹${rokadClosing.toLocaleString()} in Hand`,
       isCompleted: true,
-      actionText: 'Open Bahi-Khata',
+      actionText: t('Open Bahi-Khata', 'बहीखाता खोलें'),
       badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200'
     }
   ];
@@ -217,9 +213,9 @@ export default function Dashboard({ setActiveTab }) {
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
             <span className="font-bold text-slate-800">
-              {allMilestonesDone ? '🎉 All Mandi Milestones Completed (सभी चरण पूर्ण)' : 'Trading Milestones Section Hidden (चरण सूची छुपाई गई)'}
+              {allMilestonesDone ? t('🎉 All Mandi Milestones Completed', '🎉 सभी मंडी चरण पूर्ण') : t('Trading Milestones Section Hidden', 'व्यापारिक चरण सूची छुपाई गई')}
             </span>
-            <span className="text-slate-400 font-mono">({completedCount}/{journeySteps.length} Milestones)</span>
+            <span className="text-slate-400 font-mono">({completedCount}/{journeySteps.length} {t('Milestones', 'चरण')})</span>
           </div>
           <button
             onClick={() => {
@@ -229,7 +225,7 @@ export default function Dashboard({ setActiveTab }) {
             }}
             className="text-xs font-bold text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
           >
-            {journeyDismissed ? 'Show Milestones Journey (चरण देखें)' : 'Hide Milestones (छुपाएं)'}
+            {journeyDismissed ? t('Show Milestones Journey', 'चरण सूची देखें') : t('Hide Milestones', 'चरण सूची छुपाएं')}
           </button>
         </div>
       )}
@@ -244,10 +240,10 @@ export default function Dashboard({ setActiveTab }) {
               </div>
               <div>
                 <h3 className="font-black text-slate-900 text-sm">
-                  Welcome to Your Fresh Mandi Workspace! (नए व्यापारी हेतु आसान शुरुआत)
+                  {t('Welcome to Your Fresh Mandi Workspace!', 'आपके नए मंडी कार्यक्षेत्र में स्वागत है!')}
                 </h3>
                 <p className="text-xs text-slate-600">
-                  Follow your step-by-step Mandi Trading Journey below. You can start directly with a fresh <strong>Quick Trade</strong> or configure your <strong>Shop Masters</strong>.
+                  {t('Follow your step-by-step Mandi Trading Journey below. You can start directly with a fresh Quick Trade or configure your Shop Masters.', 'नीचे दिए गए चरणों का पालन करें। आप सीधे एकल सौदा दर्ज कर सकते हैं या दुकान का मास्टर सेटअप कर सकते हैं।')}
                 </p>
               </div>
             </div>
@@ -257,20 +253,20 @@ export default function Dashboard({ setActiveTab }) {
                 className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 cursor-pointer"
               >
                 <Zap className="w-3.5 h-3.5 text-amber-300" />
-                Fresh Quick Trade →
+                {t('Fresh Quick Trade →', 'नया एकल सौदा →')}
               </button>
               <button
                 onClick={() => setActiveTab('settings')}
                 className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl border border-slate-300 cursor-pointer"
               >
-                Setup Masters →
+                {t('Setup Masters →', 'मास्टर सेटअप →')}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 3. Mandi Trading User Journey & Workflow (मंडी व्यापार यात्रा - Hidden once milestones done or dismissed) */}
+      {/* 3. Mandi Trading User Journey & Workflow (Hidden once milestones done or dismissed) */}
       {shouldShowJourney && (
       <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
@@ -280,14 +276,14 @@ export default function Dashboard({ setActiveTab }) {
                 <Compass className="w-4 h-4" />
               </span>
               <h2 className="text-base font-black text-slate-900">
-                Mandi Trading User Journey (मंडी व्यापार यात्रा)
+                {t('Mandi Trading User Journey', 'मंडी व्यापारिक यात्रा')}
               </h2>
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 border border-purple-200">
-                {progressPercent}% Complete
+                {progressPercent}% {t('Complete', 'पूर्ण')}
               </span>
             </div>
             <p className="text-xs text-slate-500">
-              Guided end-to-end trading workflow: From morning truck arrival and yard lot hammer to instant settlement and evening rokad balancing.
+              {t('Guided end-to-end trading workflow: From morning truck arrival and yard lot hammer to instant settlement and evening rokad balancing.', 'गाड़ी आवक से लेकर खुली नीलामी, तत्काल बिलिंग और संध्या रोकड़ मिलान तक की संपूर्ण व्यापारिक यात्रा।')}
             </p>
           </div>
 
@@ -301,7 +297,7 @@ export default function Dashboard({ setActiveTab }) {
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
-                Workflow Steps (चरण)
+                {t('Workflow Steps', 'कार्यप्रवाह चरण')}
               </button>
               <button
                 onClick={() => setJourneyView('clock')}
@@ -311,7 +307,7 @@ export default function Dashboard({ setActiveTab }) {
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
-                Mandi Clock (समय चक्र)
+                {t('Mandi Clock', 'मंडी समय चक्र')}
               </button>
             </div>
             <button
@@ -322,7 +318,7 @@ export default function Dashboard({ setActiveTab }) {
               className="px-2.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-400 hover:text-slate-700 font-bold text-xs cursor-pointer transition-colors"
               title="Hide milestone section from dashboard"
             >
-              ✕ Hide
+              ✕ {t('close')}
             </button>
           </div>
         </div>
@@ -330,8 +326,8 @@ export default function Dashboard({ setActiveTab }) {
         {/* Progress Bar */}
         <div className="space-y-1.5">
           <div className="flex justify-between items-center text-xs">
-            <span className="font-bold text-slate-700">Mandi Workflow Readiness</span>
-            <span className="font-mono font-bold text-emerald-700">{completedCount} of {journeySteps.length} Milestones Active</span>
+            <span className="font-bold text-slate-700">{t('Mandi Workflow Readiness', 'मंडी कार्यप्रवाह तैयारी')}</span>
+            <span className="font-mono font-bold text-emerald-700">{completedCount} {t('of', 'में से')} {journeySteps.length} {t('Milestones Active', 'चरण सक्रिय')}</span>
           </div>
           <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
             <div 
@@ -370,7 +366,6 @@ export default function Dashboard({ setActiveTab }) {
                       <h4 className="font-black text-slate-900 text-sm flex items-center gap-1.5">
                         {step.title}
                       </h4>
-                      <div className="text-[11px] font-bold text-slate-500">{step.titleHi}</div>
                       <p className="text-xs text-slate-600 mt-1 line-clamp-2">
                         {step.desc}
                       </p>
@@ -458,8 +453,8 @@ export default function Dashboard({ setActiveTab }) {
       {/* 4. Quick Action Buttons Grid */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
         <div className="text-xs font-black text-slate-500 uppercase tracking-wider flex items-center justify-between">
-          <span>⚡ Lightning Quick Actions (त्वरित कार्य)</span>
-          <span className="text-[11px] font-normal text-slate-400">Click any action to execute immediately</span>
+          <span>{t('⚡ Lightning Quick Actions', '⚡ त्वरित कार्य')}</span>
+          <span className="text-[11px] font-normal text-slate-400">{t('Click any action to execute immediately', 'तत्काल निष्पादन हेतु किसी भी विकल्प पर क्लिक करें')}</span>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <button
@@ -469,8 +464,8 @@ export default function Dashboard({ setActiveTab }) {
             <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
               <Zap className="w-4 h-4" />
             </div>
-            <div className="font-bold text-slate-900 text-xs">Quick Trade</div>
-            <div className="text-[10px] text-slate-500">एकल सौदा (F2)</div>
+            <div className="font-bold text-slate-900 text-xs">{t('quick_trade')}</div>
+            <div className="text-[10px] text-slate-500">{t('Instant Entry (F2)', 'त्वरित प्रविष्टि (F2)')}</div>
           </button>
 
           <button
@@ -480,8 +475,8 @@ export default function Dashboard({ setActiveTab }) {
             <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
               <Truck className="w-4 h-4" />
             </div>
-            <div className="font-bold text-slate-900 text-xs">Log Truck Inward</div>
-            <div className="text-[10px] text-slate-500">गाड़ी आवक (F3)</div>
+            <div className="font-bold text-slate-900 text-xs">{t('arrivals')}</div>
+            <div className="text-[10px] text-slate-500">{t('Gate Pass (F3)', 'गेट पास (F3)')}</div>
           </button>
 
           <button
@@ -491,8 +486,8 @@ export default function Dashboard({ setActiveTab }) {
             <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
               <Gavel className="w-4 h-4" />
             </div>
-            <div className="font-bold text-slate-900 text-xs">Auction / Hammer</div>
-            <div className="text-[10px] text-slate-500">बोली व बिक्री (F4)</div>
+            <div className="font-bold text-slate-900 text-xs">{t('sales')}</div>
+            <div className="text-[10px] text-slate-500">{t('Yard Bidding (F4)', 'यार्ड बोली (F4)')}</div>
           </button>
 
           <button
@@ -502,8 +497,8 @@ export default function Dashboard({ setActiveTab }) {
             <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
               <DollarSign className="w-4 h-4" />
             </div>
-            <div className="font-bold text-slate-900 text-xs">Record Rokad</div>
-            <div className="text-[10px] text-slate-500">रोकड़ प्रविष्टि</div>
+            <div className="font-bold text-slate-900 text-xs">{t('Record Rokad', 'रोकड़ प्रविष्टि')}</div>
+            <div className="text-[10px] text-slate-500">{t('Cash In / Out', 'जमा व नाम')}</div>
           </button>
 
           <button
@@ -513,8 +508,8 @@ export default function Dashboard({ setActiveTab }) {
             <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
               <FileText className="w-4 h-4" />
             </div>
-            <div className="font-bold text-slate-900 text-xs">APMC Teep / Bill</div>
-            <div className="text-[10px] text-slate-500">पक्का टीप व पर्चा</div>
+            <div className="font-bold text-slate-900 text-xs">{t('APMC Teep / Bill', 'पक्का टीप व पर्चा')}</div>
+            <div className="text-[10px] text-slate-500">{t('Legal Bills', 'कानूनी बिल')}</div>
           </button>
 
           <button
@@ -524,8 +519,8 @@ export default function Dashboard({ setActiveTab }) {
             <div className="w-8 h-8 rounded-lg bg-slate-200 text-slate-700 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
               <UserPlus className="w-4 h-4" />
             </div>
-            <div className="font-bold text-slate-900 text-xs">Add Master Party</div>
-            <div className="text-[10px] text-slate-500">नया खरीदार / किसान</div>
+            <div className="font-bold text-slate-900 text-xs">{t('Add Master Party', 'नया व्यापारी / किसान')}</div>
+            <div className="text-[10px] text-slate-500">{t('Buyer / Farmer', 'थोक खरीदार / किसान')}</div>
           </button>
         </div>
       </div>
@@ -535,14 +530,14 @@ export default function Dashboard({ setActiveTab }) {
         {/* Card 1: Consignments */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
           <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase">
-            <span>Inward Consignments</span>
+            <span>{t('Inward Consignments', 'गाड़ी आवक')}</span>
             <Truck className="w-4 h-4 text-blue-600" />
           </div>
           <div className="text-2xl font-black text-slate-900">
-            {arrivals.length} <span className="text-sm font-semibold text-slate-500">Trucks</span>
+            {arrivals.length} <span className="text-sm font-semibold text-slate-500">{t('Trucks', 'गाड़ियाँ')}</span>
           </div>
           <div className="text-xs text-slate-500 flex items-center justify-between pt-1 border-t border-slate-100">
-            <span>Total Inward Bags:</span>
+            <span>{t('Total Inward Bags:', 'कुल आवक नग:')}</span>
             <span className="font-bold text-slate-800">{totalInwardBags.toLocaleString()}</span>
           </div>
         </div>
@@ -550,45 +545,45 @@ export default function Dashboard({ setActiveTab }) {
         {/* Card 2: Live Produce on Yard */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
           <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase">
-            <span>Live Produce on Yard</span>
+            <span>{t('Live Produce on Yard', 'यार्ड पर कुल माल')}</span>
             <Package className="w-4 h-4 text-amber-600" />
           </div>
           <div className="text-2xl font-black text-amber-600 font-mono">
-            {totalRemainingBags.toLocaleString()} <span className="text-sm font-semibold text-slate-500">Bags</span>
+            {totalRemainingBags.toLocaleString()} <span className="text-sm font-semibold text-slate-500">{t('Bags', 'नग/बोरी')}</span>
           </div>
           <div className="text-xs text-slate-500 flex items-center justify-between pt-1 border-t border-slate-100">
-            <span>Active Auction Lots:</span>
-            <span className="font-bold text-emerald-700">{activeLotsCount} of {totalLotsCount} Lots</span>
+            <span>{t('Active Auction Lots:', 'सक्रिय नीलामी लॉट:')}</span>
+            <span className="font-bold text-emerald-700">{activeLotsCount} {t('of', 'में से')} {totalLotsCount} {t('Lots', 'लॉट')}</span>
           </div>
         </div>
 
         {/* Card 3: Rokad Cash in Hand */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
           <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase">
-            <span>Rokad Cash in Hand</span>
+            <span>{t('Rokad Cash in Hand', 'हाथ में कुल रोकड़')}</span>
             <DollarSign className="w-4 h-4 text-emerald-600" />
           </div>
           <div className="text-2xl font-black text-emerald-600 font-mono">
             ₹{rokadClosing.toLocaleString()}
           </div>
           <div className="text-xs text-slate-500 flex items-center justify-between pt-1 border-t border-slate-100">
-            <span>Counter Cashbook:</span>
-            <span className="text-emerald-700 font-semibold font-mono">Balanced</span>
+            <span>{t('Counter Cashbook:', 'रोकड़ बही मिलान:')}</span>
+            <span className="text-emerald-700 font-semibold font-mono">{t('Balanced', 'संतुलित')}</span>
           </div>
         </div>
 
         {/* Card 4: Outstanding Udhaar */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
           <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase">
-            <span>Debtors Outstanding</span>
+            <span>{t('Debtors Outstanding', 'कुल बकाया उधारी')}</span>
             <TrendingUp className="w-4 h-4 text-rose-600" />
           </div>
           <div className="text-2xl font-black text-rose-600 font-mono">
             ₹{totalOutstanding.toLocaleString()}
           </div>
           <div className="text-xs text-slate-500 flex items-center justify-between pt-1 border-t border-slate-100">
-            <span>15+ Days Overdue:</span>
-            <span className="font-bold text-rose-700">{overdueAccounts.length} Buyers</span>
+            <span>{t('15+ Days Overdue:', '15+ दिन से अधिक बकाया:')}</span>
+            <span className="font-bold text-rose-700">{overdueAccounts.length} {t('Buyers', 'खरीदार')}</span>
           </div>
         </div>
       </div>
@@ -600,20 +595,20 @@ export default function Dashboard({ setActiveTab }) {
           <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Gavel className="w-4 h-4 text-purple-700" />
-              <h3 className="font-bold text-slate-900 text-sm">Active Auction Lots on Yard (मंडी यार्ड लॉट)</h3>
+              <h3 className="font-bold text-slate-900 text-sm">{t('Active Auction Lots on Yard', 'मंडी यार्ड पर सक्रिय लॉट')}</h3>
             </div>
             <button
               onClick={() => setActiveTab('sales')}
               className="text-xs font-bold text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer"
             >
-              View All Lots ({lots.length}) →
+              {t('View All Lots', 'सभी लॉट देखें')} ({lots.length}) →
             </button>
           </div>
 
           <div className="divide-y divide-slate-100 flex-1 overflow-y-auto max-h-96">
             {lots.length === 0 ? (
               <div className="p-8 text-center text-slate-400 text-xs">
-                No active lots on the yard yet. Log an inward truck or run a Quick Trade to begin.
+                {t('No active lots on the yard yet. Log an inward truck or run a Quick Trade to begin.', 'यार्ड पर अभी कोई सक्रिय लॉट नहीं है। शुरुआत हेतु गाड़ी आवक दर्ज करें या एकल सौदा चलाएं।')}
               </div>
             ) : (
               lots.slice(0, 5).map((lot) => {
@@ -632,16 +627,16 @@ export default function Dashboard({ setActiveTab }) {
                         <span className="font-bold text-slate-900 text-sm truncate">{lot.commodity_name || 'Standard Produce'}</span>
                         {isSoldOut ? (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800">
-                            Sold Out
+                            {t('Sold Out', 'बिक चुका')}
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-100 text-amber-800">
-                            Live Yard
+                            {t('Live Yard', 'यार्ड लॉट')}
                           </span>
                         )}
                       </div>
                       <div className="text-xs text-slate-500">
-                        Farmer: <strong className="text-slate-700">{lot.farmer_name}</strong> • Truck: {lot.truck_no}
+                        {t('Farmer', 'किसान')}: <strong className="text-slate-700">{lot.farmer_name}</strong> • {t('Truck', 'गाड़ी')}: {lot.truck_no}
                       </div>
                     </div>
 
@@ -663,7 +658,7 @@ export default function Dashboard({ setActiveTab }) {
                           onClick={() => setActiveTab('sales')}
                           className="px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white rounded-lg font-bold text-xs shadow-xs cursor-pointer"
                         >
-                          Hammer 🔨
+                          {t('Hammer 🔨', 'बोली 🔨')}
                         </button>
                       )}
                     </div>
@@ -678,16 +673,16 @@ export default function Dashboard({ setActiveTab }) {
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
           <div className="flex items-center gap-2 text-slate-900 font-bold text-sm border-b pb-3">
             <Scale className="w-4 h-4 text-emerald-700" />
-            <span>APMC Statutory Rates &amp; Bye-Laws</span>
+            <span>{t('APMC Statutory Rates & Bye-Laws', 'मंडी कानून व निर्धारित दरें')}</span>
           </div>
 
           <div className="space-y-3 text-xs">
             <div className="flex justify-between items-center p-2.5 bg-slate-50 rounded-xl">
-              <span className="text-slate-600 font-medium">Commission / Arhat (आढ़त)</span>
+              <span className="text-slate-600 font-medium">{t('Commission / Arhat (6%)', 'आढ़त / कमीशन (6%)')}</span>
               <span className="font-mono font-bold text-emerald-700">6.0%</span>
             </div>
             <div className="flex justify-between items-center p-2.5 bg-slate-50 rounded-xl">
-              <span className="text-slate-600 font-medium">Buyer Dami (दामी)</span>
+              <span className="text-slate-600 font-medium">{t('Buyer Dami (2%)', 'खरीदार दामी (2%)')}</span>
               <span className="font-mono font-bold text-blue-700">2.0%</span>
             </div>
             <div className="flex justify-between items-center p-2.5 bg-slate-50 rounded-xl">
@@ -695,11 +690,11 @@ export default function Dashboard({ setActiveTab }) {
               <span className="font-mono font-bold text-slate-800">1.0% + 1.0%</span>
             </div>
             <div className="flex justify-between items-center p-2.5 bg-slate-50 rounded-xl">
-              <span className="text-slate-600 font-medium">Palledari / Box Unloading</span>
+              <span className="text-slate-600 font-medium">{t('Palledari / Box Unloading', 'पल्लेदारी / नग उतराई')}</span>
               <span className="font-mono font-bold text-amber-700">₹3 / Box</span>
             </div>
             <div className="flex justify-between items-center p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-900">
-              <span className="font-medium">15-Day Late Payment Interest</span>
+              <span className="font-medium">{t('15-Day Late Payment Interest', '15-दिन उपरांत विलंब ब्याज')}</span>
               <span className="font-mono font-black text-rose-700">18.0% p.a.</span>
             </div>
           </div>
@@ -709,7 +704,7 @@ export default function Dashboard({ setActiveTab }) {
               onClick={() => setActiveTab('settings')}
               className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
             >
-              Configure Agency Rates →
+              {t('Configure Agency Rates →', 'एजेंसी दरें सेट करें →')}
             </button>
           </div>
         </div>

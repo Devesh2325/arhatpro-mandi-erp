@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
+import { useLanguage } from '../context/LanguageContext';
 import { 
   LayoutDashboard,
   Zap, 
@@ -16,6 +17,7 @@ import {
 export default function Sidebar({ activeTab, setActiveTab }) {
   const { user, isImpersonating, logout } = useAuth();
   const { tenants, activeTenant, currentTenant, switchTenant } = useTenant();
+  const { t } = useLanguage();
   const tenant = currentTenant || activeTenant;
 
   const subPlan = tenant?.plan || 'Monthly';
@@ -28,13 +30,13 @@ export default function Sidebar({ activeTab, setActiveTab }) {
   };
 
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard (डैशबोर्ड)', icon: LayoutDashboard, shortcut: 'F1' },
-    { id: 'quick-trade', label: 'Quick Trade (एकल सौदा)', icon: Zap, shortcut: 'F2' },
-    { id: 'arrivals', label: 'Inward Arrivals (गाड़ी आवक)', icon: Truck, shortcut: 'F3' },
-    { id: 'sales', label: 'Auction & Sales (बोली व बिक्री)', icon: Tag, shortcut: 'F4' },
-    { id: 'bahi-khata', label: 'Bahi-Khata & Rokad (खाता)', icon: BookOpen, shortcut: 'F5' },
-    { id: 'reports', label: 'Mandi Reports (रिपोर्ट्स)', icon: FileText, shortcut: 'F6' },
-    { id: 'settings', label: 'Settings & Masters (मास्टर)', icon: Settings, shortcut: 'F9' }
+    { id: 'dashboard', label: t('dashboard'), icon: LayoutDashboard, shortcut: 'F1' },
+    { id: 'quick-trade', label: t('quick_trade'), icon: Zap, shortcut: 'F2' },
+    { id: 'arrivals', label: t('arrivals'), icon: Truck, shortcut: 'F3' },
+    { id: 'sales', label: t('sales'), icon: Tag, shortcut: 'F4' },
+    { id: 'bahi-khata', label: t('bahi_khata'), icon: BookOpen, shortcut: 'F5' },
+    { id: 'reports', label: t('reports'), icon: FileText, shortcut: 'F6' },
+    { id: 'settings', label: t('settings'), icon: Settings, shortcut: 'F9' }
   ];
 
   const userAvatars = {
@@ -76,7 +78,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
           {/* Subscription Badge & Switcher */}
           <div className="pt-2 border-t border-slate-200 flex flex-col gap-1.5">
             <div className="flex justify-between items-center text-[10px]">
-              <span className="font-bold text-slate-400 uppercase tracking-wide">Agency Switcher</span>
+              <span className="font-bold text-slate-400 uppercase tracking-wide">{t('agency_switcher')}</span>
               <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wide border ${planStyles[subPlan] || 'bg-slate-100 text-slate-700'}`}>
                 ⭐ {subPlan.toUpperCase()} • {subStatus.toUpperCase()}
               </span>
@@ -87,7 +89,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
               onChange={(e) => switchTenant(e.target.value)}
               disabled={tenants.length <= 1}
               className="w-full text-xs font-bold bg-white border border-slate-300 text-slate-700 py-1.5 px-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
-              title={tenants.length <= 1 ? "Single Agency Workspace (Isolated)" : "Switch Agency Workspace"}
+              title={tenants.length <= 1 ? t('single_agency') : t('agency_switcher')}
             >
               {tenants.map(t => (
                 <option key={t.id} value={t.id}>
@@ -101,7 +103,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
         {/* Navigation Items */}
         <nav className="space-y-1 text-xs">
           <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-3 py-1">
-            Operations (मंडी व्यापार)
+            {t('operations')}
           </div>
 
           {navItems.map(item => {
@@ -137,7 +139,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
           {user?.role === 'super_admin' && (
             <div className="pt-3">
               <div className="text-[10px] font-black text-purple-400 uppercase tracking-wider px-3 py-1">
-                Platform Control
+                {t('super_admin')}
               </div>
               <button
                 onClick={() => setActiveTab('super-admin')}
@@ -148,7 +150,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
                 }`}
               >
                 <ShieldAlert className="w-4 h-4 text-purple-600" />
-                <span>Super Admin Console</span>
+                <span>{t('super_admin')}</span>
               </button>
             </div>
           )}
@@ -174,7 +176,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
           <button
             onClick={logout}
             className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-            title="Logout Safely"
+            title={t('logout')}
           >
             <LogOut className="w-4 h-4" />
           </button>

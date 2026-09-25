@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
+import { useLanguage } from '../context/LanguageContext';
 import { Gavel, Plus, Search, Filter, ShoppingBag, User, CheckCircle, Clock, FileText, ArrowRight, X, AlertCircle } from 'lucide-react';
 
 export default function Sales() {
+  const { language, t } = useLanguage();
   const [lots, setLots] = useState([]);
   const [parties, setParties] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -126,10 +128,10 @@ export default function Sales() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
             <Gavel className="w-7 h-7 text-indigo-600" />
-            Auction & Sales Lots / बोली एवं बिक्री रजिस्टर
+            {t('Auction & Sales Lots', 'बोली एवं बिक्री रजिस्टर')}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Conduct live mandi auctions, split lots among multiple buyers, and issue buyer purcha slips.
+            {t('Conduct live mandi auctions, split lots among multiple buyers, and issue buyer purcha slips.', 'लाइव मंडी नीलामी, कई खरीदारों में लॉट विभाजन, और खरीदार पर्चा जारी करें।')}
           </p>
         </div>
       </div>
@@ -298,7 +300,7 @@ export default function Sales() {
                       className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center justify-center gap-2"
                     >
                       <Gavel className="w-4 h-4" />
-                      Auction / Hammer Lot (बोली लगाएं)
+                      {t('Auction / Hammer Lot', 'बोली लगाएं')}
                     </button>
                   ) : (
                     <div className="text-center text-xs font-semibold text-gray-400 py-1 flex items-center justify-center gap-1">
@@ -320,7 +322,7 @@ export default function Sales() {
               <div className="flex items-center gap-2">
                 <Gavel className="w-5 h-5 text-indigo-700" />
                 <div>
-                  <h2 className="text-base font-bold text-indigo-950">Record Split Auction / बोली विक्रय</h2>
+                  <h2 className="text-base font-bold text-indigo-950">{t('Record Split Auction', 'बोली विक्रय दर्ज करें')}</h2>
                   <div className="text-xs text-indigo-700">Lot #{selectedLotForSale.lot_number} • {selectedLotForSale.commodity_name}</div>
                 </div>
               </div>
@@ -383,7 +385,7 @@ export default function Sales() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Hammer Rate (भाव ₹) *</label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Hammer Rate (₹) *', 'नीलामी भाव (₹) *')}</label>
                   <input
                     type="number"
                     step="0.01"
@@ -468,7 +470,7 @@ export default function Sales() {
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col">
             <div className="p-6 space-y-4 print:p-0">
               <div className="text-center border-b pb-3">
-                <div className="text-xl font-black text-gray-900 uppercase">MANDI BUYER PURCHA / कच्चा पर्चा</div>
+                <div className="text-xl font-black text-gray-900 uppercase">{t('MANDI BUYER PURCHA', 'मंडी खरीदार कच्चा पर्चा')}</div>
                 <div className="text-xs text-gray-500">APMC Authorized Trading Voucher</div>
               </div>
               <div className="space-y-2 text-xs">

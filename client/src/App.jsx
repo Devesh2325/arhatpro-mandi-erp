@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { TenantProvider, useTenant } from './context/TenantContext';
+import { LanguageProvider, useLanguage, SUPPORTED_LANGUAGES } from './context/LanguageContext';
 import Sidebar from './components/Sidebar';
 import ImpersonationBanner from './components/ImpersonationBanner';
 import AuthModal from './pages/AuthModal';
@@ -12,11 +13,12 @@ import BahiKhata from './pages/BahiKhata';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import SuperAdmin from './pages/SuperAdmin';
-import { Menu, Sparkles } from 'lucide-react';
+import { Menu, Sparkles, Languages } from 'lucide-react';
 
 function MandiApp() {
   const { user, isAuthenticated, loading } = useAuth();
   const { currentTenant, activeTenant } = useTenant();
+  const { language, setLanguage, t } = useLanguage();
   const tenant = currentTenant || activeTenant;
 
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -135,12 +137,30 @@ function MandiApp() {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Language Selector in Header */}
+              <div className="flex items-center bg-slate-100 hover:bg-slate-200 transition-colors px-2 py-1 rounded-xl border border-slate-200 shadow-2xs">
+                <Languages className="w-3.5 h-3.5 text-slate-600 mr-1.5 shrink-0" />
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  className="bg-transparent text-xs font-black text-slate-800 focus:outline-none cursor-pointer pr-1"
+                  aria-label="Select Application Language"
+                  title="Switch Language / भाषा बदलें"
+                >
+                  {SUPPORTED_LANGUAGES.map(lang => (
+                    <option key={lang.code} value={lang.code} className="text-slate-900 bg-white">
+                      {lang.flag} {lang.nativeName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <button
                 onClick={() => setActiveTab('quick-trade')}
                 className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center gap-1 cursor-pointer"
               >
                 <span>⚡</span>
-                <span className="hidden sm:inline">Quick Trade</span>
+                <span className="hidden sm:inline">{t('quick_trade')}</span>
               </button>
               {user?.role === 'super_admin' && (
                 <button
@@ -148,7 +168,7 @@ function MandiApp() {
                   className="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-xl text-xs font-bold transition-all flex items-center gap-1"
                 >
                   <span>👑</span>
-                  <span className="hidden sm:inline">Super Admin</span>
+                  <span className="hidden sm:inline">{t('super_admin')}</span>
                 </button>
               )}
             </div>
@@ -167,10 +187,12 @@ function MandiApp() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <TenantProvider>
-        <MandiApp />
-      </TenantProvider>
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <TenantProvider>
+          <MandiApp />
+        </TenantProvider>
+      </AuthProvider>
+    </LanguageProvider>
   );
 }

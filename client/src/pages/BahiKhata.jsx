@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
+import { useLanguage } from '../context/LanguageContext';
 import { BookOpen, DollarSign, ArrowUpRight, ArrowDownLeft, ShieldCheck, Clock, Plus, Search, Filter, AlertTriangle, CheckCircle, RefreshCw, X, Receipt } from 'lucide-react';
 
 export default function BahiKhata() {
+  const { t, isHindi } = useLanguage();
   const [activeTab, setActiveTab] = useState('ACCOUNTS'); // ACCOUNTS, CASHBOOK, JOURNAL, AGING
   const [accounts, setAccounts] = useState([]);
   const [cashEntries, setCashEntries] = useState([]);
@@ -148,27 +150,27 @@ export default function BahiKhata() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
             <BookOpen className="w-7 h-7 text-indigo-600" />
-            Bahi-Khata & Rokad Ledger / बही-खाता एवं रोकड़
+            {t('Bahi-Khata & Rokad Ledger', 'बही-खाता एवं रोकड़ बही')}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Indian Mandi double-entry accounting system with 15-day APMC debtor interest calculator.
+            {t('Indian Mandi double-entry accounting system with 15-day APMC debtor interest calculator.', 'मंडी द्वि-प्रविष्टि बहीखाता एवं 15-दिवसीय एपीएमसी विलंब ब्याज कैलकुलेटर।')}
           </p>
         </div>
         <div className="flex items-center gap-3">
           {activeTab === 'CASHBOOK' && (
             <button
               onClick={() => setShowCashModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow-sm text-sm"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow-sm text-sm cursor-pointer"
             >
-              <Plus className="w-4 h-4" /> Record Cash In / Out (रोकड़ प्रविष्टि)
+              <Plus className="w-4 h-4" /> {t('Record Cash In / Out', 'रोकड़ प्रविष्टि')}
             </button>
           )}
           {activeTab === 'JOURNAL' && (
             <button
               onClick={() => setShowJournalModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm text-sm"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm text-sm cursor-pointer"
             >
-              <Receipt className="w-4 h-4" /> New Journal Voucher (Dr = Cr)
+              <Receipt className="w-4 h-4" /> {t('New Journal Voucher (Dr = Cr)', 'नया जर्नल वाउचर')}
             </button>
           )}
         </div>
@@ -186,10 +188,10 @@ export default function BahiKhata() {
       {/* Tabs */}
       <div className="flex border-b border-gray-200 gap-6">
         {[
-          { id: 'ACCOUNTS', label: 'Khata Accounts (खाता बही)', icon: BookOpen },
-          { id: 'CASHBOOK', label: 'Rokad / Cashbook (रोकड़ बही)', icon: DollarSign },
-          { id: 'JOURNAL', label: 'Double-Entry Journal (जर्नल वाउचर)', icon: ShieldCheck },
-          { id: 'AGING', label: '15-Day Aging & Interest (ब्याज गणना)', icon: Clock }
+          { id: 'ACCOUNTS', label: t('Khata Accounts', 'खाता बही'), icon: BookOpen },
+          { id: 'CASHBOOK', label: t('Rokad / Cashbook', 'रोकड़ बही'), icon: DollarSign },
+          { id: 'JOURNAL', label: t('Double-Entry Journal', 'जर्नल वाउचर'), icon: ShieldCheck },
+          { id: 'AGING', label: t('15-Day Aging & Interest', 'ब्याज गणना व अवधि'), icon: Clock }
         ].map(tab => {
           const Icon = tab.icon;
           return (
@@ -300,16 +302,16 @@ export default function BahiKhata() {
                   <th className="py-3.5 px-4">Date & Time</th>
                   <th className="py-3.5 px-4">Entry Type</th>
                   <th className="py-3.5 px-4">Associated Party / Account</th>
-                  <th className="py-3.5 px-4">Description / Narration</th>
-                  <th className="py-3.5 px-4 text-right">Cash In (जमा)</th>
-                  <th className="py-3.5 px-4 text-right">Cash Out (नाम)</th>
+                  <th className="py-3.5 px-4">{t('Description / Narration', 'विवरण / नरेशन')}</th>
+                  <th className="py-3.5 px-4 text-right">{t('Cash In', 'रोकड़ जमा')}</th>
+                  <th className="py-3.5 px-4 text-right">{t('Cash Out', 'रोकड़ नाम')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {loading ? (
-                  <tr><td colSpan="6" className="text-center py-10 text-gray-400">Loading Rokad cashbook...</td></tr>
+                  <tr><td colSpan="6" className="text-center py-10 text-gray-400">{t('Loading Rokad cashbook...', 'रोकड़ बही लोड हो रही है...')}</td></tr>
                 ) : cashEntries.length === 0 ? (
-                  <tr><td colSpan="6" className="text-center py-10 text-gray-400">No cash transactions recorded yet.</td></tr>
+                  <tr><td colSpan="6" className="text-center py-10 text-gray-400">{t('No cash transactions recorded yet.', 'अभी तक कोई रोकड़ प्रविष्टि नहीं है।')}</td></tr>
                 ) : (
                   cashEntries.map(entry => {
                     const isCashIn = entry.entry_type === 'cash_in';
@@ -323,7 +325,7 @@ export default function BahiKhata() {
                             isCashIn ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
                           }`}>
                             {isCashIn ? <ArrowDownLeft className="w-3 h-3" /> : <ArrowUpRight className="w-3 h-3" />}
-                            {isCashIn ? 'Cash In (जमा)' : 'Cash Out (भुगतान)'}
+                            {isCashIn ? t('Cash In', 'रोकड़ जमा') : t('Cash Out', 'रोकड़ भुगतान')}
                           </span>
                         </td>
                         <td className="py-3 px-4 font-semibold text-gray-900">{entry.account_name || 'Counter Cash'}</td>
@@ -434,32 +436,32 @@ export default function BahiKhata() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-emerald-50">
-              <h2 className="text-base font-bold text-emerald-950">Record Rokad Entry (रोकड़ प्रविष्टि)</h2>
-              <button onClick={() => setShowCashModal(false)} className="text-gray-400 hover:text-gray-600">
+              <h2 className="text-base font-bold text-emerald-950">{t('Record Rokad Entry', 'रोकड़ प्रविष्टि दर्ज करें')}</h2>
+              <button onClick={() => setShowCashModal(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleCashSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Transaction Type</label>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Transaction Type', 'लेनदेन का प्रकार')}</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setCashForm({ ...cashForm, entry_type: 'cash_in' })}
-                    className={`py-2 rounded-lg text-xs font-bold border transition-colors ${
+                    className={`py-2 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
                       cashForm.entry_type === 'cash_in' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-gray-50 text-gray-700 border-gray-300'
                     }`}
                   >
-                    Cash In / Jama (जमा)
+                    {t('Cash In (Receipt)', 'रोकड़ जमा (आवक)')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setCashForm({ ...cashForm, entry_type: 'cash_out' })}
-                    className={`py-2 rounded-lg text-xs font-bold border transition-colors ${
+                    className={`py-2 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
                       cashForm.entry_type === 'cash_out' ? 'bg-rose-600 text-white border-rose-600' : 'bg-gray-50 text-gray-700 border-gray-300'
                     }`}
                   >
-                    Cash Out / Bhugtan (नाम)
+                    {t('Cash Out (Payment)', 'रोकड़ भुगतान (जावक)')}
                   </button>
                 </div>
               </div>

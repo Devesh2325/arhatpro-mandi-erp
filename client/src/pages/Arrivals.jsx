@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
+import { useLanguage } from '../context/LanguageContext';
 import { Truck, Plus, Search, Filter, Printer, CheckCircle, Clock, AlertTriangle, X } from 'lucide-react';
 
 export default function Arrivals() {
+  const { t, isHindi } = useLanguage();
   const [arrivals, setArrivals] = useState([]);
   const [commodities, setCommodities] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -107,19 +109,19 @@ export default function Arrivals() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
             <Truck className="w-7 h-7 text-indigo-600" />
-            Inward Consignments / आवक रजिस्टर
+            {t('Inward Consignments', 'गाड़ी आवक रजिस्टर')}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Track inward fruit & vegetable trucks, farmer consignments, driver freight & generated lots.
+            {t('Track inward fruit & vegetable trucks, farmer consignments, driver freight & generated lots.', 'गाड़ी आवक, किसान चालान, चालक भाड़ा पेशगी और जनरेटेड यार्ड लॉट्स का प्रबंधन।')}
           </p>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowAddModal(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm transition-colors cursor-pointer"
           >
             <Plus className="w-5 h-5" />
-            New Truck Arrival (नई आवक)
+            {t('New Truck Arrival', 'नई गाड़ी आवक')}
           </button>
         </div>
       </div>
@@ -295,7 +297,7 @@ export default function Arrivals() {
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
               <div className="flex items-center gap-2">
                 <Truck className="w-5 h-5 text-indigo-600" />
-                <h2 className="text-lg font-bold text-gray-900">New Inward Truck Arrival (नई आवक)</h2>
+                <h2 className="text-lg font-bold text-gray-900">{t('New Inward Truck Arrival', 'नई गाड़ी आवक')}</h2>
               </div>
               <button
                 onClick={() => setShowAddModal(false)}
@@ -308,7 +310,7 @@ export default function Arrivals() {
             <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Truck Number *</label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Truck Number *', 'गाड़ी नंबर *')}</label>
                   <input
                     type="text"
                     required
@@ -319,17 +321,17 @@ export default function Arrivals() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Driver Name</label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Driver Name', 'चालक का नाम')}</label>
                   <input
                     type="text"
-                    placeholder="Driver Name"
+                    placeholder={t('Driver Name', 'चालक का नाम')}
                     value={formData.driver_name}
                     onChange={(e) => setFormData({ ...formData, driver_name: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Driver Mobile</label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Driver Mobile', 'चालक मोबाइल')}</label>
                   <input
                     type="text"
                     placeholder="10-digit mobile"
@@ -342,7 +344,7 @@ export default function Arrivals() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Farmer / Consignor Name *</label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Farmer / Consignor Name *', 'किसान / उत्पादक का नाम *')}</label>
                   <input
                     type="text"
                     required
@@ -353,7 +355,7 @@ export default function Arrivals() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Source Mandi / Location</label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Source Mandi / Location', 'उत्पत्ति मंडी / क्षेत्र')}</label>
                   <input
                     type="text"
                     placeholder="e.g. Shimla / Abohar / Nashik"
@@ -366,19 +368,19 @@ export default function Arrivals() {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Commodity *</label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Commodity *', 'फसल / जिंस *')}</label>
                   <select
                     value={formData.commodity_id}
                     onChange={(e) => setFormData({ ...formData, commodity_id: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
                   >
                     {commodities.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name} ({c.hindi_name || c.unit})</option>
+                      <option key={c.id} value={c.id}>{isHindi ? (c.hindi_name || c.name) : c.name}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Total Bags / Crates *</label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Total Bags / Crates *', 'कुल नग / बोरी *')}</label>
                   <input
                     type="number"
                     min="1"
@@ -390,7 +392,7 @@ export default function Arrivals() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Gross Weight (Qntl)</label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Gross Weight (Qntl)', 'कुल वजन (क्विंटल)')}</label>
                   <input
                     type="number"
                     step="0.01"
@@ -404,7 +406,7 @@ export default function Arrivals() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Freight Total (भाड़ा ₹)</label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Freight Total (₹)', 'गाड़ी भाड़ा (₹)')}</label>
                   <input
                     type="number"
                     placeholder="₹ 0"
@@ -414,7 +416,7 @@ export default function Arrivals() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Advance Paid to Driver (अग्रिम ₹)</label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Advance Paid to Driver (₹)', 'चालक को पेशगी (₹)')}</label>
                   <input
                     type="number"
                     placeholder="₹ 0"

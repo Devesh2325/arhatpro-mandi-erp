@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { KeyRound, Rocket, AlertTriangle, Building2 } from 'lucide-react';
 
 export default function AuthModal() {
   const { login, signup } = useAuth();
+  const { language, t } = useLanguage();
   const [tab, setTab] = useState('login');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,7 +31,7 @@ export default function AuthModal() {
     setError('');
 
     if (!loginIdentifier.trim() || !loginPassword.trim()) {
-      setError('Please enter your Mobile Number / Email and PIN / Password.');
+      setError(t('Please enter your Mobile Number / Email and PIN / Password.', 'कृपया अपना मोबाइल नंबर / ईमेल और पिन / पासवर्ड दर्ज करें।'));
       return;
     }
 
@@ -37,7 +39,7 @@ export default function AuthModal() {
     try {
       await login(loginIdentifier.trim(), loginPassword.trim());
     } catch (err) {
-      setError(err.message || 'Login failed. Please verify your credentials.');
+      setError(err.message || t('Login failed. Please verify your credentials.', 'लॉगिन विफल रहा। कृपया अपनी क्रेडेंशियल जांचें।'));
     } finally {
       setLoading(false);
     }
@@ -48,7 +50,7 @@ export default function AuthModal() {
     setError('');
 
     if (!signupForm.firmName.trim() || !signupForm.proprietor.trim() || !signupForm.phone.trim() || !signupForm.pin.trim()) {
-      setError('Firm Name, Proprietor Name, Mobile Number, and 4-Digit PIN are required.');
+      setError(t('Firm Name, Proprietor Name, Mobile Number, and 4-Digit PIN are required.', 'फर्म का नाम, प्रोपराइटर का नाम, मोबाइल नंबर और 4-अंकीय पिन आवश्यक हैं।'));
       return;
     }
 
@@ -56,7 +58,7 @@ export default function AuthModal() {
     try {
       await signup(signupForm);
     } catch (err) {
-      setError(err.message || 'Registration failed. Please try again.');
+      setError(err.message || t('Registration failed. Please try again.', 'पंजीकरण विफल रहा। कृपया पुन: प्रयास करें।'));
     } finally {
       setLoading(false);
     }
@@ -70,7 +72,7 @@ export default function AuthModal() {
           🌾
         </div>
         <h2 className="text-2xl font-black text-slate-900 tracking-tight">ArhatPro Mandi ERP</h2>
-        <p className="text-xs text-slate-500">APMC Wholesale Market Trading &amp; Accounting Platform</p>
+        <p className="text-xs text-slate-500">{t('APMC Wholesale Market Trading & Accounting Platform', 'एपीएमसी थोक कृषि उपज मंडी व्यापार एवं लेखा प्रणाली')}</p>
       </div>
 
       {/* Error notification */}
@@ -91,7 +93,7 @@ export default function AuthModal() {
           }`}
         >
           <KeyRound className="w-3.5 h-3.5" />
-          Login (प्रवेश)
+          {t('Login', 'प्रवेश')}
         </button>
         <button
           type="button"
@@ -101,7 +103,7 @@ export default function AuthModal() {
           }`}
         >
           <Rocket className="w-3.5 h-3.5" />
-          New Agency Sign-Up
+          {t('New Agency Sign-Up', 'नई आढ़त फर्म पंजीकरण')}
         </button>
       </div>
 
@@ -109,7 +111,7 @@ export default function AuthModal() {
       {tab === 'login' ? (
         <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
           <div>
-            <label className="font-bold text-slate-700 block mb-1">Registered Mobile Number or Email</label>
+            <label className="font-bold text-slate-700 block mb-1">{t('Registered Mobile Number or Email', 'पंजीकृत मोबाइल नंबर या ईमेल')}</label>
             <input
               type="text"
               required
@@ -121,8 +123,8 @@ export default function AuthModal() {
           </div>
           <div>
             <div className="flex justify-between items-center mb-1">
-              <label className="font-bold text-slate-700">Security PIN or Password</label>
-              <span className="text-[10px] text-slate-400">4-Digit PIN or Password</span>
+              <label className="font-bold text-slate-700">{t('Security PIN or Password', 'सुरक्षा पिन या पासवर्ड')}</label>
+              <span className="text-[10px] text-slate-400">{t('4-Digit PIN or Password', '4-अंकीय पिन या पासवर्ड')}</span>
             </div>
             <input
               type="password"
@@ -138,18 +140,18 @@ export default function AuthModal() {
             disabled={loading}
             className="w-full py-3.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-sm shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {loading ? 'Authenticating...' : 'Secure Login to Workspace →'}
+            {loading ? t('Authenticating...', 'सत्यापित हो रहा है...') : t('Secure Login to Workspace →', 'सुरक्षित लॉगिन करें →')}
           </button>
         </form>
       ) : (
         /* Tab 2: SIGN-UP FORM */
         <form onSubmit={handleSignupSubmit} className="space-y-3.5 text-xs">
           <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200 text-emerald-900 text-[11px] leading-relaxed">
-            <strong>Self-Serve Agency Provisioning:</strong> Instantly provisions your own isolated APMC Mandi workspace with relational database partitions, default commodities, and shop admin rights.
+            <strong>{t('Self-Serve Agency Provisioning:', 'स्वचालित आढ़त सेटअप:')}</strong> {t('Instantly provisions your own isolated APMC Mandi workspace with relational database partitions, default commodities, and shop admin rights.', 'आपकी फर्म हेतु अलग डेटाबेस, मानक फसल सूची और एडमिन अधिकारों के साथ तत्काल खाता तैयार करता है।')}
           </div>
 
           <div>
-            <label className="font-bold text-slate-700 block mb-1">Mandi Firm Name (व्यापारिक फर्म का नाम) *</label>
+            <label className="font-bold text-slate-700 block mb-1">{t('Mandi Firm Name *', 'व्यापारिक फर्म का नाम *')}</label>
             <input
               type="text"
               required
@@ -162,7 +164,7 @@ export default function AuthModal() {
 
           <div className="grid grid-cols-2 gap-2.5">
             <div>
-              <label className="font-bold text-slate-700 block mb-1">Proprietor Name (मालिक) *</label>
+              <label className="font-bold text-slate-700 block mb-1">{t('Proprietor Name *', 'मालिक / प्रोपराइटर का नाम *')}</label>
               <input
                 type="text"
                 required
@@ -173,7 +175,7 @@ export default function AuthModal() {
               />
             </div>
             <div>
-              <label className="font-bold text-slate-700 block mb-1">Mobile Number (मोबाइल) *</label>
+              <label className="font-bold text-slate-700 block mb-1">{t('Mobile Number *', 'मोबाइल नंबर *')}</label>
               <input
                 type="tel"
                 required
@@ -187,7 +189,7 @@ export default function AuthModal() {
 
           <div className="grid grid-cols-2 gap-2.5">
             <div>
-              <label className="font-bold text-slate-700 block mb-1">Set 4-Digit Login PIN *</label>
+              <label className="font-bold text-slate-700 block mb-1">{t('Set 4-Digit Login PIN *', '4-अंकीय लॉगिन पिन बनाएं *')}</label>
               <input
                 type="password"
                 required
@@ -199,7 +201,7 @@ export default function AuthModal() {
               />
             </div>
             <div>
-              <label className="font-bold text-slate-700 block mb-1">Shop / Shed No.</label>
+              <label className="font-bold text-slate-700 block mb-1">{t('Shop / Shed No.', 'दुकान / शेड नं.')}</label>
               <input
                 type="text"
                 value={signupForm.shopNo}
@@ -212,7 +214,7 @@ export default function AuthModal() {
 
           <div className="grid grid-cols-2 gap-2.5">
             <div>
-              <label className="font-bold text-slate-700 block mb-1">Market Name</label>
+              <label className="font-bold text-slate-700 block mb-1">{t('Market Name', 'मंडी का नाम')}</label>
               <input
                 type="text"
                 value={signupForm.mandiName}
@@ -221,18 +223,18 @@ export default function AuthModal() {
               />
             </div>
             <div>
-              <label className="font-bold text-slate-700 block mb-1">Brand Theme</label>
+              <label className="font-bold text-slate-700 block mb-1">{t('Brand Theme', 'थीम का रंग')}</label>
               <select
                 value={signupForm.theme}
                 onChange={(e) => setSignupForm({ ...signupForm, theme: e.target.value })}
                 className="w-full p-2.5 border border-slate-300 rounded-xl font-bold bg-white focus:ring-2 focus:ring-emerald-600 outline-none"
               >
-                <option value="emerald">Emerald Green (Azadpur)</option>
-                <option value="navy">Royal Navy Blue</option>
-                <option value="maroon">Kashmiri Maroon</option>
-                <option value="purple">Imperial Purple</option>
-                <option value="amber">Golden Amber</option>
-                <option value="slate">Corporate Slate</option>
+                <option value="emerald">{t('Emerald Green (Azadpur)', 'एमराल्ड हरा (आज़ादपुर)')}</option>
+                <option value="navy">{t('Royal Navy Blue', 'रॉयल नेवी ब्लू')}</option>
+                <option value="maroon">{t('Kashmiri Maroon', 'कश्मीरी महरून')}</option>
+                <option value="purple">{t('Imperial Purple', 'इंपीरियल पर्पल')}</option>
+                <option value="amber">{t('Golden Amber', 'गोल्डन एम्बर')}</option>
+                <option value="slate">{t('Corporate Slate', 'कॉर्पोरेट स्लेट')}</option>
               </select>
             </div>
           </div>
@@ -242,7 +244,7 @@ export default function AuthModal() {
             disabled={loading}
             className="w-full py-3.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-sm shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {loading ? 'Provisioning Agency...' : '🚀 Register & Launch My Agency →'}
+            {loading ? t('Provisioning Agency...', 'खाता तैयार हो रहा है...') : t('🚀 Register & Launch My Agency →', '🚀 फर्म पंजीकृत करें एवं शुरू करें →')}
           </button>
         </form>
       )}

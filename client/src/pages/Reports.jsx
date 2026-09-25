@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useTenant } from '../context/TenantContext';
+import { useLanguage } from '../context/LanguageContext';
 import { 
   FileSpreadsheet, 
   Printer, 
@@ -27,6 +28,7 @@ import {
 export default function Reports() {
   const { currentTenant, activeTenant } = useTenant();
   const tenant = currentTenant || activeTenant;
+  const { language, t } = useLanguage();
 
   // Active Report Tab:
   // BUYER_PURCHA, BUYER_BALANCE, GROWER_BALANCE, BUYER_SUMMARY, GROWER_SUMMARY, GROWER_ARRIVAL, STATUTORY
@@ -414,11 +416,11 @@ export default function Reports() {
               <FileSpreadsheet className="w-4 h-4" />
             </span>
             <h1 className="text-xl font-black text-slate-900 tracking-tight">
-              Mandi Commercial &amp; Statutory Reports (मंडी व्यापारिक व कानूनी रिपोर्ट)
+              {t('Mandi Commercial & Statutory Reports', 'मंडी व्यापारिक व कानूनी रिपोर्ट')}
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Buyer purcha vouchers, party ledgers, grower arrival registers, and APMC statutory Form J / Form M returns.
+            {t('Buyer purcha vouchers, party ledgers, grower arrival registers, and APMC statutory Form J / Form M returns.', 'खरीदार पर्चा वाउचर, लेजर, किसान आवक रजिस्टर, और एपीएमसी वैधानिक फॉर्म जे / फॉर्म एम रिटर्न।')}
           </p>
         </div>
 
@@ -429,14 +431,14 @@ export default function Reports() {
             title="Download CSV for Excel"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
-            Export CSV (एक्सेल)
+            {t('Export CSV', 'एक्सेल निर्यात')}
           </button>
           <button
             onClick={handlePrint}
             className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
           >
             <Printer className="w-3.5 h-3.5" />
-            Print Report (प्रिंट करें)
+            {t('Print Report', 'रिपोर्ट प्रिंट करें')}
           </button>
         </div>
       </div>
@@ -447,10 +449,10 @@ export default function Reports() {
           {/* Date Range Inputs */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-bold text-slate-700 flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5 text-emerald-700" /> Date Filter:
+              <Calendar className="w-3.5 h-3.5 text-emerald-700" /> {t('Date Filter:', 'दिनांक फ़िल्टर:')}
             </span>
             <div className="flex items-center gap-1">
-              <span className="text-[10px] text-slate-400 font-bold uppercase">From</span>
+              <span className="text-[10px] text-slate-400 font-bold uppercase">{t('From', 'से')}</span>
               <input
                 type="date"
                 value={fromDate}
@@ -459,7 +461,7 @@ export default function Reports() {
               />
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-[10px] text-slate-400 font-bold uppercase">To</span>
+              <span className="text-[10px] text-slate-400 font-bold uppercase">{t('To', 'तक')}</span>
               <input
                 type="date"
                 value={toDate}
@@ -475,25 +477,25 @@ export default function Reports() {
               onClick={() => setDatePreset('TODAY')}
               className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-lg transition-colors cursor-pointer"
             >
-              Today (आज)
+              {t('Today', 'आज')}
             </button>
             <button
               onClick={() => setDatePreset('YESTERDAY')}
               className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-lg transition-colors cursor-pointer"
             >
-              Yesterday (कल)
+              {t('Yesterday', 'कल')}
             </button>
             <button
               onClick={() => setDatePreset('LAST_7_DAYS')}
               className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-lg transition-colors cursor-pointer"
             >
-              7 Days (7 दिन)
+              {t('7 Days', '7 दिन')}
             </button>
             <button
               onClick={() => setDatePreset('THIS_MONTH')}
               className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-lg transition-colors cursor-pointer"
             >
-              This Month (इस माह)
+              {t('This Month', 'इस माह')}
             </button>
             <button
               onClick={() => setDatePreset('ALL')}
@@ -501,7 +503,7 @@ export default function Reports() {
                 !fromDate && !toDate ? 'bg-emerald-700 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
               }`}
             >
-              All Dates (सभी)
+              {t('All Dates', 'सभी तिथियां')}
             </button>
           </div>
 
@@ -510,7 +512,7 @@ export default function Reports() {
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search party, truck, commodity..."
+              placeholder={t('Search party, truck, commodity...', 'पार्टी, गाड़ी, जिंस खोजें...')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs font-medium focus:ring-1 focus:ring-emerald-600 outline-none"
@@ -522,16 +524,16 @@ export default function Reports() {
         {(fromDate || toDate || searchTerm) && (
           <div className="flex items-center justify-between text-[11px] bg-slate-50 p-2 rounded-xl border border-slate-200 text-slate-600">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-emerald-800">Filtered View:</span>
-              {fromDate && <span>From: <strong>{fromDate}</strong></span>}
-              {toDate && <span>To: <strong>{toDate}</strong></span>}
-              {searchTerm && <span>Search: <strong>"{searchTerm}"</strong></span>}
+              <span className="font-bold text-emerald-800">{t('Filtered View:', 'फ़िल्टर दृश्य:')}</span>
+              {fromDate && <span>{t('From', 'से')}: <strong>{fromDate}</strong></span>}
+              {toDate && <span>{t('To', 'तक')}: <strong>{toDate}</strong></span>}
+              {searchTerm && <span>{t('Search', 'खोज')}: <strong>"{searchTerm}"</strong></span>}
             </div>
             <button
               onClick={() => { setFromDate(''); setToDate(''); setSearchTerm(''); }}
               className="text-rose-600 hover:text-rose-800 font-bold flex items-center gap-1 cursor-pointer"
             >
-              <RotateCcw className="w-3 h-3" /> Reset Filter
+              <RotateCcw className="w-3 h-3" /> {t('Reset Filter', 'फ़िल्टर हटाएं')}
             </button>
           </div>
         )}
@@ -540,13 +542,13 @@ export default function Reports() {
       {/* 3. Report Category Selector Tabs */}
       <div className="flex overflow-x-auto border-b border-slate-200 gap-1 pb-1 print:hidden">
         {[
-          { id: 'BUYER_PURCHA', label: 'Buyer Purcha', labelHi: 'खरीदार पर्चा', icon: Receipt },
-          { id: 'BUYER_BALANCE', label: 'Buyer Balance', labelHi: 'खरीदार बकाया', icon: DollarSign },
-          { id: 'GROWER_BALANCE', label: 'Grower Balance', labelHi: 'किसान बकाया व भुगतान', icon: Users },
-          { id: 'BUYER_SUMMARY', label: 'Buyer Summary', labelHi: 'खरीदार सारांश', icon: TrendingUp },
-          { id: 'GROWER_SUMMARY', label: 'Grower Summary', labelHi: 'किसान सारांश', icon: Package },
-          { id: 'GROWER_ARRIVAL', label: 'Grower Arrival', labelHi: 'गाड़ी आवक रजिस्टर', icon: Truck },
-          { id: 'STATUTORY', label: 'APMC Legal Forms', labelHi: 'पक्का टीप व जे-फॉर्म', icon: ShieldCheck }
+          { id: 'BUYER_PURCHA', labelEn: 'Buyer Purcha', labelHi: 'खरीदार पर्चा', icon: Receipt },
+          { id: 'BUYER_BALANCE', labelEn: 'Buyer Balance', labelHi: 'खरीदार बकाया', icon: DollarSign },
+          { id: 'GROWER_BALANCE', labelEn: 'Grower Balance', labelHi: 'किसान बकाया व भुगतान', icon: Users },
+          { id: 'BUYER_SUMMARY', labelEn: 'Buyer Summary', labelHi: 'खरीदार सारांश', icon: TrendingUp },
+          { id: 'GROWER_SUMMARY', labelEn: 'Grower Summary', labelHi: 'किसान सारांश', icon: Package },
+          { id: 'GROWER_ARRIVAL', labelEn: 'Grower Arrival', labelHi: 'गाड़ी आवक रजिस्टर', icon: Truck },
+          { id: 'STATUTORY', labelEn: 'APMC Legal Forms', labelHi: 'पक्का टीप व जे-फॉर्म', icon: ShieldCheck }
         ].map(tab => {
           const IconC = tab.icon;
           const isActive = activeReport === tab.id;
@@ -562,10 +564,7 @@ export default function Reports() {
             >
               <IconC className={`w-3.5 h-3.5 ${isActive ? 'text-amber-300' : 'text-slate-500'}`} />
               <div>
-                <div>{tab.label}</div>
-                <div className={`text-[10px] font-normal ${isActive ? 'text-slate-300' : 'text-slate-400'}`}>
-                  {tab.labelHi}
-                </div>
+                <div>{language === 'hi' ? tab.labelHi : tab.labelEn}</div>
               </div>
             </button>
           );
@@ -579,7 +578,7 @@ export default function Reports() {
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden text-xs space-y-4 p-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-bold text-slate-900">Buyer Purcha Register (खरीदार नीलामी पर्चा)</h3>
+              <h3 className="text-sm font-bold text-slate-900">{t('Buyer Purcha Register', 'खरीदार नीलामी पर्चा रजिस्टर')}</h3>
               <p className="text-slate-500 text-[11px]">
                 Individual trade slips issued to wholesale buyers with lot details, rates, and 2% dami breakdown.
               </p>
@@ -666,13 +665,13 @@ export default function Reports() {
       )}
 
       {/* =========================================================================
-          REPORT 2: BUYER BALANCE REPORT (खरीदार बकाया रिपोर्ट / Udhaar Bahi)
+          REPORT 2: BUYER BALANCE REPORT (Udhaar Bahi)
       ========================================================================== */}
       {activeReport === 'BUYER_BALANCE' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden text-xs space-y-4 p-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-bold text-slate-900">Buyer Balance &amp; Aging Report (खरीदार उधारी बहीखाता)</h3>
+              <h3 className="text-sm font-bold text-slate-900">{t('Buyer Balance & Aging Report', 'खरीदार उधारी बहीखाता')}</h3>
               <p className="text-slate-500 text-[11px]">
                 Wholesale buyer ledger with credit limits, purchases, clearances, and 18% statutory late interest.
               </p>
@@ -754,13 +753,13 @@ export default function Reports() {
       )}
 
       {/* =========================================================================
-          REPORT 3: GROWER / KISAN BALANCE REPORT (किसान बकाया व भुगतान रिपोर्ट)
+          REPORT 3: GROWER / KISAN BALANCE REPORT
       ========================================================================== */}
       {activeReport === 'GROWER_BALANCE' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden text-xs space-y-4 p-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-bold text-slate-900">Grower / Kisan Balance Report (किसान बकाया व भुगतान रिपोर्ट)</h3>
+              <h3 className="text-sm font-bold text-slate-900">{t('Grower / Kisan Balance Report', 'किसान बकाया व भुगतान रिपोर्ट')}</h3>
               <p className="text-slate-500 text-[11px]">
                 Consignor settlement register: Gross auction proceeds, freight/advance deductions, commission, and net payouts.
               </p>
@@ -828,13 +827,13 @@ export default function Reports() {
       )}
 
       {/* =========================================================================
-          REPORT 4: BUYER SUMMARY (खरीदार सारांश)
+          REPORT 4: BUYER SUMMARY
       ========================================================================== */}
       {activeReport === 'BUYER_SUMMARY' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden text-xs space-y-4 p-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-bold text-slate-900">Buyer Trading Summary (खरीदार संक्षेप रिपोर्ट)</h3>
+              <h3 className="text-sm font-bold text-slate-900">{t('Buyer Trading Summary', 'खरीदार संक्षेप रिपोर्ट')}</h3>
               <p className="text-slate-500 text-[11px]">
                 Aggregated buyer trading performance: Total boxes purchased, average bidding price, and commission due.
               </p>
@@ -892,13 +891,13 @@ export default function Reports() {
       )}
 
       {/* =========================================================================
-          REPORT 5: GROWER SUMMARY (किसान सारांश)
+          REPORT 5: GROWER SUMMARY
       ========================================================================== */}
       {activeReport === 'GROWER_SUMMARY' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden text-xs space-y-4 p-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-bold text-slate-900">Grower / Producer Summary (किसान आवक-बिक्री सारांश)</h3>
+              <h3 className="text-sm font-bold text-slate-900">{t('Grower / Producer Summary', 'किसान आवक-बिक्री सारांश')}</h3>
               <p className="text-slate-500 text-[11px]">
                 Aggregated consignor volume, trucks inward, commission collected, and net take-home proceeds.
               </p>
@@ -958,13 +957,13 @@ export default function Reports() {
       )}
 
       {/* =========================================================================
-          REPORT 6: GROWER ARRIVAL (गाड़ी आवक व गेट पास रजिस्टर)
+          REPORT 6: GROWER ARRIVAL
       ========================================================================== */}
       {activeReport === 'GROWER_ARRIVAL' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden text-xs space-y-4 p-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-bold text-slate-900">Grower Inward Arrival Register (गाड़ी आवक रजिस्टर)</h3>
+              <h3 className="text-sm font-bold text-slate-900">{t('Grower Inward Arrival Register', 'गाड़ी आवक रजिस्टर')}</h3>
               <p className="text-slate-500 text-[11px]">
                 Complete truck entry log with vehicle number, driver details, bag quantities, and freight advances.
               </p>
@@ -1047,9 +1046,9 @@ export default function Reports() {
           <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3 print:hidden">
             <div className="flex items-center gap-1.5">
               {[
-                { id: 'TEEP', label: 'Consignor Sealed Teep (पक्का टीप)' },
-                { id: 'JFORM', label: 'Farmer Form J (जे-फॉर्म)' },
-                { id: 'FORMM', label: 'APMC Form M (मासिक रिटर्न)' }
+                { id: 'TEEP', labelEn: 'Consignor Sealed Teep', labelHi: 'पक्का टीप (Teep)' },
+                { id: 'JFORM', labelEn: 'Farmer Form J', labelHi: 'जे-फॉर्म (Form J)' },
+                { id: 'FORMM', labelEn: 'APMC Form M', labelHi: 'मासिक रिटर्न (Form M)' }
               ].map(sub => (
                 <button
                   key={sub.id}
@@ -1058,7 +1057,7 @@ export default function Reports() {
                     statutorySubTab === sub.id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
-                  {sub.label}
+                  {language === 'hi' ? sub.labelHi : sub.labelEn}
                 </button>
               ))}
             </div>
@@ -1089,7 +1088,7 @@ export default function Reports() {
                 className="px-3.5 py-1.5 bg-slate-900 hover:bg-black text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer print:hidden transition-all"
                 title="Print official letterpad document"
               >
-                <Printer className="w-3.5 h-3.5" /> Print Letterpad (प्रिंट)
+                <Printer className="w-3.5 h-3.5" /> {t('Print Letterpad', 'प्रिंट लेटरपैड')}
               </button>
             </div>
           </div>
@@ -1128,7 +1127,7 @@ export default function Reports() {
                     {tenant?.firm_name || 'SHREE GANESH FRUIT COMPANY'}
                   </div>
                   <div className="text-[10px] sm:text-[11px] font-bold text-slate-600 uppercase tracking-wide">
-                    COMMISSION AGENT &amp; GENERAL ORDER SUPPLIERS (थोक आढ़ती एवं कमीशन एजेंट)
+                    {t('COMMISSION AGENT & GENERAL ORDER SUPPLIERS', 'थोक आढ़ती एवं कमीशन एजेंट')}
                   </div>
                   <div className="text-[10px] sm:text-[11px] text-slate-500 font-medium">
                     {tenant?.shop_no || 'Shop No. C-42'}, {tenant?.mandi_name || 'New Subzi Mandi, Azadpur, Delhi-110033'}
@@ -1154,21 +1153,21 @@ export default function Reports() {
               {/* Title Banner */}
               <div className="text-center">
                 <span className="inline-block px-5 py-1 bg-slate-900 text-white rounded-lg text-xs font-black uppercase tracking-widest shadow-xs">
-                  CONSIGNOR ACCOUNT SALE / पक्का टीप (कृषक विक्रय हिसाब पर्चा)
+                  {t('CONSIGNOR ACCOUNT SALE (TEEP)', 'पक्का टीप (कृषक विक्रय हिसाब पर्चा)')}
                 </span>
               </div>
 
               {/* Consignor Particulars */}
               <div className="grid grid-cols-2 gap-4 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200">
                 <div className="space-y-1">
-                  <div><span className="font-bold text-slate-500">Consignor / Farmer (किसान):</span> <span className="font-black text-slate-900 text-sm ml-1">{selectedStatutoryLot.farmer_name}</span></div>
-                  <div><span className="font-bold text-slate-500">Origin / Village (स्थान):</span> <span className="ml-1">{selectedStatutoryLot.farmer_location || 'Himachal / Kashmir / Punjab'}</span></div>
-                  <div><span className="font-bold text-slate-500">Truck / Vehicle No (गाड़ी नं):</span> <span className="font-mono font-bold ml-1">{selectedStatutoryLot.truck_no || 'DL-01-AB-8899'}</span></div>
+                  <div><span className="font-bold text-slate-500">{t('Consignor / Farmer:', 'किसान:')}</span> <span className="font-black text-slate-900 text-sm ml-1">{selectedStatutoryLot.farmer_name}</span></div>
+                  <div><span className="font-bold text-slate-500">{t('Origin / Village:', 'मूल स्थान:')}</span> <span className="ml-1">{selectedStatutoryLot.farmer_location || 'Himachal / Kashmir / Punjab'}</span></div>
+                  <div><span className="font-bold text-slate-500">{t('Truck / Vehicle No:', 'गाड़ी नं:')}</span> <span className="font-mono font-bold ml-1">{selectedStatutoryLot.truck_no || 'DL-01-AB-8899'}</span></div>
                 </div>
                 <div className="space-y-1 text-right">
-                  <div><span className="font-bold text-slate-500">Teep Slip No (टीप क्र.):</span> <span className="font-mono font-black text-purple-800 ml-1">TP-{selectedStatutoryLot.lot_number || selectedStatutoryLot.id}</span></div>
-                  <div><span className="font-bold text-slate-500">Arrival Date (आवक तिथि):</span> <span className="ml-1">{new Date(selectedStatutoryLot.created_at || Date.now()).toLocaleDateString('en-IN')}</span></div>
-                  <div><span className="font-bold text-slate-500">Settlement Date (भुगतान तिथि):</span> <span className="ml-1">{new Date().toLocaleDateString('en-IN')}</span></div>
+                  <div><span className="font-bold text-slate-500">{t('Teep Slip No:', 'टीप क्रमांक:')}</span> <span className="font-mono font-black text-purple-800 ml-1">TP-{selectedStatutoryLot.lot_number || selectedStatutoryLot.id}</span></div>
+                  <div><span className="font-bold text-slate-500">{t('Arrival Date:', 'आवक तिथि:')}</span> <span className="ml-1">{new Date(selectedStatutoryLot.created_at || Date.now()).toLocaleDateString('en-IN')}</span></div>
+                  <div><span className="font-bold text-slate-500">{t('Settlement Date:', 'भुगतान तिथि:')}</span> <span className="ml-1">{new Date().toLocaleDateString('en-IN')}</span></div>
                 </div>
               </div>
 
@@ -1176,10 +1175,10 @@ export default function Reports() {
               <table className="w-full text-xs text-left border border-slate-300">
                 <thead className="bg-slate-100 font-bold border-b border-slate-300">
                   <tr>
-                    <th className="p-2.5">Commodity / Produce (जिंस)</th>
-                    <th className="p-2.5 text-center">Bags / Crates (नग)</th>
-                    <th className="p-2.5 text-right">Auction Rate (औसत दर)</th>
-                    <th className="p-2.5 text-right">Gross Amount (सकल राशि)</th>
+                    <th className="p-2.5">{t('Commodity / Produce', 'जिंस')}</th>
+                    <th className="p-2.5 text-center">{t('Bags / Crates', 'नग')}</th>
+                    <th className="p-2.5 text-right">{t('Auction Rate', 'औसत दर')}</th>
+                    <th className="p-2.5 text-right">{t('Gross Amount', 'सकल राशि')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1203,36 +1202,36 @@ export default function Reports() {
                           <td className="p-2.5 text-right font-mono font-bold">₹{gross.toLocaleString()}</td>
                         </tr>
                         <tr className="bg-slate-50 font-bold">
-                          <td colSpan="3" className="p-2.5 text-right uppercase tracking-wider">Gross Produce Value (सकल मूल्य):</td>
+                          <td colSpan="3" className="p-2.5 text-right uppercase tracking-wider">{t('Gross Produce Value:', 'सकल मूल्य:')}</td>
                           <td className="p-2.5 text-right font-mono text-sm font-black">₹{gross.toLocaleString()}</td>
                         </tr>
                         <tr className="border-t border-slate-300">
                           <td colSpan="4" className="p-2 bg-slate-100 font-bold text-slate-700 uppercase tracking-wider text-[10px]">
-                            Statutory Mandi Deductions / अधिकृत कटौती विवरण
+                            {t('Statutory Mandi Deductions', 'अधिकृत कटौती विवरण')}
                           </td>
                         </tr>
                         <tr className="text-slate-600">
-                          <td colSpan="3" className="px-2.5 py-1">Freight Advance paid to Driver (गाड़ी भाड़ा अग्रिम):</td>
+                          <td colSpan="3" className="px-2.5 py-1">{t('Freight Advance paid to Driver:', 'गाड़ी भाड़ा अग्रिम:')}</td>
                           <td className="px-2.5 py-1 text-right font-mono text-slate-900">₹{freightAdvance.toLocaleString()}</td>
                         </tr>
                         <tr className="text-slate-600">
-                          <td colSpan="3" className="px-2.5 py-1">Palledari / Unloading Labor @ ₹3/bag (हमाली / पल्लेदारी):</td>
+                          <td colSpan="3" className="px-2.5 py-1">{t('Palledari / Unloading Labor @ ₹3/bag:', 'हमाली / पल्लेदारी @ ₹3:')}</td>
                           <td className="px-2.5 py-1 text-right font-mono text-slate-900">₹{unloading.toLocaleString()}</td>
                         </tr>
                         <tr className="text-slate-600">
-                          <td colSpan="3" className="px-2.5 py-1">Commission / Arhat @ 6.0% (आढ़त कमीशन):</td>
+                          <td colSpan="3" className="px-2.5 py-1">{t('Commission / Arhat @ 6.0%:', 'आढ़त कमीशन @ 6.0%:')}</td>
                           <td className="px-2.5 py-1 text-right font-mono text-slate-900">₹{commission.toLocaleString()}</td>
                         </tr>
                         <tr className="text-slate-600">
-                          <td colSpan="3" className="px-2.5 py-1">APMC Market Fee Cess @ 1.0% (मंडी शुल्क):</td>
+                          <td colSpan="3" className="px-2.5 py-1">{t('APMC Market Fee Cess @ 1.0%:', 'मंडी शुल्क @ 1.0%:')}</td>
                           <td className="px-2.5 py-1 text-right font-mono text-slate-900">₹{apmcFee.toLocaleString()}</td>
                         </tr>
                         <tr className="border-t border-slate-300 font-bold text-rose-700 bg-rose-50/50">
-                          <td colSpan="3" className="p-2.5 text-right uppercase">Total Deductions (कुल कटौती):</td>
+                          <td colSpan="3" className="p-2.5 text-right uppercase">{t('Total Deductions:', 'कुल कटौती:')}</td>
                           <td className="p-2.5 text-right font-mono text-sm">₹{totalDeductions.toLocaleString()}</td>
                         </tr>
                         <tr className="border-t-2 border-slate-900 bg-emerald-50 font-black text-emerald-950 text-sm">
-                          <td colSpan="3" className="p-3 text-right uppercase tracking-wide">Net Payout to Farmer (किसान को शुद्ध देय राशि):</td>
+                          <td colSpan="3" className="p-3 text-right uppercase tracking-wide">{t('Net Payout to Farmer:', 'किसान को शुद्ध देय राशि:')}</td>
                           <td className="p-3 text-right font-mono text-base font-black text-emerald-700">₹{netPayable.toLocaleString()}</td>
                         </tr>
                       </>
@@ -1287,7 +1286,7 @@ export default function Reports() {
                     {tenant?.firm_name || 'SHREE GANESH FRUIT COMPANY'}
                   </div>
                   <div className="text-[10px] sm:text-[11px] font-bold text-slate-600">
-                    LICENSED COMMISSION AGENT (कमीशन एजेंट लाइसेंस नं. {tenant?.apmc_license_no || 'DL-APMC-09142'})
+                    {t('LICENSED COMMISSION AGENT (LIC NO. ' + (tenant?.apmc_license_no || 'DL-APMC-09142') + ')', 'कमीशन एजेंट (लाइसेंस नं. ' + (tenant?.apmc_license_no || 'DL-APMC-09142') + ')')}
                   </div>
                   <div className="text-[10px] text-slate-500">
                     Market Yard: {tenant?.mandi_name || 'New Subzi Mandi, Azadpur, Delhi-110033'} • Shop {tenant?.shop_no || 'C-42'}
@@ -1304,12 +1303,12 @@ export default function Reports() {
               {/* Title Banner */}
               <div className="text-center">
                 <span className="inline-block px-5 py-1 bg-slate-900 text-white rounded-lg text-xs font-black uppercase tracking-widest shadow-xs">
-                  FORM 'J' [See Rule 24(1)] / कृषि उपज विक्रय प्रमाण पत्र (SALE VOUCHER)
+                  {t("FORM 'J' [See Rule 24(1)] SALE VOUCHER", "प्रपत्र 'जे' [नियम 24(1)] कृषि उपज विक्रय प्रमाण पत्र")}
                 </span>
               </div>
 
               <div className="grid grid-cols-2 gap-4 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <div><span className="font-bold text-slate-500">Seller / Producer (विक्रेता कृषक):</span> <span className="font-bold text-slate-900 ml-1">{selectedStatutoryLot.farmer_name}</span></div>
+                <div><span className="font-bold text-slate-500">{t('Seller / Producer:', 'विक्रेता कृषक:')}</span> <span className="font-bold text-slate-900 ml-1">{selectedStatutoryLot.farmer_name}</span></div>
                 <div><span className="font-bold text-slate-500">Origin / Belts:</span> <span className="ml-1">{selectedStatutoryLot.farmer_location || 'Himachal Pradesh'}</span></div>
                 <div><span className="font-bold text-slate-500">Commission Agent:</span> <span className="font-bold text-slate-900 ml-1">{tenant?.firm_name} (Shop {tenant?.shop_no})</span></div>
                 <div><span className="font-bold text-slate-500">Auction Reference:</span> <span className="font-mono font-bold ml-1">AUC-LOT-{selectedStatutoryLot.lot_number || selectedStatutoryLot.id}</span></div>
@@ -1379,7 +1378,7 @@ export default function Reports() {
                     {tenant?.firm_name || 'SHREE GANESH FRUIT COMPANY'}
                   </div>
                   <div className="text-[10px] sm:text-[11px] font-bold text-slate-600">
-                    MONTHLY RETURN OF MARKET FEE &amp; RURAL DEVELOPMENT FUND (RDF)
+                    {t('MONTHLY RETURN OF MARKET FEE & RDF', 'मासिक मंडी शुल्क एवं आरडीएफ विवरणी')}
                   </div>
                   <div className="text-[10px] text-slate-500">
                     {tenant?.shop_no}, {tenant?.mandi_name} • APMC Lic: {tenant?.apmc_license_no || 'DL-APMC-09142'}
@@ -1396,7 +1395,7 @@ export default function Reports() {
               {/* Title Banner */}
               <div className="text-center">
                 <span className="inline-block px-5 py-1 bg-slate-900 text-white rounded-lg text-xs font-black uppercase tracking-widest shadow-xs">
-                  FORM 'M' [See Rule 29(1)] / मासिक मंडी शुल्क विवरणी
+                  {t("FORM 'M' [See Rule 29(1)] MONTHLY RETURN", "प्रपत्र 'एम' [नियम 29(1)] मासिक मंडी शुल्क विवरणी")}
                 </span>
               </div>
 
@@ -1457,7 +1456,7 @@ export default function Reports() {
                       : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
-                  📄 लेटरपैड पक्का पर्चा (Letterpad)
+                  📄 {t('Letterpad Invoice', 'लेटरपैड पक्का पर्चा')}
                 </button>
                 <button
                   type="button"
@@ -1468,7 +1467,7 @@ export default function Reports() {
                       : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
-                  🧾 80mm थर्मल कच्चा पर्चा (POS)
+                  🧾 {t('80mm Thermal POS', '80mm थर्मल कच्चा पर्चा')}
                 </button>
               </div>
 
@@ -1477,7 +1476,7 @@ export default function Reports() {
                   onClick={() => window.print()}
                   className="px-3 py-1.5 bg-slate-900 hover:bg-black text-white rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
-                  <Printer className="w-3.5 h-3.5" /> Print
+                  <Printer className="w-3.5 h-3.5" /> {t('Print', 'प्रिंट')}
                 </button>
                 <button onClick={() => setSelectedPurcha(null)} className="text-slate-400 hover:text-slate-700 text-lg p-1 cursor-pointer">✕</button>
               </div>
@@ -1514,7 +1513,7 @@ export default function Reports() {
                       {tenant?.firm_name || 'SHREE GANESH FRUIT COMPANY'}
                     </div>
                     <div className="text-[10px] font-bold text-slate-600 uppercase">
-                      COMMISSION AGENT &amp; GENERAL ORDER SUPPLIERS (थोक आढ़ती)
+                      {t('COMMISSION AGENT & GENERAL ORDER SUPPLIERS', 'थोक आढ़ती एवं कमीशन एजेंट')}
                     </div>
                     <div className="text-[10px] text-slate-500">
                       {tenant?.shop_no || 'Shop No. C-42'}, {tenant?.mandi_name || 'New Subzi Mandi, Azadpur, Delhi-110033'}
@@ -1538,21 +1537,21 @@ export default function Reports() {
                 {/* Banner */}
                 <div className="text-center">
                   <span className="inline-block px-4 py-1 bg-slate-900 text-white rounded-lg text-xs font-black uppercase tracking-wider shadow-xs">
-                    BUYER MANDI INVOICE / खरीदार पक्का पर्चा
+                    {t('BUYER MANDI INVOICE', 'खरीदार पक्का पर्चा')}
                   </span>
                 </div>
 
                 {/* Particulars */}
                 <div className="grid grid-cols-2 gap-4 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200">
                   <div className="space-y-1">
-                    <div><span className="font-bold text-slate-500">Buyer Name (खरीदार):</span> <span className="font-black text-slate-900 text-sm ml-1">{selectedPurcha.buyer_name}</span></div>
-                    {selectedPurcha.buyer_contact && <div><span className="font-bold text-slate-500">Contact / Phone:</span> <span className="font-mono ml-1">{selectedPurcha.buyer_contact}</span></div>}
-                    <div><span className="font-bold text-slate-500">Farmer Lot:</span> <span className="ml-1">{selectedPurcha.farmer_name || 'Kisan'} ({selectedPurcha.lot_id || 'LOT'})</span></div>
+                    <div><span className="font-bold text-slate-500">{t('Buyer Name:', 'खरीदार:')}</span> <span className="font-black text-slate-900 text-sm ml-1">{selectedPurcha.buyer_name}</span></div>
+                    {selectedPurcha.buyer_contact && <div><span className="font-bold text-slate-500">{t('Contact / Phone:', 'फोन नं:')}</span> <span className="font-mono ml-1">{selectedPurcha.buyer_contact}</span></div>}
+                    <div><span className="font-bold text-slate-500">{t('Farmer Lot:', 'किसान लॉट:')}</span> <span className="ml-1">{selectedPurcha.farmer_name || 'Kisan'} ({selectedPurcha.lot_id || 'LOT'})</span></div>
                   </div>
                   <div className="space-y-1 text-right">
-                    <div><span className="font-bold text-slate-500">Purcha Slip No:</span> <span className="font-mono font-black text-purple-900 ml-1">{selectedPurcha.sale_code || selectedPurcha.id}</span></div>
-                    <div><span className="font-bold text-slate-500">Date &amp; Time:</span> <span className="ml-1">{selectedPurcha.dateFormatted || 'Today'} {selectedPurcha.time || ''}</span></div>
-                    <div><span className="font-bold text-slate-500">Payment Terms:</span> <span className="font-bold text-slate-800 ml-1">15 Days Credit</span></div>
+                    <div><span className="font-bold text-slate-500">{t('Purcha Slip No:', 'पर्चा नं:')}</span> <span className="font-mono font-black text-purple-900 ml-1">{selectedPurcha.sale_code || selectedPurcha.id}</span></div>
+                    <div><span className="font-bold text-slate-500">{t('Date & Time:', 'दिनांक व समय:')}</span> <span className="ml-1">{selectedPurcha.dateFormatted || 'Today'} {selectedPurcha.time || ''}</span></div>
+                    <div><span className="font-bold text-slate-500">{t('Payment Terms:', 'भुगतान अवधि:')}</span> <span className="font-bold text-slate-800 ml-1">15 Days Credit</span></div>
                   </div>
                 </div>
 
@@ -1560,10 +1559,10 @@ export default function Reports() {
                 <table className="w-full text-xs text-left border border-slate-300">
                   <thead className="bg-slate-100 font-bold border-b border-slate-300">
                     <tr>
-                      <th className="p-2.5">Produce Description (विवरण)</th>
-                      <th className="p-2.5 text-center">Bags / Crates (नग)</th>
-                      <th className="p-2.5 text-right">Rate / Bag (भाव)</th>
-                      <th className="p-2.5 text-right">Produce Amount (सकल)</th>
+                      <th className="p-2.5">{t('Produce Description', 'जिंस विवरण')}</th>
+                      <th className="p-2.5 text-center">{t('Bags / Crates', 'नग')}</th>
+                      <th className="p-2.5 text-right">{t('Rate / Bag', 'भाव')}</th>
+                      <th className="p-2.5 text-right">{t('Produce Amount', 'सकल राशि')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1574,15 +1573,15 @@ export default function Reports() {
                       <td className="p-2.5 text-right font-mono font-bold text-slate-900">₹{selectedPurcha.gross?.toLocaleString()}</td>
                     </tr>
                     <tr className="text-slate-600 bg-slate-50/50">
-                      <td colSpan="3" className="px-2.5 py-1 text-right font-medium">Buyer Dami @ 2.0% (दामी):</td>
+                      <td colSpan="3" className="px-2.5 py-1 text-right font-medium">{t('Buyer Dami @ 2.0%:', 'दामी @ 2.0%:')}</td>
                       <td className="px-2.5 py-1 text-right font-mono font-bold text-slate-900">₹{selectedPurcha.dami?.toLocaleString()}</td>
                     </tr>
                     <tr className="text-slate-600 bg-slate-50/50">
-                      <td colSpan="3" className="px-2.5 py-1 text-right font-medium">Loading &amp; Palledari Charges:</td>
+                      <td colSpan="3" className="px-2.5 py-1 text-right font-medium">{t('Loading & Palledari Charges:', 'हमाली एवं पल्लेदारी:')}</td>
                       <td className="px-2.5 py-1 text-right font-mono font-bold text-slate-900">₹{(selectedPurcha.quantity * 2).toLocaleString()}</td>
                     </tr>
                     <tr className="border-t-2 border-slate-900 bg-purple-50 font-black text-purple-950 text-sm">
-                      <td colSpan="3" className="p-3 text-right uppercase tracking-wide">Total Net Payable (कुल देय राशि):</td>
+                      <td colSpan="3" className="p-3 text-right uppercase tracking-wide">{t('Total Net Payable:', 'कुल देय राशि:')}</td>
                       <td className="p-3 text-right font-mono text-base font-black text-purple-900">
                         ₹{(selectedPurcha.netBill + (selectedPurcha.quantity * 2)).toLocaleString()}
                       </td>
@@ -1608,31 +1607,31 @@ export default function Reports() {
                   <div className="text-[10px] text-slate-600">{tenant?.mandi_name || 'APMC Azadpur, Delhi'} • Shop {tenant?.shop_no || 'C-42'}</div>
                   <div className="text-[10px] text-slate-500">Lic: {tenant?.apmc_license_no || 'DL-APMC-09142'} • Ph: {tenant?.phone || '9811012345'}</div>
                   <div className="text-[11px] font-black uppercase mt-1 bg-slate-100 py-0.5 rounded">
-                    *** BUYER PURCHA / कच्चा पर्चा ***
+                    {t('*** BUYER PURCHA ***', '*** खरीदार कच्चा पर्चा ***')}
                   </div>
                 </div>
 
                 <div className="space-y-1 text-[11px]">
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Purcha No:</span>
+                    <span className="text-slate-500">{t('Purcha No:', 'पर्चा नं:')}</span>
                     <span className="font-bold">{selectedPurcha.sale_code || selectedPurcha.id}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Date &amp; Time:</span>
+                    <span className="text-slate-500">{t('Date & Time:', 'दिनांक:')}</span>
                     <span>{selectedPurcha.dateFormatted || 'Today'} {selectedPurcha.time || ''}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Buyer Name:</span>
+                    <span className="text-slate-500">{t('Buyer Name:', 'खरीदार:')}</span>
                     <span className="font-black text-slate-900">{selectedPurcha.buyer_name}</span>
                   </div>
                   {selectedPurcha.buyer_contact && (
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Buyer Phone:</span>
+                      <span className="text-slate-500">{t('Buyer Phone:', 'फोन:')}</span>
                       <span>{selectedPurcha.buyer_contact}</span>
                     </div>
                   )}
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Farmer / Lot:</span>
+                    <span className="text-slate-500">{t('Farmer / Lot:', 'किसान / लॉट:')}</span>
                     <span>{selectedPurcha.farmer_name || 'Kisan'} ({selectedPurcha.lot_id || 'LOT'})</span>
                   </div>
                 </div>
@@ -1640,10 +1639,10 @@ export default function Reports() {
                 <table className="w-full text-[11px] border-t border-b border-dashed border-slate-400 py-1 my-2">
                   <thead>
                     <tr className="border-b border-dashed border-slate-300 text-slate-500">
-                      <th className="py-1 text-left">Item</th>
-                      <th className="py-1 text-center">Qty</th>
-                      <th className="py-1 text-right">Rate</th>
-                      <th className="py-1 text-right">Total</th>
+                      <th className="py-1 text-left">{t('Item', 'जिंस')}</th>
+                      <th className="py-1 text-center">{t('Qty', 'नग')}</th>
+                      <th className="py-1 text-right">{t('Rate', 'भाव')}</th>
+                      <th className="py-1 text-right">{t('Total', 'कुल')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1658,19 +1657,19 @@ export default function Reports() {
 
                 <div className="space-y-1 text-[11px]">
                   <div className="flex justify-between">
-                    <span className="text-slate-600">Produce Value (सकल):</span>
+                    <span className="text-slate-600">{t('Produce Value:', 'सकल मूल्य:')}</span>
                     <span className="font-bold">₹{selectedPurcha.gross?.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-slate-600">
-                    <span>Buyer Dami @ 2.0%:</span>
+                    <span>{t('Buyer Dami @ 2.0%:', 'खरीदार दामी @ 2.0%:')}</span>
                     <span>₹{selectedPurcha.dami?.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-slate-600">
-                    <span>Unloading / Palledari:</span>
+                    <span>{t('Unloading / Palledari:', 'पल्लेदारी / हमाली:')}</span>
                     <span>₹{(selectedPurcha.quantity * 2).toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between font-black text-sm border-t border-slate-900 pt-1">
-                    <span>TOTAL PAYABLE:</span>
+                    <span>{t('TOTAL PAYABLE:', 'कुल देय:')}</span>
                     <span className="text-purple-900">₹{(selectedPurcha.netBill + (selectedPurcha.quantity * 2)).toLocaleString()}</span>
                   </div>
                 </div>
