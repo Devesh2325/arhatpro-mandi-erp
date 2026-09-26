@@ -2,12 +2,15 @@
   "name": "arhatpro-mandi-erp",
   "version": "2.0.0",
   "description": "Full-Stack Enterprise Mandi ERP with React Frontend, Node.js/Express Backend & Relational SQL Database",
+  "workspaces": [
+    "client"
+  ],
   "scripts": {
     "start": "node server/index.js",
     "server": "node server/index.js",
     "client": "npm --prefix client run dev",
     "build": "npm --prefix client run build",
-    "install-all": "npm --prefix server install && npm --prefix client install"
+    "install-all": "npm install"
   },
   "author": "Devesh Chaturvedi",
   "license": "ISC"
