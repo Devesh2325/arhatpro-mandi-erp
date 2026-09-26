@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm install && (test -d client/node_modules/@rollup/rollup-linux-x64-gnu || npm --prefix client install --save-optional @rollup/rollup-linux-x64-gnu@4.63.4)",
   "buildCommand": "npm run build",
   "outputDirectory": "client/dist",
   "framework": "vite",
