@@ -3,7 +3,8 @@
   "version": "2.0.0",
   "description": "Full-Stack Enterprise Mandi ERP with React Frontend, Node.js/Express Backend & Relational SQL Database",
   "workspaces": [
-    "client"
+    "client",
+    "server"
   ],
   "scripts": {
     "start": "node server/index.js",

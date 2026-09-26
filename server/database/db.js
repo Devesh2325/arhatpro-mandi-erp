@@ -1,20 +1,22 @@
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
-const sqlite3 = require('sqlite3').verbose();
 const { Pool } = require('pg');
 
-const isPostgres = !!(process.env.DATABASE_URL || process.env.SUPABASE_DB_URL);
+const DEFAULT_SUPABASE_URL = 'postgresql://postgres:Devesh%4023251995@db.xswvatrgqgccidgjvara.supabase.co:5432/postgres';
+const connectionString = process.env.DATABASE_URL || process.env.SUPABASE_DB_URL || DEFAULT_SUPABASE_URL;
+const isPostgres = !!connectionString;
+
 let pgPool = null;
 let sqliteDb = null;
 
 if (isPostgres) {
-  const connectionString = process.env.DATABASE_URL || process.env.SUPABASE_DB_URL;
   pgPool = new Pool({
     connectionString,
     ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false }
   });
   console.log('⚡ Connected to Supabase Cloud PostgreSQL Database');
 } else {
+  const sqlite3 = require('sqlite3').verbose();
   const dbPath = path.resolve(__dirname, 'mandi.sqlite');
   sqliteDb = new sqlite3.Database(dbPath);
   console.log('📦 Connected to Local SQLite Database (mandi.sqlite)');
