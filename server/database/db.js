@@ -12,7 +12,10 @@ let sqliteDb = null;
 if (isPostgres) {
   pgPool = new Pool({
     connectionString,
-    ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false }
+    ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false },
+    max: 5,
+    idleTimeoutMillis: 15000,
+    connectionTimeoutMillis: 10000
   });
   console.log('⚡ Connected to Supabase Cloud PostgreSQL Database');
 } else {

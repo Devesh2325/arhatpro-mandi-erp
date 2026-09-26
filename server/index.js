@@ -7,8 +7,24 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middlewares
-app.use(cors());
+app.use(cors({
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-id']
+}));
+app.options('*', cors());
 app.use(express.json());
+
+// Middleware to ensure full original path is preserved across Vercel Serverless rewrites
+app.use((req, res, next) => {
+  const orig = req.headers['x-matched-path'] || req.headers['x-forwarded-uri'] || req.originalUrl;
+  if (orig && (req.url === '/api' || req.url === '/api/' || req.url.startsWith('/api?')) && orig.startsWith('/api')) {
+    const queryPart = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    req.url = orig.includes('?') ? orig : (orig + queryPart);
+  }
+  next();
+});
 
 // API Routes (mounted with and without /api prefix for Vercel serverless compatibility)
 const authRoutes = require('./routes/auth');
@@ -43,25 +59,34 @@ const healthHandler = (req, res) => {
 };
 app.get('/api/health', healthHandler);
 app.get('/health', healthHandler);
+app.get('/api', healthHandler);
 
-// Optional static serve of React build when in standalone mode
-const clientBuildPath = path.resolve(__dirname, '../client/dist');
-app.use(express.static(clientBuildPath));
-
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api/') || req.path.startsWith('/auth') || req.path.startsWith('/tenants') || req.path.startsWith('/trade') || req.path.startsWith('/ledger')) return next();
-  res.sendFile(path.join(clientBuildPath, 'index.html'), (err) => {
-    if (err) {
-      res.status(200).send(`
-        <h1>ArhatPro Mandi ERP API Server Running on Port ${PORT}</h1>
-        <p>API endpoints active at <code>/api/...</code></p>
-      `);
-    }
+// Handle routing based on environment
+if (process.env.VERCEL) {
+  // On Vercel, unhandled routes under /api return JSON 404
+  app.all('/api/*', (req, res) => {
+    res.status(404).json({ error: `API route not found: ${req.method} ${req.url}` });
   });
-});
+} else {
+  // Optional static serve of React build when in standalone mode
+  const clientBuildPath = path.resolve(__dirname, '../client/dist');
+  app.use(express.static(clientBuildPath));
 
-// Start Server if running directly (standalone / local / VPS)
-if (!process.env.VERCEL) {
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/') || req.path.startsWith('/auth') || req.path.startsWith('/tenants') || req.path.startsWith('/trade') || req.path.startsWith('/ledger')) return next();
+    res.sendFile(path.join(clientBuildPath, 'index.html'), (err) => {
+      if (err) {
+        res.status(200).send(`
+          <h1>ArhatPro Mandi ERP API Server Running on Port ${PORT}</h1>
+          <p>API endpoints active at <code>/api/...</code></p>
+        `);
+      }
+    });
+  });
+}
+
+// Start Server if running directly as main entry point (standalone / local / VPS)
+if (require.main === module && !process.env.VERCEL) {
   const server = app.listen(PORT, () => {
     console.log(`====================================================`);
     console.log(`🚀 ArhatPro Backend API Running on http://localhost:${PORT}`);
