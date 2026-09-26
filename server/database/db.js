@@ -2,7 +2,7 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const { Pool } = require('pg');
 
-const DEFAULT_SUPABASE_URL = 'postgresql://postgres:Devesh%4023251995@db.xswvatrgqgccidgjvara.supabase.co:5432/postgres';
+const DEFAULT_SUPABASE_URL = 'postgresql://postgres.xswvatrgqgccidgjvara:Devesh%4023251995@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres';
 const connectionString = process.env.DATABASE_URL || process.env.SUPABASE_DB_URL || DEFAULT_SUPABASE_URL;
 const isPostgres = !!connectionString;
 
