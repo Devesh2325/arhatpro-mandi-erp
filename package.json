@@ -11,7 +11,9 @@
     "server": "node server/index.js",
     "client": "npm --prefix client run dev",
     "build": "npm --prefix client run build",
-    "install-all": "npm install"
+    "install-all": "npm install",
+    "runner": "concurrently --kill-others-on-fail --names \"SERVER,CLIENT\" --prefix-colors \"bgBlue.bold,bgGreen.bold\" \"node server/index.js\" \"npm --prefix client run dev\"",
+    "dev": "npm run runner"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.109.0",
@@ -23,5 +25,8 @@
     "pg": "^8.23.0"
   },
   "author": "Devesh Chaturvedi",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^9.2.4"
+  }
 }
