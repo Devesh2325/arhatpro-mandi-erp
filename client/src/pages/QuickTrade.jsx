@@ -187,6 +187,29 @@ export default function QuickTrade() {
       setError('Consignment lot quantities must be greater than 0.');
       return;
     }
+
+    const activeBuyerRows = buyerRows.filter(r => (r.buyerName || '').trim() || (parseInt(r.qty, 10) || 0) > 0 || (parseFloat(r.rate) || 0) > 0);
+    if (activeBuyerRows.length === 0) {
+      setError('Please add at least one buyer sale with buyer name, quantity and rate.');
+      return;
+    }
+
+    for (let i = 0; i < activeBuyerRows.length; i++) {
+      const r = activeBuyerRows[i];
+      if (!r.buyerName || !r.buyerName.trim()) {
+        setError(`Buyer #${i + 1}: Please enter buyer name.`);
+        return;
+      }
+      if ((parseInt(r.qty, 10) || 0) <= 0) {
+        setError(`Buyer #${i + 1} (${r.buyerName}): Quantity must be greater than 0.`);
+        return;
+      }
+      if ((parseFloat(r.rate) || 0) <= 0) {
+        setError(`Buyer #${i + 1} (${r.buyerName}): Rate (₹) must be greater than 0.`);
+        return;
+      }
+    }
+
     if (totalAllocated > totalArrived) {
       setError(`Allocated units (${totalAllocated}) cannot exceed arrived units (${totalArrived}).`);
       return;
@@ -203,8 +226,14 @@ export default function QuickTrade() {
         commodity: commodity || (commoditiesList[0]?.name_en || 'Standard Produce'),
         totalFreight: parseFloat(totalFreight) || 0,
         freightAdvance: parseFloat(freightAdvance) || 0,
-        lots: lots.map(l => ({ ...l, qty: parseInt(l.qty, 10) || 0 })),
-        splitSales: buyerRows.map(r => ({ ...r, qty: parseInt(r.qty, 10) || 0, rate: parseFloat(r.rate) || 0 })),
+        lots: lots.map(l => ({ ...l, qty: parseInt(l.qty, 10) || 0, quantity: parseInt(l.qty, 10) || 0 })),
+        splitSales: activeBuyerRows.map(r => ({
+          ...r,
+          buyerName: r.buyerName.trim(),
+          qty: parseInt(r.qty, 10) || 0,
+          quantity: parseInt(r.qty, 10) || 0,
+          rate: parseFloat(r.rate) || 0
+        })),
         customExpenses: {
           farmer: farmerExpenses.filter(e => e.enabled),
           buyer: buyerExpenses.filter(e => e.enabled)

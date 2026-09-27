@@ -475,8 +475,8 @@ router.post('/lots/:id/split', authenticate, async (req, res) => {
     const lot = await queryOne(`SELECT * FROM sales_lots WHERE id = ? AND tenant_id = ?`, [lotId, tenantId]);
     if (!lot) return res.status(404).json({ error: 'Lot not found.' });
 
-    const qty = parseInt(quantity);
-    const r = parseFloat(rate);
+    const qty = parseInt(quantity !== undefined ? quantity : req.body.qty, 10) || 0;
+    const r = parseFloat(rate) || 0;
     const lotArrRate = parseFloat(lot.arrival_rate) || 0;
     if (qty <= 0 || qty > lot.remaining_quantity) {
       return res.status(400).json({ error: `Quantity must be between 1 and ${lot.remaining_quantity}` });
@@ -540,17 +540,49 @@ router.post('/quick-trade', authenticate, async (req, res) => {
     const tenantId = req.user.tenantId;
     const { truckNo, farmerName, farmerPhone, commodity, variety, totalFreight, freightAdvance, lots, splitSales, arrivalRate, manualLotNo, customExpenses } = req.body;
 
-    const totalArrived = (lots || []).reduce((acc, l) => acc + (parseInt(l.qty) || 0), 0);
+    // 1. Sanitize and validate lots
+    const rawLots = Array.isArray(lots) ? lots : [];
+    let totalArrived = rawLots.reduce((acc, l) => acc + (parseInt(l.quantity !== undefined ? l.quantity : l.qty, 10) || 0), 0);
+
+    // 2. Sanitize and validate split sales
+    const rawSales = Array.isArray(splitSales) ? splitSales : [];
+    const validSales = rawSales
+      .map(s => {
+        const qty = parseInt(s.quantity !== undefined ? s.quantity : s.qty, 10) || 0;
+        const rate = parseFloat(s.rate) || 0;
+        const bName = (s.buyerName || '').trim();
+        return {
+          ...s,
+          buyerName: bName,
+          quantity: qty,
+          rate: rate,
+          gross: qty * rate
+        };
+      })
+      .filter(s => s.buyerName && s.quantity > 0);
+
+    if (totalArrived <= 0 && validSales.length > 0) {
+      totalArrived = validSales.reduce((sum, s) => sum + s.quantity, 0);
+    }
+
+    if (totalArrived <= 0) {
+      return res.status(400).json({ error: 'Consignment total arrived quantity must be greater than 0.' });
+    }
+
+    if (validSales.length === 0) {
+      return res.status(400).json({ error: 'Please specify at least one buyer sale with buyer name, quantity and rate.' });
+    }
+
     const consignmentId = 'ARV-' + Math.floor(1000 + Math.random() * 9000);
-    const customLot = (manualLotNo || (lots && lots[0] && lots[0].manualLotNo) || '').trim();
+    const customLot = (manualLotNo || (rawLots[0] && (rawLots[0].manualLotNo || rawLots[0].manual_lot_no)) || '').trim();
     const lotId = customLot ? customLot : ('LOT-' + consignmentId.replace('ARV-', ''));
 
     const totalF = parseFloat(totalFreight) || 0;
     const advF = parseFloat(freightAdvance) || 0;
-    const arrRate = parseFloat(arrivalRate || (lots && lots[0] && lots[0].arrivalRate)) || 0;
+    const arrRate = parseFloat(arrivalRate || (rawLots[0] && (rawLots[0].arrivalRate || rawLots[0].arrival_rate))) || 0;
     const totalArrAmount = totalArrived * arrRate;
     const customExpStr = customExpenses ? (typeof customExpenses === 'string' ? customExpenses : JSON.stringify(customExpenses)) : null;
-    const selectedVariety = variety || (lots && lots[0] && lots[0].variety) || '';
+    const selectedVariety = variety || (rawLots[0] && rawLots[0].variety) || '';
 
     const currentDate = new Date().toISOString().split('T')[0];
     const currentTime = new Date().toTimeString().split(' ')[0];
@@ -559,19 +591,19 @@ router.post('/quick-trade', authenticate, async (req, res) => {
     await run(`
       INSERT INTO arrivals (id, tenant_id, date, time, truck_no, farmer_name, farmer_phone, commodity, variety, quantity, total_freight, freight_advance_paid, freight_balance, arrival_rate, total_arrival_amount, status, transferred_to_lot, lot_id, manual_lot_no, custom_expenses)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Sold Out', 1, ?, ?, ?)
-    `, [consignmentId, tenantId, currentDate, currentTime, truckNo.toUpperCase(), farmerName, farmerPhone || '', commodity, selectedVariety, totalArrived, totalF, advF, Math.max(0, totalF - advF), arrRate, totalArrAmount, lotId, customLot || null, customExpStr]);
+    `, [consignmentId, tenantId, currentDate, currentTime, (truckNo || 'LOCAL-TRUCK').toUpperCase(), farmerName || 'Produce Consignor', farmerPhone || '', commodity || 'Produce', selectedVariety, totalArrived, totalF, advF, Math.max(0, totalF - advF), arrRate, totalArrAmount, lotId, customLot || null, customExpStr]);
 
     // 2. Sales Lot
     await run(`
       INSERT INTO sales_lots (id, tenant_id, arrival_id, commodity_name, variety, farmer_name, total_quantity, remaining_quantity, arrival_rate, status, truck_no, freight_advance_paid, custom_expenses)
       VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 'sold', ?, ?, ?)
-    `, [lotId, tenantId, consignmentId, commodity, selectedVariety, farmerName, totalArrived, arrRate, truckNo.toUpperCase(), advF, customExpStr]);
+    `, [lotId, tenantId, consignmentId, commodity || 'Produce', selectedVariety, farmerName || 'Produce Consignor', totalArrived, arrRate, (truckNo || 'LOCAL-TRUCK').toUpperCase(), advF, customExpStr]);
 
     // 3. Buyer Split Sales, Ledgers & Auto Double-Entry Journal Vouchers
     const postedVouchers = [];
-    for (let s of (splitSales || [])) {
+    for (let s of validSales) {
       const sId = 'SL-' + Math.floor(1000 + Math.random() * 9000);
-      const gross = s.quantity * s.rate;
+      const gross = s.gross;
       const sExpStr = s.customExpenses ? (typeof s.customExpenses === 'string' ? s.customExpenses : JSON.stringify(s.customExpenses)) : null;
 
       await run(`
@@ -600,7 +632,7 @@ router.post('/quick-trade', authenticate, async (req, res) => {
         `Sundry Debtors - ${s.buyerName}`,
         `Sundry Creditors - ${farmerName || 'Farmer Produce'}`,
         gross,
-        `Quick Trade Sale: ${s.quantity} units ${commodity} (${selectedVariety || 'Standard'}) @ ₹${s.rate}/unit to ${s.buyerName} [Consignment #${consignmentId}]`,
+        `Quick Trade Sale: ${s.quantity} units ${commodity || 'Produce'} (${selectedVariety || 'Standard'}) @ ₹${s.rate}/unit to ${s.buyerName} [Consignment #${consignmentId}]`,
         req.user.name || 'System Auto Trade'
       ]);
       postedVouchers.push(autoVoucherNo);
