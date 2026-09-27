@@ -46,21 +46,24 @@ router.post('/payment', authenticate, async (req, res) => {
     const newTotalPaid = acc.total_paid + amt;
     const newOverdue = newOutstanding === 0 ? 0 : Math.max(0, acc.overdue_days - 7);
 
+    const currentDate = new Date().toISOString().split('T')[0];
+    const currentTime = new Date().toTimeString().split(' ')[0];
+
     await run(`
       UPDATE accounts SET 
         total_paid = ?, 
         outstanding_udhaar = ?, 
         overdue_days = ?, 
-        last_payment_date = DATE('now')
+        last_payment_date = ?
       WHERE id = ?
-    `, [newTotalPaid, newOutstanding, newOverdue, accountId]);
+    `, [newTotalPaid, newOutstanding, newOverdue, currentDate, accountId]);
 
     // If payment mode is Cash, automatically log into Rokad Cashbook
     if ((mode || '').toLowerCase().includes('cash')) {
       await run(`
         INSERT INTO cash_transactions (id, tenant_id, type, title, amount, time)
-        VALUES (?, ?, 'JAMA', ?, ?, TIME('now'))
-      `, ['TX-' + Date.now(), tenantId, `Cash receipt from ${acc.party_name}`, amt]);
+        VALUES (?, ?, 'JAMA', ?, ?, ?)
+      `, ['TX-' + Date.now(), tenantId, `Cash receipt from ${acc.party_name}`, amt, currentTime]);
     }
 
     res.json({ message: `Payment of ₹${amt} received from ${acc.party_name}!`, balanceRemaining: newOutstanding });
@@ -108,10 +111,11 @@ router.post('/cashbook', authenticate, async (req, res) => {
     }
 
     const id = 'TX-' + Date.now();
+    const currentTime = new Date().toTimeString().split(' ')[0];
     await run(`
       INSERT INTO cash_transactions (id, tenant_id, type, title, amount, time)
-      VALUES (?, ?, ?, ?, ?, TIME('now'))
-    `, [id, tenantId, type === 'JAMA' ? 'JAMA' : 'KHARCH', title.trim(), amt]);
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [id, tenantId, type === 'JAMA' ? 'JAMA' : 'KHARCH', title.trim(), amt, currentTime]);
 
     res.status(201).json({ message: `${type === 'JAMA' ? 'Receipt' : 'Payment'} of ₹${amt} logged in Rokad!`, id });
   } catch (err) {
@@ -164,19 +168,20 @@ router.post('/journal', authenticate, async (req, res) => {
     ]);
 
     // Multi-Ledger Automatic Synchronisation
+    const currentTime = new Date().toTimeString().split(' ')[0];
     // 1. If Cash is Debited -> Cash increases (JAMA in Rokad)
     if (debitAccount.includes('Cash in Hand')) {
       await run(`
         INSERT INTO cash_transactions (id, tenant_id, type, title, amount, time)
-        VALUES (?, ?, 'JAMA', ?, ?, TIME('now'))
-      `, ['TX-' + Date.now(), tenantId, `JV Receipt (${vNo}) - ${creditAccount} [${narration || ''}]`, drAmt]);
+        VALUES (?, ?, 'JAMA', ?, ?, ?)
+      `, ['TX-' + Date.now(), tenantId, `JV Receipt (${vNo}) - ${creditAccount} [${narration || ''}]`, drAmt, currentTime]);
     }
     // If Cash is Credited -> Cash decreases (KHARCH in Rokad)
     if (creditAccount.includes('Cash in Hand')) {
       await run(`
         INSERT INTO cash_transactions (id, tenant_id, type, title, amount, time)
-        VALUES (?, ?, 'KHARCH', ?, ?, TIME('now'))
-      `, ['TX-' + Date.now(), tenantId, `JV Payment (${vNo}) - ${debitAccount} [${narration || ''}]`, drAmt]);
+        VALUES (?, ?, 'KHARCH', ?, ?, ?)
+      `, ['TX-' + Date.now(), tenantId, `JV Payment (${vNo}) - ${debitAccount} [${narration || ''}]`, drAmt, currentTime]);
     }
 
     // 2. If Buyer is Credited -> Outstanding balance decreases

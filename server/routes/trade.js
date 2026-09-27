@@ -413,11 +413,14 @@ router.post('/arrivals', authenticate, async (req, res) => {
     const lotId = manualLotNo ? manualLotNo : ('LOT-' + id.replace('ARV-', ''));
     const customExpStr = req.body.customExpenses ? (typeof req.body.customExpenses === 'string' ? req.body.customExpenses : JSON.stringify(req.body.customExpenses)) : null;
 
+    const currentDate = new Date().toISOString().split('T')[0];
+    const currentTime = new Date().toTimeString().split(' ')[0];
+
     await run(`
       INSERT INTO arrivals (id, tenant_id, date, time, truck_no, driver_name, driver_phone, farmer_name, farmer_phone, farmer_location, commodity, variety, quantity, unit, total_freight, freight_advance_paid, freight_balance, arrival_rate, total_arrival_amount, status, transferred_to_lot, lot_id, manual_lot_no, custom_expenses)
-      VALUES (?, ?, DATE('now'), TIME('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Ready for Sale', 1, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Ready for Sale', 1, ?, ?, ?)
     `, [
-      id, tenantId, truck, dName, dPhone,
+      id, tenantId, currentDate, currentTime, truck, dName, dPhone,
       fName, fPhone, fLoc, comm, varName,
       qty, u, totalF, advF, balF, arrRate, totalArrAmount, lotId,
       manualLotNo || null, customExpStr
@@ -436,8 +439,8 @@ router.post('/arrivals', authenticate, async (req, res) => {
     if (advF > 0) {
       await run(`
         INSERT INTO cash_transactions (id, tenant_id, type, title, amount, time)
-        VALUES (?, ?, 'KHARCH', ?, ?, TIME('now'))
-      `, ['TX-' + Date.now(), tenantId, `Driver Freight Advance (${truck} - ${fName})`, advF]);
+        VALUES (?, ?, 'KHARCH', ?, ?, ?)
+      `, ['TX-' + Date.now(), tenantId, `Driver Freight Advance (${truck} - ${fName})`, advF, currentTime]);
     }
 
     res.status(201).json({ message: 'Truck arrival logged & Sales Lot created!', id, lotId, arrivalRate: arrRate, totalArrivalAmount: totalArrAmount, manualLotNo });
@@ -483,11 +486,14 @@ router.post('/lots/:id/split', authenticate, async (req, res) => {
     const saleId = 'SL-' + Math.floor(100 + Math.random() * 900);
     const customExpStr = customExpenses ? (typeof customExpenses === 'string' ? customExpenses : JSON.stringify(customExpenses)) : null;
 
+    const currentTime = new Date().toTimeString().split(' ')[0];
+    const currentDate = new Date().toISOString().split('T')[0];
+
     // Insert split sale
     await run(`
       INSERT INTO split_sales (id, lot_id, tenant_id, sale_code, buyer_name, buyer_contact, quantity, rate, arrival_rate, gross_amount, time, payment_mode, custom_expenses)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TIME('now'), ?, ?)
-    `, [saleId, lotId, tenantId, saleId, buyerName, buyerContact || '', qty, r, lotArrRate, saleAmount, paymentMode || 'Credit (7 Days)', customExpStr]);
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [saleId, lotId, tenantId, saleId, buyerName, buyerContact || '', qty, r, lotArrRate, saleAmount, currentTime, paymentMode || 'Credit (7 Days)', customExpStr]);
 
     // Update remaining lot quantity
     const newRemaining = lot.remaining_quantity - qty;
@@ -509,11 +515,12 @@ router.post('/lots/:id/split', authenticate, async (req, res) => {
     const autoVoucherNo = `JV-SL-${Date.now().toString().slice(-6)}`;
     await run(`
       INSERT INTO journal_entries (id, tenant_id, voucher_no, date, debit_account, credit_account, amount, narration, created_by)
-      VALUES (?, ?, ?, DATE('now'), ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       'JV-' + Date.now(),
       tenantId,
       autoVoucherNo,
+      currentDate,
       `Sundry Debtors - ${buyerName}`,
       `Sundry Creditors - ${lot.farmer_name || 'Farmer Produce'}`,
       saleAmount,
@@ -545,11 +552,14 @@ router.post('/quick-trade', authenticate, async (req, res) => {
     const customExpStr = customExpenses ? (typeof customExpenses === 'string' ? customExpenses : JSON.stringify(customExpenses)) : null;
     const selectedVariety = variety || (lots && lots[0] && lots[0].variety) || '';
 
+    const currentDate = new Date().toISOString().split('T')[0];
+    const currentTime = new Date().toTimeString().split(' ')[0];
+
     // 1. Inward Arrival
     await run(`
       INSERT INTO arrivals (id, tenant_id, date, time, truck_no, farmer_name, farmer_phone, commodity, variety, quantity, total_freight, freight_advance_paid, freight_balance, arrival_rate, total_arrival_amount, status, transferred_to_lot, lot_id, manual_lot_no, custom_expenses)
-      VALUES (?, ?, DATE('now'), TIME('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Sold Out', 1, ?, ?, ?)
-    `, [consignmentId, tenantId, truckNo.toUpperCase(), farmerName, farmerPhone || '', commodity, selectedVariety, totalArrived, totalF, advF, Math.max(0, totalF - advF), arrRate, totalArrAmount, lotId, customLot || null, customExpStr]);
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Sold Out', 1, ?, ?, ?)
+    `, [consignmentId, tenantId, currentDate, currentTime, truckNo.toUpperCase(), farmerName, farmerPhone || '', commodity, selectedVariety, totalArrived, totalF, advF, Math.max(0, totalF - advF), arrRate, totalArrAmount, lotId, customLot || null, customExpStr]);
 
     // 2. Sales Lot
     await run(`
@@ -566,8 +576,8 @@ router.post('/quick-trade', authenticate, async (req, res) => {
 
       await run(`
         INSERT INTO split_sales (id, lot_id, tenant_id, sale_code, buyer_name, buyer_contact, quantity, rate, arrival_rate, gross_amount, time, payment_mode, custom_expenses)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TIME('now'), ?, ?)
-      `, [sId, lotId, tenantId, sId, s.buyerName, s.buyerContact || '', s.quantity, s.rate, arrRate, gross, s.paymentMode || 'Credit (7 Days)', sExpStr]);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [sId, lotId, tenantId, sId, s.buyerName, s.buyerContact || '', s.quantity, s.rate, arrRate, gross, currentTime, s.paymentMode || 'Credit (7 Days)', sExpStr]);
 
       // Update buyer ledger
       await run(`
@@ -581,11 +591,12 @@ router.post('/quick-trade', authenticate, async (req, res) => {
       const autoVoucherNo = `JV-QT-${Date.now().toString().slice(-6)}`;
       await run(`
         INSERT INTO journal_entries (id, tenant_id, voucher_no, date, debit_account, credit_account, amount, narration, created_by)
-        VALUES (?, ?, ?, DATE('now'), ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         'JV-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
         tenantId,
         autoVoucherNo,
+        currentDate,
         `Sundry Debtors - ${s.buyerName}`,
         `Sundry Creditors - ${farmerName || 'Farmer Produce'}`,
         gross,
@@ -599,8 +610,8 @@ router.post('/quick-trade', authenticate, async (req, res) => {
     if (advF > 0) {
       await run(`
         INSERT INTO cash_transactions (id, tenant_id, type, title, amount, time)
-        VALUES (?, ?, 'KHARCH', ?, ?, TIME('now'))
-      `, ['TX-' + Date.now(), tenantId, `Driver Freight Advance (${truckNo} / ${farmerName})`, advF]);
+        VALUES (?, ?, 'KHARCH', ?, ?, ?)
+      `, ['TX-' + Date.now(), tenantId, `Driver Freight Advance (${truckNo} / ${farmerName})`, advF, currentTime]);
     }
 
     res.status(201).json({
