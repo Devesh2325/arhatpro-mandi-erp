@@ -24,6 +24,7 @@ export default function Arrivals() {
     commodity_id: '',
     bags: '',
     gross_weight: '',
+    arrival_rate: '',
     freight_amount: '',
     advance_paid: ''
   });
@@ -60,10 +61,11 @@ export default function Arrivals() {
         ...formData,
         bags: parseInt(formData.bags, 10),
         gross_weight: parseFloat(formData.gross_weight) || 0,
+        arrival_rate: parseFloat(formData.arrival_rate) || 0,
         freight_amount: parseFloat(formData.freight_amount) || 0,
         advance_paid: parseFloat(formData.advance_paid) || 0
       });
-      setMessage({ type: 'success', text: `Consignment registered successfully! Lot: ${res.lot?.lot_number || 'Generated'}` });
+      setMessage({ type: 'success', text: `Consignment registered successfully! Lot: ${res.lotId || res.lot?.lot_number || 'Generated'}` });
       setShowAddModal(false);
       setFormData({
         truck_no: '',
@@ -74,6 +76,7 @@ export default function Arrivals() {
         commodity_id: commodities[0]?.id || '',
         bags: '',
         gross_weight: '',
+        arrival_rate: '',
         freight_amount: '',
         advance_paid: ''
       });
@@ -101,6 +104,7 @@ export default function Arrivals() {
   const totalBags = arrivals.reduce((sum, a) => sum + (a.bags || 0), 0);
   const remainingBags = arrivals.reduce((sum, a) => sum + (a.remaining_bags || 0), 0);
   const totalFreight = arrivals.reduce((sum, a) => sum + (a.freight_amount || 0), 0);
+  const totalArrivalValue = arrivals.reduce((sum, a) => sum + ((a.bags || 0) * (parseFloat(a.arrival_rate) || 0)), 0);
 
   return (
     <div className="space-y-6">
@@ -136,7 +140,7 @@ export default function Arrivals() {
       )}
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Consignments</span>
           <div className="mt-2 flex items-baseline justify-between">
@@ -152,10 +156,17 @@ export default function Arrivals() {
           </div>
         </div>
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Inward Value</span>
+          <div className="mt-2 flex items-baseline justify-between">
+            <span className="text-2xl font-black text-emerald-700 font-mono">₹{totalArrivalValue.toLocaleString()}</span>
+            <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded">Arrival Cost</span>
+          </div>
+        </div>
+        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Freight Recorded</span>
           <div className="mt-2 flex items-baseline justify-between">
-            <span className="text-2xl font-black text-emerald-600">₹{totalFreight.toLocaleString()}</span>
-            <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded">Paid / Payable</span>
+            <span className="text-2xl font-black text-slate-800">₹{totalFreight.toLocaleString()}</span>
+            <span className="text-xs text-slate-700 font-semibold bg-slate-50 px-2 py-0.5 rounded">Paid/Due</span>
           </div>
         </div>
       </div>
@@ -203,6 +214,7 @@ export default function Arrivals() {
                 <th className="py-3.5 px-4">Farmer & Origin</th>
                 <th className="py-3.5 px-4">Commodity</th>
                 <th className="py-3.5 px-4 text-center">Bags / Crates</th>
+                <th className="py-3.5 px-4 text-right">Arrival Rate (₹)</th>
                 <th className="py-3.5 px-4">Freight (₹)</th>
                 <th className="py-3.5 px-4 text-center">Status</th>
                 <th className="py-3.5 px-4 text-right">Actions</th>
@@ -211,11 +223,11 @@ export default function Arrivals() {
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan="8" className="text-center py-10 text-gray-400">Loading consignments...</td>
+                  <td colSpan="9" className="text-center py-10 text-gray-400">Loading consignments...</td>
                 </tr>
               ) : filteredArrivals.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="text-center py-10 text-gray-400">
+                  <td colSpan="9" className="text-center py-10 text-gray-400">
                     No inward consignments found matching your criteria.
                   </td>
                 </tr>
@@ -255,6 +267,20 @@ export default function Arrivals() {
                       <td className="py-3 px-4 text-center">
                         <span className="font-black text-gray-900">{arr.remaining_bags}</span>
                         <span className="text-xs text-gray-400"> / {arr.bags} left</span>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        {Number(arr.arrival_rate) > 0 ? (
+                          <div>
+                            <span className="font-bold text-emerald-700 font-mono">₹{Number(arr.arrival_rate).toLocaleString()}</span>
+                            <div className="text-xs text-gray-500 font-mono">
+                              कुल: ₹{(Number(arr.total_arrival_amount) || (Number(arr.arrival_rate) * Number(arr.bags || 0))).toLocaleString()}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-medium">
+                            कच्ची आढ़त
+                          </span>
+                        )}
                       </td>
                       <td className="py-3 px-4">
                         <div className="font-semibold text-gray-900">₹{arr.freight_amount?.toLocaleString() || 0}</div>
@@ -404,6 +430,38 @@ export default function Arrivals() {
                 </div>
               </div>
 
+              {/* Kisan Awak Rate / Purchase Rate */}
+              <div className="bg-emerald-50/80 p-3.5 rounded-xl border border-emerald-200">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-emerald-950 uppercase tracking-wider">
+                    {t('Kisan Arrival Rate (किसान आवक भाव / खरीद दर ₹)', 'किसान आवक भाव / खरीद दर (₹/नग)')}
+                  </label>
+                  <span className="text-xs text-emerald-700 font-medium">
+                    {Number(formData.arrival_rate) > 0 ? 'पक्की आढ़त / व्यापारी खरीद' : 'खाली छोड़ें = कच्ची आढ़त (Commission)'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₹</span>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      placeholder="0 (Awak Rate per Bag/Nag)"
+                      value={formData.arrival_rate}
+                      onChange={(e) => setFormData({ ...formData, arrival_rate: e.target.value })}
+                      className="w-full pl-8 pr-3 py-2 border border-emerald-300 rounded-lg text-sm font-mono font-bold text-emerald-950 focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
+                    />
+                  </div>
+                  <div className="text-xs bg-white px-3 py-2 rounded-lg border border-emerald-100 flex items-center justify-between font-mono">
+                    <span className="text-gray-500">कुल आवक लागत (Total Inward):</span>
+                    <span className="font-bold text-emerald-800 text-sm">
+                      ₹{((Number(formData.bags) || 0) * (Number(formData.arrival_rate) || 0)).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
                 <div>
                   <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Freight Total (₹)', 'गाड़ी भाड़ा (₹)')}</label>
@@ -466,6 +524,8 @@ export default function Arrivals() {
                 <div><span className="font-bold text-gray-500">Origin:</span> {selectedArrival.source_location || 'N/A'}</div>
                 <div><span className="font-bold text-gray-500">Produce:</span> {selectedArrival.commodity_name}</div>
                 <div><span className="font-bold text-gray-500">Inward Bags:</span> <span className="font-bold">{selectedArrival.bags}</span></div>
+                <div><span className="font-bold text-gray-500">Arrival Rate:</span> <span className="font-bold text-emerald-700">{Number(selectedArrival.arrival_rate) > 0 ? `₹${selectedArrival.arrival_rate}/Nag` : 'कच्ची आढ़त (Consignment)'}</span></div>
+                <div><span className="font-bold text-gray-500">Inward Value:</span> <span className="font-bold text-emerald-700">{Number(selectedArrival.arrival_rate) > 0 ? `₹${(Number(selectedArrival.total_arrival_amount) || (Number(selectedArrival.arrival_rate) * Number(selectedArrival.bags))).toLocaleString()}` : 'N/A'}</span></div>
                 <div><span className="font-bold text-gray-500">Freight Total:</span> ₹{selectedArrival.freight_amount}</div>
                 <div><span className="font-bold text-gray-500">Advance Paid:</span> ₹{selectedArrival.advance_paid}</div>
               </div>

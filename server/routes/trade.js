@@ -262,34 +262,36 @@ router.get('/arrivals', authenticate, async (req, res) => {
 router.post('/arrivals', authenticate, async (req, res) => {
   try {
     const tenantId = req.user.tenantId;
-    const { truckNo, driverName, driverPhone, farmerName, farmerPhone, farmerLocation, commodity, variety, quantity, unit, totalFreight, freightAdvance } = req.body;
+    const { truckNo, driverName, driverPhone, farmerName, farmerPhone, farmerLocation, commodity, variety, quantity, unit, totalFreight, freightAdvance, arrivalRate } = req.body;
 
     const totalF = parseFloat(totalFreight) || 0;
     const advF = parseFloat(freightAdvance) || 0;
     const balF = Math.max(0, totalF - advF);
     const qty = parseInt(quantity) || 1;
+    const arrRate = parseFloat(arrivalRate) || 0;
+    const totalArrAmount = qty * arrRate;
     const id = 'ARV-' + Math.floor(1000 + Math.random() * 9000);
     const lotId = 'LOT-' + id.replace('ARV-', '');
 
     await run(`
-      INSERT INTO arrivals (id, tenant_id, date, time, truck_no, driver_name, driver_phone, farmer_name, farmer_phone, farmer_location, commodity, variety, quantity, unit, total_freight, freight_advance_paid, freight_balance, status, transferred_to_lot, lot_id)
-      VALUES (?, ?, DATE('now'), TIME('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Ready for Sale', 1, ?)
+      INSERT INTO arrivals (id, tenant_id, date, time, truck_no, driver_name, driver_phone, farmer_name, farmer_phone, farmer_location, commodity, variety, quantity, unit, total_freight, freight_advance_paid, freight_balance, arrival_rate, total_arrival_amount, status, transferred_to_lot, lot_id)
+      VALUES (?, ?, DATE('now'), TIME('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Ready for Sale', 1, ?)
     `, [
       id, tenantId, truckNo.toUpperCase(), driverName || '', driverPhone || '',
       farmerName, farmerPhone || '', farmerLocation || '', commodity, variety || '',
-      qty, unit || 'Box (20kg)', totalF, advF, balF, lotId
+      qty, unit || 'Box (20kg)', totalF, advF, balF, arrRate, totalArrAmount, lotId
     ]);
 
     // Create corresponding sales lot
     await run(`
-      INSERT INTO sales_lots (id, tenant_id, arrival_id, commodity_name, variety, farmer_name, farmer_location, farmer_phone, total_quantity, remaining_quantity, unit, truck_no, freight_advance_paid, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'live')
+      INSERT INTO sales_lots (id, tenant_id, arrival_id, commodity_name, variety, farmer_name, farmer_location, farmer_phone, total_quantity, remaining_quantity, unit, arrival_rate, truck_no, freight_advance_paid, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'live')
     `, [
       lotId, tenantId, id, commodity, variety || '', farmerName, farmerLocation || '',
-      farmerPhone || '', qty, qty, unit || 'Box (20kg)', truckNo.toUpperCase(), advF
+      farmerPhone || '', qty, qty, unit || 'Box (20kg)', arrRate, truckNo.toUpperCase(), advF
     ]);
 
-    res.status(201).json({ message: 'Truck arrival logged & Sales Lot created!', id, lotId });
+    res.status(201).json({ message: 'Truck arrival logged & Sales Lot created!', id, lotId, arrivalRate: arrRate, totalArrivalAmount: totalArrAmount });
   } catch (err) {
     res.status(500).json({ error: 'Could not log truck arrival: ' + err.message });
   }
@@ -323,6 +325,7 @@ router.post('/lots/:id/split', authenticate, async (req, res) => {
 
     const qty = parseInt(quantity);
     const r = parseFloat(rate);
+    const lotArrRate = parseFloat(lot.arrival_rate) || 0;
     if (qty <= 0 || qty > lot.remaining_quantity) {
       return res.status(400).json({ error: `Quantity must be between 1 and ${lot.remaining_quantity}` });
     }
@@ -332,9 +335,9 @@ router.post('/lots/:id/split', authenticate, async (req, res) => {
 
     // Insert split sale
     await run(`
-      INSERT INTO split_sales (id, lot_id, tenant_id, sale_code, buyer_name, buyer_contact, quantity, rate, gross_amount, time, payment_mode)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TIME('now'), ?)
-    `, [saleId, lotId, tenantId, saleId, buyerName, buyerContact || '', qty, r, saleAmount, paymentMode || 'Credit (7 Days)']);
+      INSERT INTO split_sales (id, lot_id, tenant_id, sale_code, buyer_name, buyer_contact, quantity, rate, arrival_rate, gross_amount, time, payment_mode)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TIME('now'), ?)
+    `, [saleId, lotId, tenantId, saleId, buyerName, buyerContact || '', qty, r, lotArrRate, saleAmount, paymentMode || 'Credit (7 Days)']);
 
     // Update remaining lot quantity
     const newRemaining = lot.remaining_quantity - qty;
@@ -362,7 +365,7 @@ router.post('/lots/:id/split', authenticate, async (req, res) => {
 router.post('/quick-trade', authenticate, async (req, res) => {
   try {
     const tenantId = req.user.tenantId;
-    const { truckNo, farmerName, farmerPhone, commodity, totalFreight, freightAdvance, lots, splitSales } = req.body;
+    const { truckNo, farmerName, farmerPhone, commodity, totalFreight, freightAdvance, lots, splitSales, arrivalRate } = req.body;
 
     const totalArrived = (lots || []).reduce((acc, l) => acc + (parseInt(l.qty) || 0), 0);
     const consignmentId = 'ARV-' + Math.floor(1000 + Math.random() * 9000);
@@ -370,18 +373,20 @@ router.post('/quick-trade', authenticate, async (req, res) => {
 
     const totalF = parseFloat(totalFreight) || 0;
     const advF = parseFloat(freightAdvance) || 0;
+    const arrRate = parseFloat(arrivalRate || (lots && lots[0] && lots[0].arrivalRate)) || 0;
+    const totalArrAmount = totalArrived * arrRate;
 
     // 1. Inward Arrival
     await run(`
-      INSERT INTO arrivals (id, tenant_id, date, time, truck_no, farmer_name, farmer_phone, commodity, quantity, total_freight, freight_advance_paid, freight_balance, status, transferred_to_lot, lot_id)
-      VALUES (?, ?, DATE('now'), TIME('now'), ?, ?, ?, ?, ?, ?, ?, ?, 'Sold Out', 1, ?)
-    `, [consignmentId, tenantId, truckNo.toUpperCase(), farmerName, farmerPhone || '', commodity, totalArrived, totalF, advF, Math.max(0, totalF - advF), lotId]);
+      INSERT INTO arrivals (id, tenant_id, date, time, truck_no, farmer_name, farmer_phone, commodity, quantity, total_freight, freight_advance_paid, freight_balance, arrival_rate, total_arrival_amount, status, transferred_to_lot, lot_id)
+      VALUES (?, ?, DATE('now'), TIME('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Sold Out', 1, ?)
+    `, [consignmentId, tenantId, truckNo.toUpperCase(), farmerName, farmerPhone || '', commodity, totalArrived, totalF, advF, Math.max(0, totalF - advF), arrRate, totalArrAmount, lotId]);
 
     // 2. Sales Lot
     await run(`
-      INSERT INTO sales_lots (id, tenant_id, arrival_id, commodity_name, farmer_name, total_quantity, remaining_quantity, status, truck_no, freight_advance_paid)
-      VALUES (?, ?, ?, ?, ?, ?, 0, 'sold', ?, ?)
-    `, [lotId, tenantId, consignmentId, commodity, farmerName, totalArrived, truckNo.toUpperCase(), advF]);
+      INSERT INTO sales_lots (id, tenant_id, arrival_id, commodity_name, farmer_name, total_quantity, remaining_quantity, arrival_rate, status, truck_no, freight_advance_paid)
+      VALUES (?, ?, ?, ?, ?, ?, 0, ?, 'sold', ?, ?)
+    `, [lotId, tenantId, consignmentId, commodity, farmerName, totalArrived, arrRate, truckNo.toUpperCase(), advF]);
 
     // 3. Buyer Split Sales & Ledger Updates
     for (let s of (splitSales || [])) {
@@ -389,9 +394,9 @@ router.post('/quick-trade', authenticate, async (req, res) => {
       const gross = s.quantity * s.rate;
 
       await run(`
-        INSERT INTO split_sales (id, lot_id, tenant_id, sale_code, buyer_name, buyer_contact, quantity, rate, gross_amount, time, payment_mode)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TIME('now'), ?)
-      `, [sId, lotId, tenantId, sId, s.buyerName, s.buyerContact || '', s.quantity, s.rate, gross, s.paymentMode || 'Credit (7 Days)']);
+        INSERT INTO split_sales (id, lot_id, tenant_id, sale_code, buyer_name, buyer_contact, quantity, rate, arrival_rate, gross_amount, time, payment_mode)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TIME('now'), ?)
+      `, [sId, lotId, tenantId, sId, s.buyerName, s.buyerContact || '', s.quantity, s.rate, arrRate, gross, s.paymentMode || 'Credit (7 Days)']);
 
       // Update buyer ledger
       await run(`
@@ -414,7 +419,9 @@ router.post('/quick-trade', authenticate, async (req, res) => {
       message: `⚡ Consignment ${consignmentId} sealed & Teep finalized!`,
       consignmentId,
       lotId,
-      totalArrived
+      totalArrived,
+      arrivalRate: arrRate,
+      totalArrivalAmount: totalArrAmount
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to process quick trade: ' + err.message });
@@ -440,7 +447,7 @@ router.get('/reports/data', authenticate, async (req, res) => {
     arrivalQuery += ` ORDER BY date DESC, time DESC`;
     const arrivals = await query(arrivalQuery, arrivalParams);
 
-    // Fetch joined sales with lot information
+    // Fetch joined sales with lot information and margin
     let salesQuery = `
       SELECT 
         s.id,
@@ -450,6 +457,9 @@ router.get('/reports/data', authenticate, async (req, res) => {
         s.buyer_contact,
         s.quantity,
         s.rate,
+        COALESCE(s.arrival_rate, l.arrival_rate, 0) as arrival_rate,
+        (s.rate - COALESCE(s.arrival_rate, l.arrival_rate, 0)) as unit_margin,
+        ((s.rate - COALESCE(s.arrival_rate, l.arrival_rate, 0)) * s.quantity) as gross_margin,
         s.gross_amount,
         s.time,
         s.payment_mode,

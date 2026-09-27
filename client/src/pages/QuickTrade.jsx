@@ -26,6 +26,7 @@ export default function QuickTrade() {
   const [commodity, setCommodity] = useState('');
   const [totalFreight, setTotalFreight] = useState('');
   const [freightAdvance, setFreightAdvance] = useState('');
+  const [arrivalRate, setArrivalRate] = useState('');
 
   const [lots, setLots] = useState([
     { id: 'LOT-1', label: 'Lot 1 (Mark-1)', mark: '', variety: '', qty: '' }
@@ -65,6 +66,9 @@ export default function QuickTrade() {
   const totalArrived = lots.reduce((acc, l) => acc + (parseInt(l.qty, 10) || 0), 0);
   const totalAllocated = buyerRows.reduce((acc, r) => acc + (parseInt(r.qty, 10) || 0), 0);
   const totalGrossValue = buyerRows.reduce((acc, r) => acc + ((parseInt(r.qty, 10) || 0) * (parseFloat(r.rate) || 0)), 0);
+  const totalArrivalCost = totalArrived * (parseFloat(arrivalRate) || 0);
+  const netTradingMargin = parseFloat(arrivalRate) > 0 ? (totalGrossValue - totalArrivalCost) : 0;
+  const marginPercent = (totalArrivalCost > 0 && parseFloat(arrivalRate) > 0) ? ((netTradingMargin / totalArrivalCost) * 100).toFixed(1) : 0;
 
   const resetToFresh = () => {
     setTruckNo('');
@@ -72,6 +76,7 @@ export default function QuickTrade() {
     setFarmerPhone('');
     setTotalFreight('');
     setFreightAdvance('');
+    setArrivalRate('');
     setLots([
       { id: 'LOT-1', label: 'Lot 1 (Mark-1)', mark: '', variety: '', qty: '' }
     ]);
@@ -89,6 +94,7 @@ export default function QuickTrade() {
     setFarmerPhone('+91 98160 44321');
     setTotalFreight(36000);
     setFreightAdvance(15000);
+    setArrivalRate(1800);
     if (commoditiesList.length > 0) {
       setCommodity(commoditiesList[0].name_en || commoditiesList[0].name);
     }
@@ -168,6 +174,7 @@ export default function QuickTrade() {
         truckNo,
         farmerName,
         farmerPhone,
+        arrivalRate: parseFloat(arrivalRate) || 0,
         commodity: commodity || (commoditiesList[0]?.name_en || 'Standard Produce'),
         totalFreight: parseFloat(totalFreight) || 0,
         freightAdvance: parseFloat(freightAdvance) || 0,
@@ -183,6 +190,7 @@ export default function QuickTrade() {
       setFarmerPhone('');
       setTotalFreight('');
       setFreightAdvance('');
+      setArrivalRate('');
       setLots([
         { id: 'LOT-1', label: 'Lot 1 (Mark-1)', mark: '', variety: '', qty: '' }
       ]);
@@ -253,10 +261,29 @@ export default function QuickTrade() {
             {t('sample_data')}
           </button>
 
-          <div className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-right">
-            <span className="text-[10px] text-slate-400 font-bold uppercase block">{t('Gross Realized Value', 'सकल बिक्री मूल्य')}</span>
-            <span className="text-base font-black text-emerald-800">₹{totalGrossValue.toLocaleString('en-IN')}</span>
-          </div>
+          {parseFloat(arrivalRate) > 0 ? (
+            <div className="flex items-center gap-2">
+              <div className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-right">
+                <span className="text-[10px] text-slate-400 font-bold uppercase block">{t('Arrival Cost', 'आवक लागत')}</span>
+                <span className="text-sm font-black text-slate-700">₹{totalArrivalCost.toLocaleString('en-IN')}</span>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-right">
+                <span className="text-[10px] text-slate-400 font-bold uppercase block">{t('Gross Sale', 'सकल बिक्री')}</span>
+                <span className="text-sm font-black text-emerald-800">₹{totalGrossValue.toLocaleString('en-IN')}</span>
+              </div>
+              <div className={`px-3 py-1.5 rounded-xl text-right border ${netTradingMargin >= 0 ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-rose-50 border-rose-300 text-rose-800'}`}>
+                <span className="text-[10px] font-bold uppercase block opacity-80">{t('Net Margin', 'व्यापारिक मुनाफा')}</span>
+                <span className="text-base font-black">
+                  ₹{netTradingMargin.toLocaleString('en-IN')} <span className="text-xs font-normal">({marginPercent}%)</span>
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-right">
+              <span className="text-[10px] text-slate-400 font-bold uppercase block">{t('Gross Realized Value', 'सकल बिक्री मूल्य')}</span>
+              <span className="text-base font-black text-emerald-800">₹{totalGrossValue.toLocaleString('en-IN')}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -366,6 +393,38 @@ export default function QuickTrade() {
                 placeholder="0"
                 className="w-full p-2.5 border border-slate-300 rounded-xl font-mono font-bold text-amber-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none"
               />
+            </div>
+          </div>
+
+          {/* Kisan Arrival Rate (Awak Rate) */}
+          <div className="bg-emerald-50/70 p-3.5 rounded-2xl border border-emerald-200">
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="font-bold text-emerald-950 text-xs block">
+                {t('Kisan Arrival Rate (किसान आवक भाव ₹ / नग)', 'किसान आवक भाव / खरीद दर (₹/नग)')}
+              </label>
+              <span className="text-[11px] text-emerald-700 font-semibold">
+                {parseFloat(arrivalRate) > 0 ? 'पक्की आढ़त / व्यापारी खरीद' : 'खाली छोड़ें = कच्ची आढ़त (Commission)'}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs">₹</span>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={arrivalRate}
+                  onChange={(e) => setArrivalRate(e.target.value)}
+                  placeholder="0 (Awak Rate per Bag/Nag)"
+                  className="w-full pl-7 p-2 border border-emerald-300 rounded-xl font-mono font-bold text-emerald-950 bg-white focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none"
+                />
+              </div>
+              <div className="text-xs bg-white px-3 py-2 rounded-xl border border-emerald-100 flex items-center justify-between font-mono">
+                <span className="text-slate-500">{t('Total Inward Cost:', 'कुल आवक लागत:')}</span>
+                <span className="font-black text-emerald-800 text-sm">
+                  ₹{totalArrivalCost.toLocaleString('en-IN')}
+                </span>
+              </div>
             </div>
           </div>
         </div>

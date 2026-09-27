@@ -207,6 +207,8 @@ async function initSchema() {
       total_freight REAL DEFAULT 0,
       freight_advance_paid REAL DEFAULT 0,
       freight_balance REAL DEFAULT 0,
+      arrival_rate REAL DEFAULT 0,
+      total_arrival_amount REAL DEFAULT 0,
       unloading_palledari REAL DEFAULT 0,
       status TEXT DEFAULT 'Ready for Sale',
       transferred_to_lot INTEGER DEFAULT 0,
@@ -231,6 +233,7 @@ async function initSchema() {
       remaining_quantity INTEGER NOT NULL,
       unit TEXT DEFAULT 'Box (20kg)',
       grade TEXT DEFAULT 'Grade A',
+      arrival_rate REAL DEFAULT 0,
       reserve_price REAL,
       current_bid REAL,
       highest_bidder TEXT,
@@ -255,6 +258,7 @@ async function initSchema() {
       buyer_contact TEXT,
       quantity INTEGER NOT NULL,
       rate REAL NOT NULL,
+      arrival_rate REAL DEFAULT 0,
       gross_amount REAL NOT NULL,
       time TEXT,
       payment_mode TEXT DEFAULT 'Credit (7 Days)',
@@ -361,6 +365,10 @@ async function initSchema() {
   await safeAlter('parties', 'payment_terms_days INTEGER DEFAULT 15');
   await safeAlter('parties', 'opening_balance REAL DEFAULT 0');
   await safeAlter('parties', "balance_type TEXT DEFAULT 'Dr'");
+  await safeAlter('arrivals', 'arrival_rate REAL DEFAULT 0');
+  await safeAlter('arrivals', 'total_arrival_amount REAL DEFAULT 0');
+  await safeAlter('sales_lots', 'arrival_rate REAL DEFAULT 0');
+  await safeAlter('split_sales', 'arrival_rate REAL DEFAULT 0');
 
   await seedInitialData();
 }

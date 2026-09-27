@@ -113,6 +113,8 @@ export const API = {
       commodity_name: a.commodity,
       bags: a.quantity,
       remaining_bags: a.quantity,
+      arrival_rate: a.arrival_rate || 0,
+      total_arrival_amount: a.total_arrival_amount || 0,
       freight_amount: a.total_freight,
       advance_paid: a.freight_advance_paid,
       lot_number: a.lot_id,
@@ -131,6 +133,7 @@ export const API = {
       commodity: data.commodity_name || 'General Produce',
       variety: data.variety || '',
       quantity: data.bags,
+      arrivalRate: data.arrival_rate || 0,
       totalFreight: data.freight_amount,
       freightAdvance: data.advance_paid
     });
@@ -153,11 +156,13 @@ export const API = {
       source_location: l.farmer_location,
       total_bags: l.total_quantity,
       remaining_bags: l.remaining_quantity,
+      arrival_rate: l.arrival_rate || 0,
       truck_no: l.truck_no,
       splits: (l.splitSales || []).map(s => ({
         buyer_name: s.buyer_name,
         bags_sold: s.quantity,
         sale_rate: s.rate,
+        arrival_rate: s.arrival_rate || l.arrival_rate || 0,
         payment_terms: s.payment_mode
       }))
     }));

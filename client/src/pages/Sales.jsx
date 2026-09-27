@@ -240,13 +240,25 @@ export default function Sales() {
                   </div>
 
                   {/* Lot Details */}
-                  <div className="p-5 space-y-4">
+                  <div className="p-5 space-y-3">
                     <div>
                       <div className="text-lg font-bold text-gray-900">{lot.commodity_name}</div>
                       <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
                         <User className="w-3.5 h-3.5 text-gray-400" />
                         Farmer: <span className="font-semibold text-gray-700">{lot.farmer_name}</span> ({lot.source_location || 'Local'})
                       </div>
+                    </div>
+
+                    {/* Arrival Rate Tag */}
+                    <div className="flex items-center justify-between text-xs bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
+                      <span className="text-gray-500">Awak Rate (आवक भाव):</span>
+                      <span className="font-mono font-bold text-gray-900">
+                        {Number(lot.arrival_rate) > 0 ? (
+                          <span className="text-emerald-700 font-bold">₹{Number(lot.arrival_rate).toLocaleString()}/Nag</span>
+                        ) : (
+                          <span className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded text-[11px] font-medium">कच्ची आढ़त (Commission)</span>
+                        )}
+                      </span>
                     </div>
 
                     {/* Progress Bar */}
@@ -335,9 +347,21 @@ export default function Sales() {
             </div>
 
             <form onSubmit={handleSaleSubmit} className="p-6 space-y-4">
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-900 flex items-center justify-between">
-                <span>Total Available in Lot:</span>
-                <span className="font-bold text-amber-950 text-sm">{selectedLotForSale.remaining_bags} Bags/Boxes</span>
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between">
+                <div>
+                  <span className="text-gray-500">Kisan Awak Rate (लागत भाव):</span>
+                  <span className="font-mono font-bold text-gray-950 ml-1.5">
+                    {Number(selectedLotForSale.arrival_rate) > 0 ? (
+                      <span className="text-emerald-700">₹{Number(selectedLotForSale.arrival_rate).toLocaleString()}/Nag</span>
+                    ) : (
+                      <span className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded text-[11px]">कच्ची आढ़त (Commission)</span>
+                    )}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Available:</span>
+                  <span className="font-bold text-amber-900 text-sm ml-1.5">{selectedLotForSale.remaining_bags} Bags</span>
+                </div>
               </div>
 
               {/* Buyer Selector */}
@@ -436,6 +460,17 @@ export default function Sales() {
                   <span>Brokerage / Dami ({saleForm.brokerage_rate}%):</span>
                   <span className="font-mono font-bold">₹{calcBrokerage.toFixed(2)}</span>
                 </div>
+                {Number(selectedLotForSale.arrival_rate) > 0 && parseFloat(saleForm.sale_rate) > 0 && (
+                  <div className="flex justify-between text-xs pt-1 border-t border-dashed border-gray-300">
+                    <span className="text-emerald-900 font-semibold">Trading Margin (व्यापारिक मुनाफा):</span>
+                    <span className={`font-mono font-black ${parseFloat(saleForm.sale_rate) >= Number(selectedLotForSale.arrival_rate) ? 'text-emerald-700' : 'text-rose-600'}`}>
+                      ₹{((parseFloat(saleForm.sale_rate) - Number(selectedLotForSale.arrival_rate)) * (parseFloat(saleForm.bags_sold) || 0)).toLocaleString()} 
+                      <span className="text-[11px] font-normal ml-1">
+                        (₹{(parseFloat(saleForm.sale_rate) - Number(selectedLotForSale.arrival_rate)).toFixed(2)}/Nag)
+                      </span>
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between text-indigo-950 font-bold text-sm pt-1 border-t border-gray-200">
                   <span>Net Buyer Bill (Receivable):</span>
                   <span className="font-mono text-indigo-600 font-black">₹{calcTotalReceivable.toFixed(2)}</span>

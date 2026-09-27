@@ -65,7 +65,13 @@ export default function Reports() {
         const repRes = await api.getReportsData();
         if (repRes && repRes.arrivals) {
           setArrivals(repRes.arrivals || []);
-          setSales(repRes.sales || []);
+          const mappedRepSales = (repRes.sales || []).map(s => ({
+            ...s,
+            arrival_rate: Number(s.arrival_rate || s.lot_arrival_rate || 0),
+            quantity: s.quantity || s.bags_sold,
+            rate: s.rate || s.sale_rate
+          }));
+          setSales(mappedRepSales);
           setAccounts(repRes.accounts || []);
           setParties(repRes.parties || []);
         }
@@ -98,16 +104,21 @@ export default function Reports() {
       // Extract all split sales from lots into a flat array if not already populated
       let flatSales = [];
       lotsList.forEach(l => {
-        if (l.splitSales && Array.isArray(l.splitSales)) {
-          l.splitSales.forEach(s => {
+        const splitsArr = l.splitSales || l.splits || [];
+        if (Array.isArray(splitsArr)) {
+          splitsArr.forEach(s => {
             flatSales.push({
               ...s,
               lot_id: l.id,
+              lot_number: l.lot_number,
               commodity_name: l.commodity_name,
               farmer_name: l.farmer_name,
               truck_no: l.truck_no,
               unit: l.unit || 'Box',
-              freight_advance_paid: l.freight_advance_paid
+              arrival_rate: Number(s.arrival_rate || l.arrival_rate || 0),
+              freight_advance_paid: l.freight_advance_paid,
+              quantity: s.quantity || s.bags_sold,
+              rate: s.rate || s.sale_rate
             });
           });
         }
@@ -373,8 +384,11 @@ export default function Reports() {
         rows.push([g.farmerName, g.mobile, g.location, g.trucksCount, g.totalBags, g.grossSales, g.freightAdvance, g.commissionEarned, g.netTakeHome]);
       });
     } else if (activeReport === 'GROWER_ARRIVAL') {
-      rows.push(['Date', 'Gate Pass ID', 'Truck No', 'Driver Name', 'Driver Mobile', 'Farmer Name', 'Commodity', 'Bags', 'Total Freight', 'Advance Paid', 'Balance Freight', 'Status']);
+      rows.push(['Date', 'Gate Pass ID', 'Truck No', 'Driver Name', 'Driver Mobile', 'Farmer Name', 'Commodity', 'Bags', 'Arrival Rate (₹)', 'Total Inward Value (₹)', 'Total Freight', 'Advance Paid', 'Balance Freight', 'Status']);
       filteredArrivals.forEach(a => {
+        const bags = Number(a.quantity || a.bags || 0);
+        const rate = Number(a.arrival_rate || 0);
+        const inwardVal = Number(a.total_arrival_amount) || (bags * rate);
         rows.push([
           a.date || a.arrival_date || '',
           a.id,
@@ -383,11 +397,39 @@ export default function Reports() {
           a.driver_phone || '',
           a.farmer_name,
           a.commodity || a.commodity_name,
-          a.quantity || a.bags,
-          a.total_freight || a.freight_amount,
-          a.freight_advance_paid || a.advance_paid,
+          bags,
+          rate > 0 ? rate : 'Commission (0)',
+          inwardVal > 0 ? inwardVal : 'Consignment',
+          a.total_freight || a.freight_amount || 0,
+          a.freight_advance_paid || a.advance_paid || 0,
           a.freight_balance || 0,
           a.status || 'Ready'
+        ]);
+      });
+    } else if (activeReport === 'TRADING_MARGIN') {
+      rows.push(['Date', 'Sale Code / Purcha', 'Lot No', 'Farmer Name', 'Buyer Name', 'Commodity', 'Bags Sold', 'Arrival Rate (₹)', 'Total Inward Cost (₹)', 'Sale Rate (₹)', 'Gross Realized (₹)', 'Trading Margin (₹)', 'Margin %']);
+      filteredSales.forEach(s => {
+        const qty = Number(s.quantity || s.bags_sold || 0);
+        const saleRate = Number(s.rate || s.sale_rate || 0);
+        const arrivalRate = Number(s.arrival_rate || 0);
+        const gross = qty * saleRate;
+        const inwardCost = qty * arrivalRate;
+        const margin = arrivalRate > 0 ? (gross - inwardCost) : 0;
+        const marginPct = (inwardCost > 0 && arrivalRate > 0) ? ((margin / inwardCost) * 100).toFixed(1) + '%' : 'N/A';
+        rows.push([
+          s.created_at ? new Date(s.created_at).toLocaleDateString('en-IN') : (s.date || ''),
+          s.sale_code || s.id,
+          s.lot_number || s.lot_id || '',
+          s.farmer_name || '',
+          s.buyer_name || '',
+          s.commodity_name || '',
+          qty,
+          arrivalRate > 0 ? arrivalRate : 'Consignment',
+          inwardCost > 0 ? inwardCost : 'N/A',
+          saleRate,
+          gross,
+          arrivalRate > 0 ? margin : 'Commission',
+          marginPct
         ]);
       });
     }
@@ -548,6 +590,7 @@ export default function Reports() {
           { id: 'BUYER_SUMMARY', labelEn: 'Buyer Summary', labelHi: 'खरीदार सारांश', icon: TrendingUp },
           { id: 'GROWER_SUMMARY', labelEn: 'Grower Summary', labelHi: 'किसान सारांश', icon: Package },
           { id: 'GROWER_ARRIVAL', labelEn: 'Grower Arrival', labelHi: 'गाड़ी आवक रजिस्टर', icon: Truck },
+          { id: 'TRADING_MARGIN', labelEn: 'Trading Margin & Rates', labelHi: 'आवक-बिक्री भाव व मुनाफा', icon: TrendingUp },
           { id: 'STATUTORY', labelEn: 'APMC Legal Forms', labelHi: 'पक्का टीप व जे-फॉर्म', icon: ShieldCheck }
         ].map(tab => {
           const IconC = tab.icon;
@@ -965,14 +1008,27 @@ export default function Reports() {
             <div>
               <h3 className="text-sm font-bold text-slate-900">{t('Grower Inward Arrival Register', 'गाड़ी आवक रजिस्टर')}</h3>
               <p className="text-slate-500 text-[11px]">
-                Complete truck entry log with vehicle number, driver details, bag quantities, and freight advances.
+                {t('Complete truck entry log with vehicle number, farmer details, bag quantities, arrival rate, and freight advances.', 'गाड़ी संख्या, चालक, किसान, बोरी मात्रा, किसान आवक भाव (खरीद दर) व भाड़ा हिसाब का पूर्ण रजिस्टर।')}
               </p>
             </div>
-            <div className="text-right">
-              <span className="text-[10px] text-slate-400 uppercase font-bold block">Inward Trucks Count</span>
-              <span className="text-base font-black text-blue-900 font-mono">
-                {filteredArrivals.length} Trucks
-              </span>
+            {/* Top KPI Cards for Grower Arrival */}
+            <div className="flex flex-wrap items-center gap-2 text-right">
+              <div className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">{t('Trucks', 'गाड़ियाँ')}</span>
+                <span className="text-sm font-black text-blue-900 font-mono">{filteredArrivals.length}</span>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">{t('Total Bags', 'कुल बोरी')}</span>
+                <span className="text-sm font-black text-slate-900 font-mono">
+                  {filteredArrivals.reduce((sum, a) => sum + (Number(a.quantity || a.bags) || 0), 0).toLocaleString()}
+                </span>
+              </div>
+              <div className="bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl">
+                <span className="text-[10px] text-emerald-800 uppercase font-bold block">{t('Inward Value', 'कुल आवक मूल्य')}</span>
+                <span className="text-sm font-black text-emerald-800 font-mono">
+                  ₹{filteredArrivals.reduce((sum, a) => sum + (Number(a.total_arrival_amount) || (Number(a.quantity || a.bags || 0) * Number(a.arrival_rate || 0))), 0).toLocaleString()}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -986,6 +1042,8 @@ export default function Reports() {
                   <th className="p-3">Farmer / Grower</th>
                   <th className="p-3">Commodity &amp; Variety</th>
                   <th className="p-3 text-center">Bags</th>
+                  <th className="p-3 text-right">Awak Rate (₹)</th>
+                  <th className="p-3 text-right">Inward Value (₹)</th>
                   <th className="p-3 text-right">Total Freight</th>
                   <th className="p-3 text-right">Advance Paid</th>
                   <th className="p-3 text-right">Balance Freight</th>
@@ -995,43 +1053,270 @@ export default function Reports() {
               <tbody className="divide-y divide-slate-100">
                 {filteredArrivals.length === 0 ? (
                   <tr>
-                    <td colSpan="10" className="text-center py-8 text-slate-400">
+                    <td colSpan="12" className="text-center py-8 text-slate-400">
                       No truck inward entries found in the selected date range.
                     </td>
                   </tr>
                 ) : (
-                  filteredArrivals.map((a, idx) => (
-                    <tr key={a.id || idx} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-3 font-mono">
-                        <span className="font-bold text-blue-900 block">{a.id}</span>
-                        <span className="text-[10px] text-slate-400">{a.date || a.arrival_date || 'Today'} {a.time || ''}</span>
-                      </td>
-                      <td className="p-3 font-mono font-black text-slate-900">{a.truck_no}</td>
-                      <td className="p-3 text-slate-700">
-                        <span className="font-bold block">{a.driver_name || 'Driver'}</span>
-                        {a.driver_phone && <span className="font-mono text-[10px] text-slate-400">{a.driver_phone}</span>}
-                      </td>
-                      <td className="p-3 font-bold text-slate-900">
-                        {a.farmer_name}
-                        {a.farmer_location && <span className="block text-[10px] font-normal text-slate-400">{a.farmer_location}</span>}
-                      </td>
-                      <td className="p-3 font-medium text-slate-800">
-                        {a.commodity || a.commodity_name}
-                        {a.variety && <span className="block text-[10px] text-slate-400">{a.variety}</span>}
-                      </td>
-                      <td className="p-3 text-center font-bold font-mono">{a.quantity || a.bags}</td>
-                      <td className="p-3 text-right font-mono">₹{(a.total_freight || a.freight_amount || 0).toLocaleString()}</td>
-                      <td className="p-3 text-right font-mono font-bold text-amber-700">₹{(a.freight_advance_paid || a.advance_paid || 0).toLocaleString()}</td>
-                      <td className="p-3 text-right font-mono text-slate-600">₹{(a.freight_balance || 0).toLocaleString()}</td>
-                      <td className="p-3 text-center">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                          {a.status || 'Ready for Sale'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
+                  filteredArrivals.map((a, idx) => {
+                    const bags = Number(a.quantity || a.bags) || 0;
+                    const arrRate = Number(a.arrival_rate) || 0;
+                    const inwardVal = Number(a.total_arrival_amount) || (bags * arrRate);
+
+                    return (
+                      <tr key={a.id || idx} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-3 font-mono">
+                          <span className="font-bold text-blue-900 block">{a.id}</span>
+                          <span className="text-[10px] text-slate-400">{a.date || a.arrival_date || 'Today'} {a.time || ''}</span>
+                        </td>
+                        <td className="p-3 font-mono font-black text-slate-900">{a.truck_no}</td>
+                        <td className="p-3 text-slate-700">
+                          <span className="font-bold block">{a.driver_name || 'Driver'}</span>
+                          {a.driver_phone && <span className="font-mono text-[10px] text-slate-400">{a.driver_phone}</span>}
+                        </td>
+                        <td className="p-3 font-bold text-slate-900">
+                          {a.farmer_name}
+                          {a.farmer_location && <span className="block text-[10px] font-normal text-slate-400">{a.farmer_location}</span>}
+                        </td>
+                        <td className="p-3 font-medium text-slate-800">
+                          {a.commodity || a.commodity_name}
+                          {a.variety && <span className="block text-[10px] text-slate-400">{a.variety}</span>}
+                        </td>
+                        <td className="p-3 text-center font-bold font-mono">{bags}</td>
+                        <td className="p-3 text-right font-mono">
+                          {arrRate > 0 ? (
+                            <span className="font-bold text-emerald-800">₹{arrRate.toLocaleString()}</span>
+                          ) : (
+                            <span className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded text-[10px] font-medium">कच्ची आढ़त</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-right font-mono font-bold text-slate-900">
+                          {inwardVal > 0 ? `₹${inwardVal.toLocaleString()}` : '-'}
+                        </td>
+                        <td className="p-3 text-right font-mono">₹{(a.total_freight || a.freight_amount || 0).toLocaleString()}</td>
+                        <td className="p-3 text-right font-mono font-bold text-amber-700">₹{(a.freight_advance_paid || a.advance_paid || 0).toLocaleString()}</td>
+                        <td className="p-3 text-right font-mono text-slate-600">₹{(a.freight_balance || 0).toLocaleString()}</td>
+                        <td className="p-3 text-center">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                            {a.status || 'Ready for Sale'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
+              {filteredArrivals.length > 0 && (
+                <tfoot className="bg-slate-100 border-t-2 border-slate-300 font-bold text-slate-900">
+                  {(() => {
+                    const sumBags = filteredArrivals.reduce((sum, a) => sum + (Number(a.quantity || a.bags) || 0), 0);
+                    const sumInwardVal = filteredArrivals.reduce((sum, a) => sum + (Number(a.total_arrival_amount) || (Number(a.quantity || a.bags || 0) * Number(a.arrival_rate || 0))), 0);
+                    const sumFreight = filteredArrivals.reduce((sum, a) => sum + (Number(a.total_freight || a.freight_amount) || 0), 0);
+                    const sumAdvance = filteredArrivals.reduce((sum, a) => sum + (Number(a.freight_advance_paid || a.advance_paid) || 0), 0);
+                    const sumBalance = filteredArrivals.reduce((sum, a) => sum + (Number(a.freight_balance) || 0), 0);
+
+                    return (
+                      <tr>
+                        <td colSpan="5" className="p-3 uppercase text-[10px] tracking-wider">Total Summary:</td>
+                        <td className="p-3 text-center font-mono font-black">{sumBags.toLocaleString()}</td>
+                        <td className="p-3"></td>
+                        <td className="p-3 text-right font-mono font-black text-emerald-800">₹{sumInwardVal.toLocaleString()}</td>
+                        <td className="p-3 text-right font-mono font-black">₹{sumFreight.toLocaleString()}</td>
+                        <td className="p-3 text-right font-mono font-black text-amber-800">₹{sumAdvance.toLocaleString()}</td>
+                        <td className="p-3 text-right font-mono font-black">₹{sumBalance.toLocaleString()}</td>
+                        <td className="p-3"></td>
+                      </tr>
+                    );
+                  })()}
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          REPORT 7: TRADING MARGIN & RATE ANALYSIS (आवक-बिक्री भाव व व्यापारिक मुनाफा)
+      ========================================================================== */}
+      {activeReport === 'TRADING_MARGIN' && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden text-xs space-y-4 p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-sm font-bold text-slate-900">{t('Trading Margin & Rate Analysis Register', 'आवक-बिक्री भाव एवं व्यापारिक मुनाफा रजिस्टर')}</h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                  {t('Awak vs Sale Rates', 'आवक दर बनाम बिक्री दर')}
+                </span>
+              </div>
+              <p className="text-slate-500 text-[11px] mt-0.5">
+                {t('Compare Kisan Inward Rate (खरीद दर) against Buyer Sale Rate (बिक्री दर) with net realized trading profit per lot and split sale.', 'किसान खरीद भाव (आवक दर) तथा खरीदार बिक्री भाव की तुलना और प्रति लॉट/सौदा शुद्ध मुनाफा विश्लेषण।')}
+              </p>
+            </div>
+          </div>
+
+          {/* Metric KPI Cards */}
+          {(() => {
+            const totalUnits = filteredSales.reduce((sum, s) => sum + (Number(s.quantity || s.bags_sold) || 0), 0);
+            const totalSaleValue = filteredSales.reduce((sum, s) => sum + ((Number(s.quantity || s.bags_sold) || 0) * (Number(s.rate || s.sale_rate) || 0)), 0);
+            const totalInwardCost = filteredSales.reduce((sum, s) => sum + ((Number(s.quantity || s.bags_sold) || 0) * (Number(s.arrival_rate) || 0)), 0);
+            const totalProfit = totalSaleValue - totalInwardCost;
+            const overallMarginPct = totalInwardCost > 0 ? ((totalProfit / totalInwardCost) * 100).toFixed(1) : 0;
+            const tradesWithAwakRate = filteredSales.filter(s => Number(s.arrival_rate) > 0).length;
+
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <span className="text-[10px] uppercase font-bold text-slate-500 block">{t('Total Volume Sold', 'कुल बिका हुआ माल')}</span>
+                  <span className="text-lg font-black text-slate-900 font-mono mt-1 block">
+                    {totalUnits.toLocaleString()} <span className="text-xs font-normal text-slate-500">Bags</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400">{filteredSales.length} trades recorded</span>
+                </div>
+
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <span className="text-[10px] uppercase font-bold text-slate-500 block">{t('Total Inward Cost', 'कुल आवक लागत (खरीद मूल्य)')}</span>
+                  <span className="text-lg font-black text-slate-800 font-mono mt-1 block">
+                    ₹{totalInwardCost.toLocaleString()}
+                  </span>
+                  <span className="text-[10px] text-emerald-700 font-medium">{tradesWithAwakRate} fixed rate consignments</span>
+                </div>
+
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <span className="text-[10px] uppercase font-bold text-slate-500 block">{t('Gross Realized Sales', 'सकल बिक्री आवक')}</span>
+                  <span className="text-lg font-black text-blue-900 font-mono mt-1 block">
+                    ₹{totalSaleValue.toLocaleString()}
+                  </span>
+                  <span className="text-[10px] text-slate-400">Buyer auction revenue</span>
+                </div>
+
+                <div className={`p-3 rounded-xl border ${totalProfit >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+                  <span className="text-[10px] uppercase font-bold text-emerald-900 block">{t('Net Trading Margin', 'व्यापारिक मुनाफा (Gross Profit)')}</span>
+                  <span className="text-lg font-black font-mono mt-1 block text-emerald-800">
+                    ₹{totalProfit.toLocaleString()}
+                  </span>
+                  <span className="text-[10px] font-bold text-emerald-700">{overallMarginPct}% margin return</span>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Detailed Table */}
+          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase text-[10px]">
+                <tr>
+                  <th className="p-3">Date / Code</th>
+                  <th className="p-3">Lot &amp; Farmer</th>
+                  <th className="p-3">Buyer Name</th>
+                  <th className="p-3">Commodity</th>
+                  <th className="p-3 text-center">Bags</th>
+                  <th className="p-3 text-right">Awak Rate (₹)</th>
+                  <th className="p-3 text-right">Inward Cost (₹)</th>
+                  <th className="p-3 text-right">Sale Rate (₹)</th>
+                  <th className="p-3 text-right">Sale Value (₹)</th>
+                  <th className="p-3 text-right">Margin (₹)</th>
+                  <th className="p-3 text-center">Margin %</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredSales.length === 0 ? (
+                  <tr>
+                    <td colSpan="11" className="text-center py-8 text-slate-400">
+                      No trades or lots found for margin analysis in this date range.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredSales.map((s, idx) => {
+                    const qty = Number(s.quantity || s.bags_sold) || 0;
+                    const saleRate = Number(s.rate || s.sale_rate) || 0;
+                    const arrivalRate = Number(s.arrival_rate) || 0;
+                    const grossSale = qty * saleRate;
+                    const inwardCost = qty * arrivalRate;
+                    const margin = arrivalRate > 0 ? (grossSale - inwardCost) : 0;
+                    const unitMargin = arrivalRate > 0 ? (saleRate - arrivalRate) : 0;
+                    const marginPct = (inwardCost > 0 && arrivalRate > 0) ? ((margin / inwardCost) * 100).toFixed(1) : 0;
+                    const dateFormatted = s.created_at ? new Date(s.created_at).toLocaleDateString('en-IN') : (s.date || 'Today');
+
+                    return (
+                      <tr key={s.id || idx} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-3 font-mono">
+                          <span className="font-bold text-slate-900 block">{s.sale_code || s.id}</span>
+                          <span className="text-[10px] text-slate-400">{dateFormatted}</span>
+                        </td>
+                        <td className="p-3">
+                          <span className="font-mono text-purple-900 font-bold block">{s.lot_number || s.lot_id || 'LOT'}</span>
+                          <span className="text-slate-600 font-medium text-[11px]">{s.farmer_name || 'Grower'}</span>
+                        </td>
+                        <td className="p-3 font-bold text-slate-900">
+                          {s.buyer_name || 'Counter Buyer'}
+                        </td>
+                        <td className="p-3 font-medium text-slate-800">
+                          {s.commodity_name || 'Produce'}
+                        </td>
+                        <td className="p-3 text-center font-bold font-mono">{qty}</td>
+                        <td className="p-3 text-right font-mono">
+                          {arrivalRate > 0 ? (
+                            <span className="font-bold text-slate-900">₹{arrivalRate.toLocaleString()}</span>
+                          ) : (
+                            <span className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded text-[10px] font-medium">कच्ची आढ़त</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-right font-mono text-slate-700">
+                          {inwardCost > 0 ? `₹${inwardCost.toLocaleString()}` : '-'}
+                        </td>
+                        <td className="p-3 text-right font-mono font-bold text-blue-900">₹{saleRate.toLocaleString()}</td>
+                        <td className="p-3 text-right font-mono font-bold text-slate-900">₹{grossSale.toLocaleString()}</td>
+                        <td className="p-3 text-right font-mono font-black">
+                          {arrivalRate > 0 ? (
+                            <div className={margin >= 0 ? 'text-emerald-700' : 'text-rose-600'}>
+                              <span>₹{margin.toLocaleString()}</span>
+                              <span className="block text-[9px] font-normal opacity-80">(₹{unitMargin.toFixed(1)}/Nag)</span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 font-normal text-[10px]">Commission</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-center font-mono font-bold">
+                          {arrivalRate > 0 ? (
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                              Number(marginPct) >= 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                            }`}>
+                              {marginPct}%
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-[10px]">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+              {filteredSales.length > 0 && (
+                <tfoot className="bg-slate-100 border-t-2 border-slate-300 font-bold text-slate-900">
+                  {(() => {
+                    const totalQty = filteredSales.reduce((sum, s) => sum + (Number(s.quantity || s.bags_sold) || 0), 0);
+                    const totalInward = filteredSales.reduce((sum, s) => sum + ((Number(s.quantity || s.bags_sold) || 0) * (Number(s.arrival_rate) || 0)), 0);
+                    const totalSale = filteredSales.reduce((sum, s) => sum + ((Number(s.quantity || s.bags_sold) || 0) * (Number(s.rate || s.sale_rate) || 0)), 0);
+                    const totalMargin = totalSale - totalInward;
+                    const marginPercent = totalInward > 0 ? ((totalMargin / totalInward) * 100).toFixed(1) : 0;
+
+                    return (
+                      <tr>
+                        <td colSpan="4" className="p-3 uppercase text-[10px] tracking-wider">Total Summary:</td>
+                        <td className="p-3 text-center font-mono font-black">{totalQty.toLocaleString()}</td>
+                        <td className="p-3"></td>
+                        <td className="p-3 text-right font-mono font-black">₹{totalInward.toLocaleString()}</td>
+                        <td className="p-3"></td>
+                        <td className="p-3 text-right font-mono font-black">₹{totalSale.toLocaleString()}</td>
+                        <td className="p-3 text-right font-mono font-black text-emerald-800">₹{totalMargin.toLocaleString()}</td>
+                        <td className="p-3 text-center font-mono font-black text-emerald-800">{marginPercent}%</td>
+                      </tr>
+                    );
+                  })()}
+                </tfoot>
+              )}
             </table>
           </div>
         </div>
