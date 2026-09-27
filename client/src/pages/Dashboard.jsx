@@ -77,7 +77,7 @@ export default function Dashboard({ setActiveTab }) {
 
   const totalOutstanding = accounts.reduce((sum, a) => sum + (a.balance || 0), 0);
   const overdueAccounts = accounts.filter(a => (a.overdue_days || 0) > 15);
-  const rokadClosing = cashbook?.closingBalance || 50000;
+  const rokadClosing = cashbook?.closingBalance !== undefined ? (parseFloat(cashbook.closingBalance) || 0) : (currentTenant?.opening_cash || 0);
 
   const isNewUser = arrivals.length === 0 && lots.length === 0;
 

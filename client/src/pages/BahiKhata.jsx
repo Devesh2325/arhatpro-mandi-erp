@@ -40,6 +40,9 @@ export default function BahiKhata() {
   const [expandedRows, setExpandedRows] = useState({});
 
   // Cashbook form state
+  const [cashSummary, setCashSummary] = useState({ openingCash: 0, totalJama: 0, totalKharch: 0, closingBalance: 0 });
+  const [showOpeningCashModal, setShowOpeningCashModal] = useState(false);
+  const [openingCashInput, setOpeningCashInput] = useState('0');
   const [showCashModal, setShowCashModal] = useState(false);
   const [cashForm, setCashForm] = useState({
     entry_type: 'cash_in',
@@ -75,6 +78,14 @@ export default function BahiKhata() {
           api.getAccounts()
         ]);
         setCashEntries(cashRes.entries || []);
+        const opCash = cashRes.openingCash !== undefined ? parseFloat(cashRes.openingCash) : 0;
+        setCashSummary({
+          openingCash: opCash,
+          totalJama: cashRes.totalJama || 0,
+          totalKharch: cashRes.totalKharch || 0,
+          closingBalance: cashRes.closingBalance !== undefined ? parseFloat(cashRes.closingBalance) : 0
+        });
+        setOpeningCashInput(opCash.toString());
         setAccounts(accRes.accounts || []);
       } else if (activeTab === 'AGING') {
         const res = await api.getDebtorAging();
@@ -97,6 +108,19 @@ export default function BahiKhata() {
       console.error('Failed to load ledger data:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveOpeningCash = async (e) => {
+    e.preventDefault();
+    try {
+      const amt = Math.max(0, parseFloat(openingCashInput) || 0);
+      await api.setOpeningCash(amt);
+      setMessage({ type: 'success', text: `Opening cash balance updated to ₹${amt.toLocaleString()}!` });
+      setShowOpeningCashModal(false);
+      loadData();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Failed to update opening cash.' });
     }
   };
 
@@ -334,15 +358,69 @@ export default function BahiKhata() {
       {/* TAB 2: CASHBOOK / ROKAD */}
       {activeTab === 'CASHBOOK' && (
         <div className="space-y-4">
+          {/* Cash Metrics Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+              <div>
+                <span className="text-xs text-slate-500 font-medium block">{t('Opening Cash in Hand', 'आरंभिक रोकड़ शेष')}</span>
+                <span className="text-2xl font-black text-slate-900 font-mono mt-1 block">
+                  ₹{cashSummary.openingCash.toLocaleString()}
+                </span>
+              </div>
+              <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-[10px] text-slate-400">{t('Safe / Drawer Cash', 'गल्ले की रोकड़')}</span>
+                <button
+                  type="button"
+                  onClick={() => setShowOpeningCashModal(true)}
+                  className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 cursor-pointer"
+                >
+                  {t('Edit Opening Cash ✎', 'आरंभिक शेष बदलें ✎')}
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-xs text-slate-500 font-medium block">{t('Total Cash In (Jama)', 'कुल रोकड़ जमा')}</span>
+              <span className="text-2xl font-black text-emerald-600 font-mono mt-1 block">
+                ₹{cashSummary.totalJama.toLocaleString()}
+              </span>
+              <span className="text-[10px] text-slate-400 mt-2 block">{t('Buyer collections & receipts', 'व्यापारियों से वसूली व नकद जमा')}</span>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-xs text-slate-500 font-medium block">{t('Total Cash Out (Kharch)', 'कुल रोकड़ खर्च')}</span>
+              <span className="text-2xl font-black text-rose-600 font-mono mt-1 block">
+                ₹{cashSummary.totalKharch.toLocaleString()}
+              </span>
+              <span className="text-[10px] text-slate-400 mt-2 block">{t('Farmer teep payouts & labor', 'किसान भुगतान व मंडी व्यय')}</span>
+            </div>
+
+            <div className="bg-gradient-to-br from-emerald-800 to-teal-900 text-white p-4 rounded-2xl shadow-sm">
+              <span className="text-xs text-emerald-200 font-medium block">{t('Net Cash in Hand (Rokad)', 'अंतिम रोकड़ बाकी (गल्ला)')}</span>
+              <span className="text-2xl font-black font-mono mt-1 block">
+                ₹{cashSummary.closingBalance.toLocaleString()}
+              </span>
+              <span className="text-[10px] text-emerald-200 mt-2 block">{t('Current live till balance', 'वर्तमान वास्तविक रोकड़ शेष')}</span>
+            </div>
+          </div>
+
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-gray-600">Daily Rokad Transactions / रोकड़ बही</span>
-              <button
-                onClick={() => setShowCashModal(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add Cash Entry
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowOpeningCashModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold cursor-pointer"
+                >
+                  ✎ {t('Opening Cash', 'आरंभिक शेष')}
+                </button>
+                <button
+                  onClick={() => setShowCashModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Cash Entry
+                </button>
+              </div>
             </div>
             <table className="w-full text-left text-sm text-gray-600">
               <thead className="bg-gray-50 text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">
@@ -1123,6 +1201,53 @@ export default function BahiKhata() {
                   className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-sm disabled:opacity-50"
                 >
                   {submitting ? 'Validating & Posting...' : 'Post Balanced Voucher'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Opening Cash Setup Modal */}
+      {showOpeningCashModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b pb-3">
+              <h3 className="font-bold text-slate-900 text-sm">{t('Configure Opening Cash', 'आरंभिक रोकड़ शेष सेट करें')}</h3>
+              <button onClick={() => setShowOpeningCashModal(false)} className="text-slate-400 hover:text-slate-700 text-lg cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleSaveOpeningCash} className="space-y-4">
+              <div>
+                <label className="font-bold text-slate-700 text-xs block mb-1">
+                  {t('Opening Cash in Hand (₹)', 'आरंभिक रोकड़ शेष (₹)')}
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  required
+                  value={openingCashInput}
+                  onChange={(e) => setOpeningCashInput(e.target.value)}
+                  className="w-full p-2.5 border border-slate-300 rounded-xl font-bold font-mono text-emerald-800 text-base focus:ring-2 focus:ring-emerald-600 outline-none"
+                  placeholder="0"
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  {t('Set your initial cash balance in shop drawer/safe.', 'अपनी तिजोरी या गल्ले की आरंभिक रोकड़ राशि दर्ज करें।')}
+                </span>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowOpeningCashModal(false)}
+                  className="px-4 py-2 border border-slate-300 rounded-xl font-bold text-xs text-slate-600 hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm cursor-pointer"
+                >
+                  Save (सुरक्षित करें)
                 </button>
               </div>
             </form>

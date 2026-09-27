@@ -12,18 +12,24 @@ import {
   RotateCcw, 
   Sparkles,
   Users,
-  Info
+  Info,
+  Calendar,
+  UserCheck
 } from 'lucide-react';
+import PartySearchSelect from '../components/PartySearchSelect';
 
 export default function QuickTrade() {
   const { activeTenant } = useTenant();
   const { t, isHindi } = useLanguage();
 
   // Fresh initial states - completely clean for new users
+  const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
   const [manualLotNo, setManualLotNo] = useState('');
   const [truckNo, setTruckNo] = useState('');
   const [farmerName, setFarmerName] = useState('');
   const [farmerPhone, setFarmerPhone] = useState('');
+  const [agentName, setAgentName] = useState('');
+  const [agentPhone, setAgentPhone] = useState('');
   const [commodity, setCommodity] = useState('');
   const [totalFreight, setTotalFreight] = useState('');
   const [freightAdvance, setFreightAdvance] = useState('');
@@ -95,9 +101,13 @@ export default function QuickTrade() {
   const marginPercent = (totalArrivalCost > 0 && parseFloat(arrivalRate) > 0) ? ((netTradingMargin / totalArrivalCost) * 100).toFixed(1) : 0;
 
   const resetToFresh = () => {
+    setEntryDate(new Date().toISOString().split('T')[0]);
+    setManualLotNo('');
     setTruckNo('');
     setFarmerName('');
     setFarmerPhone('');
+    setAgentName('');
+    setAgentPhone('');
     setTotalFreight('');
     setFreightAdvance('');
     setArrivalRate('');
@@ -113,9 +123,12 @@ export default function QuickTrade() {
   };
 
   const loadSampleDemo = () => {
+    setEntryDate(new Date().toISOString().split('T')[0]);
     setTruckNo('HP-10-B-9812');
     setFarmerName('Harish Negi');
     setFarmerPhone('+91 98160 44321');
+    setAgentName('Ramesh Broker');
+    setAgentPhone('+91 98765 43210');
     setTotalFreight(36000);
     setFreightAdvance(15000);
     setArrivalRate(1800);
@@ -218,10 +231,13 @@ export default function QuickTrade() {
     setLoading(true);
     try {
       const res = await API.quickTrade({
+        entryDate,
         manualLotNo: manualLotNo ? manualLotNo.trim() : null,
         truckNo,
         farmerName,
         farmerPhone,
+        agentName,
+        agentPhone,
         arrivalRate: parseFloat(arrivalRate) || 0,
         commodity: commodity || (commoditiesList[0]?.name_en || 'Standard Produce'),
         totalFreight: parseFloat(totalFreight) || 0,
@@ -243,10 +259,13 @@ export default function QuickTrade() {
       setMessage(`⚡ Consignment ${res.consignmentId || 'TC-' + Date.now().toString().slice(-4)} sealed & Teep generated for ${res.totalArrived || totalArrived} units! Auto-JV posted.`);
       
       // Auto-reset form for fresh next trade
+      setEntryDate(new Date().toISOString().split('T')[0]);
       setManualLotNo('');
       setTruckNo('');
       setFarmerName('');
       setFarmerPhone('');
+      setAgentName('');
+      setAgentPhone('');
       setTotalFreight('');
       setFreightAdvance('');
       setArrivalRate('');
@@ -387,9 +406,22 @@ export default function QuickTrade() {
             </div>
           </div>
 
-          {/* Row 0: Manual Lot Number */}
+          {/* Row 0: Consignment Settings (Entry Date & Manual Lot) */}
           <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+              <div>
+                <label className="font-bold text-slate-800 text-xs block mb-1 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-emerald-700" />
+                  {t('Entry Date (सौदा दिनांक) *', 'सौदा दिनांक *')}
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={entryDate}
+                  onChange={(e) => setEntryDate(e.target.value)}
+                  className="w-full p-2 border border-slate-300 rounded-xl font-bold bg-white text-slate-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none text-xs"
+                />
+              </div>
               <div>
                 <label className="font-bold text-slate-800 text-xs block mb-1">
                   {t('Consignment Lot No. (Manual / Auto)', 'लॉट नंबर (वैकल्पिक / खाली छोड़ें तो स्वतः बनेगा)')}
@@ -398,17 +430,14 @@ export default function QuickTrade() {
                   type="text"
                   value={manualLotNo}
                   onChange={(e) => setManualLotNo(e.target.value.toUpperCase())}
-                  placeholder="e.g. LOT-QT101 (or leave blank for auto LOT-xxxx)"
-                  className="w-full p-2.5 border border-slate-300 rounded-xl font-mono uppercase font-black text-indigo-900 bg-white placeholder:font-normal placeholder:normal-case placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none text-xs"
+                  placeholder="e.g. LOT-QT101 (or leave blank for auto)"
+                  className="w-full p-2 border border-slate-300 rounded-xl font-mono uppercase font-black text-indigo-900 bg-white placeholder:font-normal placeholder:normal-case placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none text-xs"
                 />
-              </div>
-              <div className="text-[11px] text-slate-500">
-                <span className="font-bold text-slate-700 block">💡 Manual Lot / Marka:</span>
-                Custom lot identifier for this truck consignment. Auto-assigned if left empty.
               </div>
             </div>
           </div>
 
+          {/* Vehicle & Truck */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
             <div>
               <label className="font-bold text-slate-700 block mb-1">{t('Truck / Vehicle No. *', 'गाड़ी / वाहन संख्या *')}</label>
@@ -422,15 +451,16 @@ export default function QuickTrade() {
               />
             </div>
             <div>
-              <label className="font-bold text-slate-700 block mb-1">{t('Farmer / Producer Name *', 'किसान / उत्पादक का नाम *')}</label>
-              <input
-                type="text"
+              <PartySearchSelect
+                partyType="Farmer"
+                label={t('Farmer / Producer Name *', 'किसान / उत्पादक का नाम *')}
                 required
-                list="farmers-datalist"
                 value={farmerName}
-                onChange={(e) => handleFarmerChange(e.target.value)}
-                placeholder={t('Type or select Kisan Name...', 'किसान का नाम चुनें या लिखें...')}
-                className="w-full p-2.5 border border-slate-300 rounded-xl font-bold placeholder:font-normal placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none"
+                placeholder="किसान खोजें या नया जोड़ें..."
+                onChange={(name, party) => {
+                  setFarmerName(name);
+                  if (party?.mobile) setFarmerPhone(party.mobile);
+                }}
               />
             </div>
             <div>
@@ -440,6 +470,32 @@ export default function QuickTrade() {
                 value={farmerPhone}
                 onChange={(e) => setFarmerPhone(e.target.value)}
                 placeholder="e.g. 98160 44321"
+                className="w-full p-2.5 border border-slate-300 rounded-xl font-mono placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Agent Section */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1 border-t border-slate-100">
+            <div>
+              <PartySearchSelect
+                partyType="Agent"
+                label={t('Agent / Broker (दलाल / एजेंट - यदि हो)', 'दलाल / एजेंट (वैकल्पिक)')}
+                value={agentName}
+                placeholder="दलाल खोजें या नया जोड़ें..."
+                onChange={(name, party) => {
+                  setAgentName(name);
+                  if (party?.mobile) setAgentPhone(party.mobile);
+                }}
+              />
+            </div>
+            <div>
+              <label className="font-bold text-slate-700 block mb-1">{t('Agent Mobile', 'दलाल / एजेंट मोबाइल')}</label>
+              <input
+                type="text"
+                value={agentPhone}
+                onChange={(e) => setAgentPhone(e.target.value)}
+                placeholder="e.g. 98765..."
                 className="w-full p-2.5 border border-slate-300 rounded-xl font-mono placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none"
               />
             </div>
@@ -753,14 +809,17 @@ export default function QuickTrade() {
                         ))}
                       </select>
                     </td>
-                    <td className="p-2">
-                      <input
-                        type="text"
-                        list="buyers-datalist"
+                    <td className="p-2 min-w-[220px]">
+                      <PartySearchSelect
+                        partyType="Buyer"
                         value={row.buyerName}
-                        placeholder={t('Type or select Buyer...', 'खरीदार का नाम चुनें या लिखें...')}
-                        onChange={(e) => handleBuyerNameChange(idx, e.target.value)}
-                        className="w-full p-2 border border-slate-300 rounded-lg font-bold placeholder:font-normal placeholder:text-slate-400 focus:border-emerald-600 outline-none"
+                        placeholder={t('Type or select Buyer...', 'खरीदार खोजें या नया जोड़ें...')}
+                        onChange={(name, party) => {
+                          const updated = [...buyerRows];
+                          updated[idx].buyerName = name;
+                          if (party?.mobile) updated[idx].buyerContact = party.mobile;
+                          setBuyerRows(updated);
+                        }}
                       />
                     </td>
                     <td className="p-2">

@@ -113,8 +113,13 @@ export const API = {
     return arr;
   },
   addParty: (data) => apiRequest('/trade/parties', 'POST', data),
+  importParties: (parties) => apiRequest('/trade/parties/import', 'POST', { parties }),
   updateParty: (id, data) => apiRequest(`/trade/parties/${id}`, 'PUT', data),
   deleteParty: (id) => apiRequest(`/trade/parties/${id}`, 'DELETE'),
+  getAuditLogs: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return apiRequest(`/trade/audit-logs${q ? '?' + q : ''}`);
+  },
   getArrivals: async () => {
     const data = await apiRequest('/trade/arrivals');
     const list = Array.isArray(data) ? data : (data?.arrivals || []);
@@ -123,6 +128,8 @@ export const API = {
       truck_no: a.truck_no,
       farmer_name: a.farmer_name,
       source_location: a.farmer_location,
+      agent_name: a.agent_name,
+      agent_phone: a.agent_phone,
       commodity_name: a.commodity,
       variety: a.variety,
       bags: a.quantity,
@@ -145,7 +152,10 @@ export const API = {
       driverName: data.driver_name,
       driverPhone: data.driver_mobile,
       farmerName: data.farmer_name,
+      farmerPhone: data.farmer_phone || data.farmer_mobile,
       farmerLocation: data.source_location,
+      agentName: data.agent_name || data.agentName,
+      agentPhone: data.agent_phone || data.agentPhone,
       commodity: data.commodity_name || 'General Produce',
       variety: data.variety || '',
       quantity: data.bags,
@@ -153,7 +163,8 @@ export const API = {
       totalFreight: data.freight_amount,
       freightAdvance: data.advance_paid,
       manualLotNo: data.manual_lot_no || data.manualLotNo || data.lot_number,
-      customExpenses: data.custom_expenses || data.customExpenses
+      customExpenses: data.custom_expenses || data.customExpenses,
+      entryDate: data.entry_date || data.entryDate || data.arrival_date || data.date
     });
   },
   addArrival: (data) => apiRequest('/trade/arrivals', 'POST', data),
@@ -170,8 +181,10 @@ export const API = {
       ...l,
       lot_number: l.id,
       commodity_name: l.commodity_name,
+      variety: l.variety,
       farmer_name: l.farmer_name,
-      source_location: l.farmer_location,
+      farmer_location: l.farmer_location,
+      agent_name: l.agent_name,
       total_bags: l.total_quantity,
       remaining_bags: l.remaining_quantity,
       arrival_rate: l.arrival_rate || 0,
@@ -189,10 +202,12 @@ export const API = {
   },
   splitSale: (lotId, data) => apiRequest(`/trade/lots/${lotId}/split`, 'POST', data),
   splitSaleLot: (lotId, data) => apiRequest(`/trade/lots/${lotId}/split`, 'POST', {
-    buyerName: data.buyer_name,
-    quantity: data.bags_sold,
-    rate: data.sale_rate,
-    paymentMode: data.payment_terms
+    buyerName: data.buyer_name || data.buyerName,
+    quantity: data.bags_sold || data.quantity,
+    rate: data.sale_rate || data.rate,
+    paymentMode: data.payment_terms || data.paymentMode,
+    customExpenses: data.customExpenses || data.custom_expenses,
+    entryDate: data.entry_date || data.entryDate || data.date
   }),
   quickTrade: (data) => apiRequest('/trade/quick-trade', 'POST', data),
 
@@ -226,6 +241,7 @@ export const API = {
     return { ...data, entries: mapped };
   },
   addCashbookEntry: (data) => apiRequest('/ledger/cashbook', 'POST', data),
+  setOpeningCash: (amount) => apiRequest('/ledger/opening-cash', 'POST', { amount }),
   createCashEntry: (data) => apiRequest('/ledger/cashbook', 'POST', {
     type: data.entry_type === 'cash_in' ? 'JAMA' : 'KHARCH',
     title: data.description || 'Counter Cash Entry',

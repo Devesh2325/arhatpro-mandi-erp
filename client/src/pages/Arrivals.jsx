@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useLanguage } from '../context/LanguageContext';
-import { Truck, Plus, Search, Filter, Printer, CheckCircle, Clock, AlertTriangle, X, Receipt, Tag } from 'lucide-react';
+import { Truck, Plus, Search, Filter, Printer, CheckCircle, Clock, AlertTriangle, X, Receipt, Tag, Calendar, UserCheck } from 'lucide-react';
+import PartySearchSelect from '../components/PartySearchSelect';
 
 export default function Arrivals() {
   const { t, isHindi } = useLanguage();
@@ -18,12 +19,16 @@ export default function Arrivals() {
   const [message, setMessage] = useState(null);
 
   const [formData, setFormData] = useState({
+    entry_date: new Date().toISOString().split('T')[0],
     manual_lot_no: '',
     truck_no: '',
     driver_name: '',
     driver_mobile: '',
     farmer_name: '',
+    farmer_phone: '',
     source_location: '',
+    agent_name: '',
+    agent_phone: '',
     commodity_id: '',
     variety: '',
     bags: '',
@@ -98,6 +103,10 @@ export default function Arrivals() {
 
       const res = await api.createArrival({
         ...formData,
+        entryDate: formData.entry_date,
+        farmer_phone: formData.farmer_phone,
+        agent_name: formData.agent_name,
+        agent_phone: formData.agent_phone,
         commodity_name: selectedComm?.name || selectedComm?.name_en || 'Produce',
         bags: parseInt(formData.bags, 10),
         gross_weight: parseFloat(formData.gross_weight) || 0,
@@ -112,12 +121,16 @@ export default function Arrivals() {
       setMessage({ type: 'success', text: `Consignment registered successfully! Lot: ${res.lotId || res.manualLotNo || 'Generated'}` });
       setShowAddModal(false);
       setFormData({
+        entry_date: new Date().toISOString().split('T')[0],
         manual_lot_no: '',
         truck_no: '',
         driver_name: '',
         driver_mobile: '',
         farmer_name: '',
+        farmer_phone: '',
         source_location: '',
+        agent_name: '',
+        agent_phone: '',
         commodity_id: commodities[0]?.id || '',
         variety: '',
         bags: '',
@@ -380,193 +393,296 @@ export default function Arrivals() {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4">
-              {/* Row 0: Manual Lot No & Consignment Settings */}
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+              {/* Card 1: Consignment Date & Lot Number */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                      {t('Entry Date (आवक दिनांक) *', 'आवक दिनांक *')}
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={formData.entry_date}
+                      onChange={(e) => setFormData({ ...formData, entry_date: e.target.value })}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm font-semibold text-slate-800 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                    <span className="text-[10px] text-slate-500 mt-0.5 block">डिफ़ॉल्ट आज की तारीख (Default Today)</span>
+                  </div>
+
                   <div>
                     <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">
                       {t('Lot Number (लॉट नंबर - Manual/Auto)', 'लॉट नंबर (वैकल्पिक / खाली छोड़ें तो स्वतः बनेगा)')}
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. LOT-A101 (or leave blank for auto LOT-xxxx)"
+                      placeholder="e.g. LOT-A101 (or blank for auto)"
                       value={formData.manual_lot_no}
                       onChange={(e) => setFormData({ ...formData, manual_lot_no: e.target.value.toUpperCase() })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono uppercase font-black text-indigo-900 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm font-mono uppercase font-black text-indigo-900 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                    <span className="text-[10px] text-slate-500 mt-0.5 block">खाली छोड़ें तो स्वतः LOT-xxxx बनेगा</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 2: Vehicle & Transport */}
+              <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                  <Truck className="w-4 h-4 text-indigo-600" />
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    {t('Vehicle & Driver Details', 'वाहन व चालक विवरण')}
+                  </h3>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Truck Number *', 'गाड़ी नंबर *')}</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="DL-01-AB-1234"
+                      value={formData.truck_no}
+                      onChange={(e) => setFormData({ ...formData, truck_no: e.target.value.toUpperCase() })}
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm uppercase font-mono font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
                     />
                   </div>
-                  <div className="text-[11px] text-slate-500">
-                    <span className="font-bold text-slate-700 block">💡 Manual Lot Number:</span>
-                    Enter your custom yard mark/lot code, or leave blank to automatically assign <code className="bg-slate-200 px-1 py-0.5 rounded font-mono">LOT-xxxx</code>.
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Driver Name', 'चालक का नाम')}</label>
+                    <input
+                      type="text"
+                      placeholder="चालक का नाम"
+                      value={formData.driver_name}
+                      onChange={(e) => setFormData({ ...formData, driver_name: e.target.value })}
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Driver Mobile', 'चालक मोबाइल')}</label>
+                    <input
+                      type="text"
+                      placeholder="10-digit mobile"
+                      value={formData.driver_mobile}
+                      onChange={(e) => setFormData({ ...formData, driver_mobile: e.target.value })}
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
                   </div>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Truck Number *', 'गाड़ी नंबर *')}</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. DL-01-AB-1234"
-                    value={formData.truck_no}
-                    onChange={(e) => setFormData({ ...formData, truck_no: e.target.value.toUpperCase() })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm uppercase font-mono font-semibold focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Driver Name', 'चालक का नाम')}</label>
-                  <input
-                    type="text"
-                    placeholder={t('Driver Name', 'चालक का नाम')}
-                    value={formData.driver_name}
-                    onChange={(e) => setFormData({ ...formData, driver_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Driver Mobile', 'चालक मोबाइल')}</label>
-                  <input
-                    type="text"
-                    placeholder="10-digit mobile"
-                    value={formData.driver_mobile}
-                    onChange={(e) => setFormData({ ...formData, driver_mobile: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Farmer / Consignor Name *', 'किसान / उत्पादक का नाम *')}</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Balwinder Singh"
-                    value={formData.farmer_name}
-                    onChange={(e) => setFormData({ ...formData, farmer_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-semibold focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Source Mandi / Location', 'उत्पत्ति मंडी / क्षेत्र')}</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Shimla / Abohar / Nashik"
-                    value={formData.source_location}
-                    onChange={(e) => setFormData({ ...formData, source_location: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Commodity *', 'फसल / जिंस *')}</label>
-                  <select
-                    value={formData.commodity_id}
-                    onChange={(e) => setFormData({ ...formData, commodity_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
-                  >
-                    {commodities.map((c) => (
-                      <option key={c.id} value={c.id}>{isHindi ? (c.hindi_name || c.name) : c.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                    {t('Variety / Grade (किस्म व ग्रेड)', 'किस्म व ग्रेड')}
-                  </label>
-                  <input
-                    type="text"
-                    list="arrival-varieties-list"
-                    placeholder="Select or type variety (e.g. Royal Medium)"
-                    value={formData.variety}
-                    onChange={(e) => setFormData({ ...formData, variety: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white font-medium"
-                  />
-                  <datalist id="arrival-varieties-list">
-                    {varieties.map(v => (
-                      <option key={v.id} value={v.name}>{v.commodity_name ? `${v.commodity_name} - ` : ''}{v.name} {v.grade ? `(${v.grade})` : ''}</option>
-                    ))}
-                  </datalist>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Total Bags / Crates *', 'कुल नग / बोरी *')}</label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    placeholder="e.g. 500"
-                    value={formData.bags}
-                    onChange={(e) => setFormData({ ...formData, bags: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Gross Weight (Qntl)', 'कुल वजन (क्विंटल)')}</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="e.g. 100.5"
-                    value={formData.gross_weight}
-                    onChange={(e) => setFormData({ ...formData, gross_weight: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Kisan Awak Rate / Purchase Rate */}
-              <div className="bg-emerald-50/80 p-3.5 rounded-xl border border-emerald-200">
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-bold text-emerald-950 uppercase tracking-wider">
-                    {t('Kisan Arrival Rate (किसान आवक भाव / खरीद दर ₹)', 'किसान आवक भाव / खरीद दर (₹/नग)')}
-                  </label>
-                  <span className="text-xs text-emerald-700 font-medium">
-                    {Number(formData.arrival_rate) > 0 ? 'पक्की आढ़त / व्यापारी खरीद' : 'खाली छोड़ें = कच्ची आढ़त (Commission)'}
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₹</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Total Freight (₹)', 'कुल गाड़ी भाड़ा (₹)')}</label>
                     <input
                       type="number"
-                      step="any"
-                      min="0"
-                      placeholder="0 (Awak Rate per Bag/Nag)"
-                      value={formData.arrival_rate}
-                      onChange={(e) => setFormData({ ...formData, arrival_rate: e.target.value })}
-                      className="w-full pl-8 pr-3 py-2 border border-emerald-300 rounded-lg text-sm font-mono font-bold text-emerald-950 focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
+                      placeholder="₹ 0"
+                      value={formData.freight_amount}
+                      onChange={(e) => setFormData({ ...formData, freight_amount: e.target.value })}
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-mono font-semibold focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
                     />
                   </div>
-                  <div className="text-xs bg-white px-3 py-2 rounded-lg border border-emerald-100 flex items-center justify-between font-mono">
-                    <span className="text-gray-500">कुल आवक लागत (Total Inward):</span>
-                    <span className="font-bold text-emerald-800 text-sm">
-                      ₹{((Number(formData.bags) || 0) * (Number(formData.arrival_rate) || 0)).toLocaleString()}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Freight Advance (₹)', 'चालक पेशगी भाड़ा (₹)')}</label>
+                    <input
+                      type="number"
+                      placeholder="₹ 0"
+                      value={formData.advance_paid}
+                      onChange={(e) => setFormData({ ...formData, advance_paid: e.target.value })}
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-mono font-semibold focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-amber-700"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 3: Farmer & Agent (Searchable with Inline Add) */}
+              <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                  <UserCheck className="w-4 h-4 text-emerald-600" />
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    {t('Farmer & Agent Details', 'किसान एवं दलाल विवरण (Search & Quick Add Party)')}
+                  </h3>
+                </div>
+
+                {/* Farmer Section */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-1">
+                    <PartySearchSelect
+                      partyType="Farmer"
+                      label={t('Farmer / Producer *', 'किसान / उत्पादक *')}
+                      required
+                      value={formData.farmer_name}
+                      placeholder="किसान खोजें या नया जोड़ें..."
+                      onChange={(name, party) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          farmer_name: name,
+                          farmer_phone: party?.mobile || prev.farmer_phone,
+                          source_location: party?.city || prev.source_location
+                        }));
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Farmer Phone', 'किसान मोबाइल')}</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 98160..."
+                      value={formData.farmer_phone}
+                      onChange={(e) => setFormData({ ...formData, farmer_phone: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Source Mandi / Location', 'उत्पत्ति मंडी / क्षेत्र')}</label>
+                    <input
+                      type="text"
+                      placeholder="उदा. Shimla / Nashik"
+                      value={formData.source_location}
+                      onChange={(e) => setFormData({ ...formData, source_location: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Agent Section */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                  <div>
+                    <PartySearchSelect
+                      partyType="Agent"
+                      label={t('Agent / Broker (दलाल / एजेंट - यदि हो)', 'दलाल / एजेंट (वैकल्पिक)')}
+                      value={formData.agent_name}
+                      placeholder="एजेंट खोजें या नया जोड़ें..."
+                      onChange={(name, party) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          agent_name: name,
+                          agent_phone: party?.mobile || prev.agent_phone
+                        }));
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Agent Mobile', 'दलाल / एजेंट मोबाइल')}</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 98765..."
+                      value={formData.agent_phone}
+                      onChange={(e) => setFormData({ ...formData, agent_phone: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 4: Commodity & Inward Rate */}
+              <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Commodity *', 'फसल / जिंस *')}</label>
+                    <select
+                      value={formData.commodity_id}
+                      onChange={(e) => setFormData({ ...formData, commodity_id: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                    >
+                      {commodities.map((c) => (
+                        <option key={c.id} value={c.id}>{isHindi ? (c.hindi_name || c.name) : c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                      {t('Variety / Grade (किस्म व ग्रेड)', 'किस्म व ग्रेड')}
+                    </label>
+                    <input
+                      type="text"
+                      list="arrival-varieties-list"
+                      placeholder="किस्म चुनें या लिखें (e.g. Royal Medium)"
+                      value={formData.variety}
+                      onChange={(e) => setFormData({ ...formData, variety: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 outline-none bg-white font-medium"
+                    />
+                    <datalist id="arrival-varieties-list">
+                      {varieties.map(v => (
+                        <option key={v.id} value={v.name}>{v.commodity_name ? `${v.commodity_name} - ` : ''}{v.name} {v.grade ? `(${v.grade})` : ''}</option>
+                      ))}
+                    </datalist>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Total Bags / Crates *', 'कुल नग / बोरी *')}</label>
+                    <input
+                      type="number"
+                      min="1"
+                      required
+                      placeholder="e.g. 500"
+                      value={formData.bags}
+                      onChange={(e) => setFormData({ ...formData, bags: e.target.value })}
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Gross Weight (Qntl)', 'कुल वजन (क्विंटल)')}</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="e.g. 100.5"
+                      value={formData.gross_weight}
+                      onChange={(e) => setFormData({ ...formData, gross_weight: e.target.value })}
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Kisan Awak Rate / Purchase Rate */}
+                <div className="bg-emerald-50/80 p-3 rounded-xl border border-emerald-200">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-emerald-950 uppercase tracking-wider">
+                      {t('Kisan Arrival Rate (किसान आवक भाव / खरीद दर ₹)', 'किसान आवक भाव / खरीद दर (₹/नग)')}
+                    </label>
+                    <span className="text-xs text-emerald-700 font-medium">
+                      {Number(formData.arrival_rate) > 0 ? 'पक्की आढ़त / व्यापारी खरीद' : 'खाली छोड़ें = कच्ची आढ़त (Commission)'}
                     </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₹</span>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        placeholder="0 (Awak Rate per Bag/Nag)"
+                        value={formData.arrival_rate}
+                        onChange={(e) => setFormData({ ...formData, arrival_rate: e.target.value })}
+                        className="w-full pl-8 pr-3 py-1.5 border border-emerald-300 rounded-lg text-sm font-mono font-bold text-emerald-950 focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
+                      />
+                    </div>
+                    <div className="text-xs bg-white px-3 py-1.5 rounded-lg border border-emerald-100 flex items-center justify-between font-mono">
+                      <span className="text-gray-500">कुल आवक लागत (Total Inward):</span>
+                      <span className="font-bold text-emerald-800 text-sm">
+                        ₹{((Number(formData.bags) || 0) * (Number(formData.arrival_rate) || 0)).toLocaleString()}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Dynamic Farmer Mandi Expenses & Deductions Checklist */}
               {farmerExpenses.length > 0 && (
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2.5">
+                <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                       <Receipt className="w-3.5 h-3.5 text-indigo-600" />
                       {t('Farmer Expenses & Deductions (किसान खर्चे व कटौतियां)', 'किसान खर्चे व कटौतियां')}
                     </label>
                     <span className="text-[11px] text-slate-500">
-                      Settings द्वारा निर्धारित खर्चे (Modify if required)
+                      Settings से लोड (जरूरत अनुसार राशि बदल सकते हैं)
                     </span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {farmerExpenses.map((exp, idx) => (
-                      <div key={exp.id || idx} className="bg-white p-2.5 rounded-lg border border-slate-200 flex items-center justify-between gap-2 text-xs">
+                      <div key={exp.id || idx} className="bg-white p-2 rounded-xl border border-slate-200 flex items-center justify-between gap-2 text-xs">
                         <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800">
                           <input
                             type="checkbox"
@@ -585,7 +701,7 @@ export default function Arrivals() {
                             step="any"
                             value={exp.amount}
                             onChange={(e) => handleExpenseRateChange(idx, e.target.value)}
-                            className="w-16 px-1.5 py-1 border border-slate-300 rounded font-mono text-right text-xs"
+                            className="w-16 px-1.5 py-0.5 border border-slate-300 rounded font-mono text-right text-xs"
                           />
                         </div>
                       </div>
@@ -594,43 +710,20 @@ export default function Arrivals() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Freight Total (₹)', 'गाड़ी भाड़ा (₹)')}</label>
-                  <input
-                    type="number"
-                    placeholder="₹ 0"
-                    value={formData.freight_amount}
-                    onChange={(e) => setFormData({ ...formData, freight_amount: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono font-semibold focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Advance Paid to Driver (₹)', 'चालक को पेशगी (₹)')}</label>
-                  <input
-                    type="number"
-                    placeholder="₹ 0"
-                    value={formData.advance_paid}
-                    onChange={(e) => setFormData({ ...formData, advance_paid: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono font-semibold focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg text-sm hover:bg-gray-50 transition-colors"
+                  className="px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-xl text-sm hover:bg-gray-50 transition-colors"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg text-sm shadow-sm transition-colors disabled:opacity-50 flex items-center gap-2"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm shadow-sm transition-colors disabled:opacity-50 flex items-center gap-2"
                 >
-                  {submitting ? 'Creating Lot...' : 'Confirm Arrival & Generate Lot'}
+                  {submitting ? 'Creating Lot...' : t('Save Inward Consignment', 'गाड़ी आवक दर्ज करें')}
                 </button>
               </div>
             </form>

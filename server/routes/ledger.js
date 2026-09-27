@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { query, queryOne, run } = require('../database/db');
+const { query, queryOne, run, auditLog } = require('../database/db');
 const { authenticate } = require('../middleware/auth');
 
 // ================= 1. BAHI-KHATA ACCOUNTS & AGING =================
@@ -66,6 +66,18 @@ router.post('/payment', authenticate, async (req, res) => {
       `, ['TX-' + Date.now(), tenantId, `Cash receipt from ${acc.party_name}`, amt, currentTime]);
     }
 
+    await auditLog({
+      tenantId,
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'PAYMENT_RECEIVED',
+      entityType: 'account',
+      entityId: accountId,
+      details: `Payment of ₹${amt} received from ${acc.party_name} (${mode || 'Cash'})`,
+      ipAddress: req.ip
+    });
+
     res.json({ message: `Payment of ₹${amt} received from ${acc.party_name}!`, balanceRemaining: newOutstanding });
   } catch (err) {
     res.status(500).json({ error: 'Failed to record payment: ' + err.message });
@@ -85,7 +97,8 @@ router.get('/cashbook', authenticate, async (req, res) => {
       if (tx.type === 'KHARCH') totalKharch += tx.amount;
     });
 
-    const openingCash = 50000;
+    const tenantRec = await queryOne(`SELECT opening_cash FROM tenants WHERE id = ?`, [tenantId]);
+    const openingCash = (tenantRec && tenantRec.opening_cash !== null && tenantRec.opening_cash !== undefined) ? (parseFloat(tenantRec.opening_cash) || 0) : 0;
     const closingBalance = openingCash + totalJama - totalKharch;
 
     res.json({
@@ -97,6 +110,32 @@ router.get('/cashbook', authenticate, async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Could not fetch cashbook.' });
+  }
+});
+
+router.post('/opening-cash', authenticate, async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    const { amount } = req.body;
+    const parsedAmount = Math.max(0, parseFloat(amount) || 0);
+
+    await run(`UPDATE tenants SET opening_cash = ? WHERE id = ?`, [parsedAmount, tenantId]);
+
+    await auditLog({
+      tenantId,
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'UPDATE_OPENING_CASH',
+      entityType: 'tenant',
+      entityId: tenantId,
+      details: `Updated Opening Cash in Hand to ₹${parsedAmount}`,
+      ipAddress: req.ip
+    });
+
+    res.json({ message: `Opening Cash set to ₹${parsedAmount}`, openingCash: parsedAmount });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update opening cash: ' + err.message });
   }
 });
 
@@ -116,6 +155,18 @@ router.post('/cashbook', authenticate, async (req, res) => {
       INSERT INTO cash_transactions (id, tenant_id, type, title, amount, time)
       VALUES (?, ?, ?, ?, ?, ?)
     `, [id, tenantId, type === 'JAMA' ? 'JAMA' : 'KHARCH', title.trim(), amt, currentTime]);
+
+    await auditLog({
+      tenantId,
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: type === 'JAMA' ? 'CASH_RECEIPT' : 'CASH_PAYMENT',
+      entityType: 'cash_transaction',
+      entityId: id,
+      details: `${type}: ₹${amt} - ${title.trim()}`,
+      ipAddress: req.ip
+    });
 
     res.status(201).json({ message: `${type === 'JAMA' ? 'Receipt' : 'Payment'} of ₹${amt} logged in Rokad!`, id });
   } catch (err) {
@@ -200,6 +251,18 @@ router.post('/journal', authenticate, async (req, res) => {
       WHERE tenant_id = ? AND ? LIKE '%' || party_name || '%'
     `, [drAmt, drAmt, tenantId, debitAccount]);
 
+    await auditLog({
+      tenantId,
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'JOURNAL_VOUCHER_CREATED',
+      entityType: 'journal_entry',
+      entityId: jvId,
+      details: `JV ${vNo}: Dr ${debitAccount} ₹${drAmt} / Cr ${creditAccount} ₹${drAmt} [${narration || ''}]`,
+      ipAddress: req.ip
+    });
+
     res.status(201).json({
       message: `Journal Voucher ${vNo} saved & ledgers balanced!`,
       voucherNo: vNo,
@@ -223,7 +286,8 @@ router.get('/trial-balance', authenticate, async (req, res) => {
       if (tx.type === 'JAMA') totalJama += tx.amount;
       if (tx.type === 'KHARCH') totalKharch += tx.amount;
     });
-    const openingCash = 50000;
+    const tenantRec = await queryOne(`SELECT opening_cash FROM tenants WHERE id = ?`, [tenantId]);
+    const openingCash = (tenantRec && tenantRec.opening_cash !== null && tenantRec.opening_cash !== undefined) ? (parseFloat(tenantRec.opening_cash) || 0) : 0;
     const netCash = openingCash + totalJama - totalKharch;
 
     // 2. Sundry Debtors (Buyers with Udhaar / Outstanding)
@@ -416,7 +480,8 @@ router.get('/balance-sheet', authenticate, async (req, res) => {
       if (tx.type === 'JAMA') totalJama += tx.amount;
       if (tx.type === 'KHARCH') totalKharch += tx.amount;
     });
-    const openingCash = 50000;
+    const tenantRec = await queryOne(`SELECT opening_cash FROM tenants WHERE id = ?`, [tenantId]);
+    const openingCash = (tenantRec && tenantRec.opening_cash !== null && tenantRec.opening_cash !== undefined) ? (parseFloat(tenantRec.opening_cash) || 0) : 0;
     const netCash = Math.max(0, openingCash + totalJama - totalKharch);
 
     // 2. Sundry Debtors (Trade Receivables)

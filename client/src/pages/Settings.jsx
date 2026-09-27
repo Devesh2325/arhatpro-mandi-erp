@@ -24,7 +24,12 @@ import {
   Sparkles,
   Receipt,
   Crown,
-  Check
+  Check,
+  Download,
+  Upload,
+  History,
+  FileSpreadsheet,
+  RefreshCw
 } from 'lucide-react';
 
 export default function Settings() {
@@ -72,7 +77,18 @@ export default function Settings() {
   const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [subscribing, setSubscribing] = useState(false);
 
-  // 1. Profile & Bank Form
+  // Audit Logs State
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [auditActionFilter, setAuditActionFilter] = useState('');
+  const [auditFromDate, setAuditFromDate] = useState('');
+  const [auditToDate, setAuditToDate] = useState('');
+  const [auditUserId, setAuditUserId] = useState('');
+  const [auditSearchText, setAuditSearchText] = useState('');
+  const [loadingAuditLogs, setLoadingAuditLogs] = useState(false);
+
+  // File input ref for Party Import
+  const importFileRef = React.useRef(null);
+
   // 1. Profile & Bank Form
   const [profileForm, setProfileForm] = useState({
     firm_name: '',
@@ -98,7 +114,8 @@ export default function Settings() {
     palledari_rate_per_box: '10',
     apmc_cess: '1.0',
     rdf_fee: '1.0',
-    interest_rate: '18.0'
+    interest_rate: '18.0',
+    opening_cash: '0'
   });
 
   // 3. Printer & Format Form
@@ -199,7 +216,8 @@ export default function Settings() {
         palledari_rate_per_box: tenant.palledari_rate_per_box?.toString() || '10',
         apmc_cess: '1.0',
         rdf_fee: '1.0',
-        interest_rate: '18.0'
+        interest_rate: '18.0',
+        opening_cash: (tenant.opening_cash !== undefined && tenant.opening_cash !== null) ? tenant.opening_cash.toString() : '0'
       });
 
       setPrinterForm({
@@ -215,6 +233,7 @@ export default function Settings() {
     if (activeTab === 'TEAM') loadMembers();
     if (activeTab === 'VARIETIES') loadVarieties();
     if (activeTab === 'EXPENSES') loadExpenses();
+    if (activeTab === 'AUDIT_LOGS') loadAuditLogs();
   }, [activeTab]);
 
   const loadParties = async () => {
@@ -275,6 +294,204 @@ export default function Settings() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadAuditLogs = async () => {
+    setLoadingAuditLogs(true);
+    try {
+      const params = {};
+      if (auditActionFilter) params.action = auditActionFilter;
+      if (auditFromDate) params.fromDate = auditFromDate;
+      if (auditToDate) params.toDate = auditToDate;
+      if (auditUserId) params.userId = auditUserId;
+      const res = await api.getAuditLogs(params);
+      setAuditLogs(Array.isArray(res) ? res : []);
+    } catch (e) {
+      console.error('Failed to load audit logs:', e);
+    } finally {
+      setLoadingAuditLogs(false);
+    }
+  };
+
+  // Party Import / Export Handlers
+  const handleExportParties = () => {
+    if (!parties || parties.length === 0) {
+      setMessage({ type: 'error', text: 'No parties to export.' });
+      return;
+    }
+    const headers = [
+      'Short Code', 'Party Name', 'Type', 'Father Name', 'Mobile', 'Alternate Mobile',
+      'Address', 'City', 'State', 'Pincode', 'GSTIN', 'PAN',
+      'Bank Name', 'Account No', 'IFSC', 'UPI ID', 'Credit Limit', 'Opening Balance', 'Balance Type', 'Payment Terms Days'
+    ];
+    
+    const escapeCsv = (val) => {
+      if (val === null || val === undefined) return '';
+      const str = String(val).replace(/"/g, '""');
+      return str.includes(',') || str.includes('"') || str.includes('\n') ? `"${str}"` : str;
+    };
+
+    const rows = parties.map(p => [
+      p.short_code || '',
+      p.name || '',
+      p.type || 'Buyer',
+      p.father_name || '',
+      p.mobile || '',
+      p.alternate_mobile || '',
+      p.address || '',
+      p.city || '',
+      p.state || '',
+      p.pincode || '',
+      p.gstin || '',
+      p.pan || '',
+      p.bank_name || '',
+      p.account_no || '',
+      p.ifsc || '',
+      p.upi_id || '',
+      p.credit_limit || 0,
+      p.opening_balance || 0,
+      p.balance_type || 'Dr',
+      p.payment_terms_days || 15
+    ].map(escapeCsv).join(','));
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `mandi_parties_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setMessage({ type: 'success', text: `Exported ${parties.length} parties to CSV!` });
+  };
+
+  const handleDownloadTemplate = () => {
+    const headers = [
+      'Short Code', 'Party Name', 'Type', 'Father Name', 'Mobile', 'Alternate Mobile',
+      'Address', 'City', 'State', 'Pincode', 'GSTIN', 'PAN',
+      'Bank Name', 'Account No', 'IFSC', 'UPI ID', 'Credit Limit', 'Opening Balance', 'Balance Type', 'Payment Terms Days'
+    ];
+    const sampleRows = [
+      ['AGW', 'Aggarwal Traders', 'Buyer', 'Ram Kumar', '9811122233', '', 'Shop 24 Azadpur Mandi', 'Delhi', 'Delhi', '110033', '07AAAAA0000A1Z5', '', 'SBI', '12345678901', 'SBIN0001234', 'aggarwal@upi', '200000', '0', 'Dr', '15'],
+      ['K-RAM', 'Ramesh Farmer', 'Farmer', 'Shyam Lal', '9822233344', '', 'Village Kotgarh', 'Shimla', 'HP', '172031', '', '', 'HDFC Bank', '98765432109', 'HDFC0001234', 'ramesh@okhdfcbank', '0', '0', 'Cr', '0'],
+      ['AG-1', 'Suresh Broker', 'Agent', '', '9833344455', '', 'Azadpur Mandi Gate 2', 'Delhi', 'Delhi', '110033', '', '', '', '', '', '', '0', '0', 'Dr', '0']
+    ];
+    
+    const csvContent = '\uFEFF' + [
+      headers.join(','),
+      ...sampleRows.map(r => r.join(','))
+    ].join('\r\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'parties_import_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const parseCSV = (text) => {
+    const lines = text.split(/\r\n|\n/).filter(line => line.trim().length > 0);
+    if (lines.length < 2) return [];
+
+    const parseRow = (line) => {
+      const row = [];
+      let insideQuotes = false;
+      let entry = '';
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        const nextChar = line[i + 1];
+        if (char === '"') {
+          if (insideQuotes && nextChar === '"') {
+            entry += '"';
+            i++;
+          } else {
+            insideQuotes = !insideQuotes;
+          }
+        } else if (char === ',' && !insideQuotes) {
+          row.push(entry.trim());
+          entry = '';
+        } else {
+          entry += char;
+        }
+      }
+      row.push(entry.trim());
+      return row;
+    };
+
+    const headers = parseRow(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
+    const partiesData = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = parseRow(lines[i]);
+      if (values.length === 0 || values.every(v => !v)) continue;
+
+      const rowObj = {};
+      headers.forEach((header, idx) => {
+        rowObj[header] = values[idx] || '';
+      });
+
+      const party = {
+        shortCode: rowObj['shortcode'] || rowObj['code'] || '',
+        name: rowObj['partyname'] || rowObj['name'] || '',
+        type: rowObj['type'] || 'Buyer',
+        fatherName: rowObj['fathername'] || '',
+        mobile: rowObj['mobile'] || rowObj['phone'] || '',
+        alternateMobile: rowObj['alternatemobile'] || '',
+        address: rowObj['address'] || '',
+        city: rowObj['city'] || '',
+        state: rowObj['state'] || '',
+        pincode: rowObj['pincode'] || '',
+        gstin: rowObj['gstin'] || rowObj['gst'] || '',
+        pan: rowObj['pan'] || '',
+        bankName: rowObj['bankname'] || rowObj['bank'] || '',
+        accountNo: rowObj['accountno'] || rowObj['account'] || '',
+        ifsc: rowObj['ifsc'] || '',
+        upiId: rowObj['upiid'] || rowObj['upi'] || '',
+        creditLimit: parseFloat(rowObj['creditlimit']) || 0,
+        openingBalance: parseFloat(rowObj['openingbalance']) || 0,
+        balanceType: rowObj['balancetype'] || 'Dr',
+        paymentTermsDays: parseInt(rowObj['paymenttermsdays'] || rowObj['terms']) || 15
+      };
+
+      if (party.name) {
+        partiesData.push(party);
+      }
+    }
+
+    return partiesData;
+  };
+
+  const handleImportParties = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const text = evt.target.result;
+        const parsedParties = parseCSV(text);
+        if (parsedParties.length === 0) {
+          setMessage({ type: 'error', text: 'No valid party rows found in CSV. Please verify file format.' });
+          return;
+        }
+        setLoading(true);
+        const res = await api.importParties(parsedParties);
+        setMessage({ type: 'success', text: res.message || `Successfully imported ${parsedParties.length} parties!` });
+        loadParties();
+      } catch (err) {
+        setMessage({ type: 'error', text: err.message || 'Failed to import parties: ' + err.message });
+      } finally {
+        setLoading(false);
+        if (e.target) e.target.value = '';
+      }
+    };
+    reader.readAsText(file);
   };
 
   // Varieties Handlers
@@ -547,7 +764,10 @@ export default function Settings() {
         standard_commission: parseFloat(ratesForm.standard_commission),
         palledari_rate_per_box: parseFloat(ratesForm.palledari_rate_per_box)
       });
-      setMessage({ type: 'success', text: 'Statutory APMC rates and charges saved successfully!' });
+      if (ratesForm.opening_cash !== undefined && ratesForm.opening_cash !== '') {
+        await api.setOpeningCash(parseFloat(ratesForm.opening_cash) || 0);
+      }
+      setMessage({ type: 'success', text: 'Statutory APMC rates and opening cash saved successfully!' });
       refreshTenant();
     } catch (err) {
       setMessage({ type: 'error', text: err.message || 'Failed to save rates.' });
@@ -803,7 +1023,8 @@ export default function Settings() {
           { id: 'TEAM', labelEn: '7. Staff & Munshis', labelHi: '7. स्टाफ एवं मुनीम', icon: Users },
           { id: 'VARIETIES', labelEn: '8. Varieties & Grades', labelHi: '8. किस्म व ग्रेड मास्टर', icon: Sparkles },
           { id: 'EXPENSES', labelEn: '9. Expense Heads', labelHi: '9. मंडी खर्चे (कटौतियां)', icon: Receipt },
-          { id: 'PLANS', labelEn: '10. Subscription Plans', labelHi: '10. सब्सक्रिप्शन व प्लान', icon: Crown }
+          { id: 'PLANS', labelEn: '10. Subscription Plans', labelHi: '10. सब्सक्रिप्शन व प्लान', icon: Crown },
+          { id: 'AUDIT_LOGS', labelEn: '11. Audit Logs', labelHi: '11. ऑडिट लॉग्स', icon: History }
         ].map(tItem => {
           const Icon = tItem.icon;
           const isActive = activeTab === tItem.id;
@@ -1187,6 +1408,24 @@ export default function Settings() {
                 Per Delhi Agricultural Produce Marketing Regulation Act, buyer credit exceeding 15 calendar days incurs 18% p.a. interest.
               </span>
             </div>
+
+            <div className="sm:col-span-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+              <label className="font-bold text-emerald-950 block mb-1">
+                {t('Opening Cash in Hand (आरंभिक रोकड़ शेष ₹)', 'आरंभिक रोकड़ शेष (₹) - गल्ला / तिजोरी')}
+              </label>
+              <input
+                type="number"
+                step="1"
+                min="0"
+                value={ratesForm.opening_cash}
+                onChange={(e) => setRatesForm({ ...ratesForm, opening_cash: e.target.value })}
+                className="w-full p-2.5 border border-emerald-300 rounded-xl font-bold font-mono text-emerald-900 bg-white"
+                placeholder="0"
+              />
+              <span className="text-[10px] text-emerald-700 mt-1 block">
+                {t('Default is ₹0 for new accounts. Enter the initial cash amount in your Mandi shop drawer or safe to initialize the Rokad cashbook.', 'नए खातों हेतु यह ₹0 रहेगा। अपनी दुकान के गल्ले की शुरुआत की नकद राशि यहाँ दर्ज करें।')}
+              </span>
+            </div>
           </div>
 
           <div className="flex justify-end pt-2">
@@ -1271,8 +1510,8 @@ export default function Settings() {
               <h3 className="text-sm font-bold text-slate-900">{t('Party Master (Short Codes)', 'पार्टी मास्टर (शॉर्ट कोड)')}</h3>
               <p className="text-slate-500 text-[11px]">Manage buyer short codes (AGW, RJD) and farmer accounts for instant auction allocation.</p>
             </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <div className="relative flex-1 sm:w-64">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-44">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
@@ -1282,6 +1521,47 @@ export default function Settings() {
                   className="w-full pl-8 pr-3 py-1.5 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-600 outline-none"
                 />
               </div>
+
+              {/* Download Template CSV */}
+              <button
+                type="button"
+                onClick={handleDownloadTemplate}
+                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl font-bold shadow-xs shrink-0 flex items-center gap-1 cursor-pointer transition-all"
+                title="Download CSV format template with sample records"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+                <span>{t('Template', 'टेम्पलेट')}</span>
+              </button>
+
+              {/* Export Parties CSV */}
+              <button
+                type="button"
+                onClick={handleExportParties}
+                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl font-bold shadow-xs shrink-0 flex items-center gap-1 cursor-pointer transition-all"
+                title="Export all parties to Excel / CSV"
+              >
+                <Download className="w-3.5 h-3.5 text-blue-700" />
+                <span>{t('Export', 'एक्सपोर्ट')}</span>
+              </button>
+
+              {/* Import Parties CSV */}
+              <input
+                type="file"
+                ref={importFileRef}
+                accept=".csv"
+                onChange={handleImportParties}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => importFileRef.current?.click()}
+                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl font-bold shadow-xs shrink-0 flex items-center gap-1 cursor-pointer transition-all"
+                title="Upload & Import Parties from Excel / CSV"
+              >
+                <Upload className="w-3.5 h-3.5 text-amber-700" />
+                <span>{t('Import', 'इम्पोर्ट')}</span>
+              </button>
+
               <button
                 onClick={() => setShowAddPartyModal(true)}
                 className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold shadow-xs shrink-0 flex items-center gap-1 cursor-pointer"
@@ -1330,7 +1610,7 @@ export default function Settings() {
                       </td>
                       <td className="p-3 text-center">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          p.type === 'Buyer' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
+                          p.type === 'Buyer' ? 'bg-blue-100 text-blue-800' : p.type === 'Agent' ? 'bg-purple-100 text-purple-800' : 'bg-emerald-100 text-emerald-800'
                         }`}>
                           {p.type}
                         </span>
@@ -1887,6 +2167,197 @@ export default function Settings() {
         </div>
       )}
 
+      {/* ================= SUB-TAB 11: AUDIT LOGS ================= */}
+      {activeTab === 'AUDIT_LOGS' && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden text-xs space-y-4 p-5">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <History className="w-4 h-4 text-emerald-700" />
+                {t('Audit Logs & Activity Trail', 'ऑडिट लॉग्स एवं सिस्टम गतिविधि')}
+              </h3>
+              <p className="text-slate-500 text-[11px] mt-0.5">
+                {t('Track who made what entry, edits, deletions, timestamps, and IP addresses for full APMC transparency.', 'किस उपयोगकर्ता ने कौन सा सौदा, आवक, बिल या पार्टी प्रविष्टि दर्ज की, उसका समय और विवरण।')}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={loadAuditLogs}
+              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingAuditLogs ? 'animate-spin' : ''}`} />
+              {t('Refresh Logs', 'रिफ्रेश करें')}
+            </button>
+          </div>
+
+          {/* Filters Bar */}
+          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div>
+              <label className="font-bold text-slate-700 block mb-1 text-[11px]">{t('From Date', 'प्रारंभिक तिथि')}</label>
+              <input
+                type="date"
+                value={auditFromDate}
+                onChange={(e) => setAuditFromDate(e.target.value)}
+                className="w-full p-2 bg-white border border-slate-300 rounded-lg text-xs"
+              />
+            </div>
+            <div>
+              <label className="font-bold text-slate-700 block mb-1 text-[11px]">{t('To Date', 'अंतिम तिथि')}</label>
+              <input
+                type="date"
+                value={auditToDate}
+                onChange={(e) => setAuditToDate(e.target.value)}
+                className="w-full p-2 bg-white border border-slate-300 rounded-lg text-xs"
+              />
+            </div>
+            <div>
+              <label className="font-bold text-slate-700 block mb-1 text-[11px]">{t('Filter Action', 'गतिविधि प्रकार')}</label>
+              <select
+                value={auditActionFilter}
+                onChange={(e) => setAuditActionFilter(e.target.value)}
+                className="w-full p-2 bg-white border border-slate-300 rounded-lg text-xs font-medium"
+              >
+                <option value="">{t('All Actions (सभी)', 'All Actions')}</option>
+                <option value="CREATE_ARRIVAL">CREATE_ARRIVAL (गाड़ी आवक)</option>
+                <option value="CREATE_SPLIT_SALE">CREATE_SPLIT_SALE (बिक्री लॉट)</option>
+                <option value="QUICK_TRADE">QUICK_TRADE (एकल सौदा)</option>
+                <option value="ADD_PARTY">ADD_PARTY (पार्टी जोड़ना)</option>
+                <option value="UPDATE_PARTY">UPDATE_PARTY (पार्टी संशोधन)</option>
+                <option value="DELETE_PARTY">DELETE_PARTY (पार्टी हटाना)</option>
+                <option value="IMPORT_PARTIES">IMPORT_PARTIES (पार्टी इम्पोर्ट)</option>
+                <option value="UPDATE_OPENING_CASH">UPDATE_OPENING_CASH (रोकड़ शेष)</option>
+                <option value="PAYMENT_RECEIVED">PAYMENT_RECEIVED (भुगतान प्राप्ति)</option>
+                <option value="CASH_RECEIPT">CASH_RECEIPT (रोकड़ जमा)</option>
+                <option value="CASH_PAYMENT">CASH_PAYMENT (रोकड़ नाम)</option>
+              </select>
+            </div>
+            <div>
+              <label className="font-bold text-slate-700 block mb-1 text-[11px]">{t('Filter Staff / Munshi', 'स्टाफ / मुनीम')}</label>
+              <select
+                value={auditUserId}
+                onChange={(e) => setAuditUserId(e.target.value)}
+                className="w-full p-2 bg-white border border-slate-300 rounded-lg text-xs font-medium"
+              >
+                <option value="">{t('All Staff Members', 'सभी सदस्य')}</option>
+                {members.map(m => (
+                  <option key={m.id} value={m.id}>{m.name} ({m.role})</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="font-bold text-slate-700 block mb-1 text-[11px]">{t('Search Details', 'विवरण में खोजें')}</label>
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Lot, Party, Vehicle..."
+                  value={auditSearchText}
+                  onChange={(e) => setAuditSearchText(e.target.value)}
+                  className="w-full pl-8 pr-2.5 py-2 bg-white border border-slate-300 rounded-lg text-xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Metrics */}
+          <div className="flex items-center justify-between text-[11px] text-slate-500 px-1">
+            <span>
+              {t('Showing', 'दिखाए गए')} <b className="text-slate-900">{auditLogs.filter(l => !auditSearchText || l.details?.toLowerCase().includes(auditSearchText.toLowerCase()) || l.user_name?.toLowerCase().includes(auditSearchText.toLowerCase())).length}</b> {t('audit records', 'ऑडिट रिकॉर्ड्स')}
+            </span>
+            {(auditActionFilter || auditFromDate || auditToDate || auditUserId || auditSearchText) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAuditActionFilter('');
+                  setAuditFromDate('');
+                  setAuditToDate('');
+                  setAuditUserId('');
+                  setAuditSearchText('');
+                }}
+                className="text-rose-600 font-bold hover:underline cursor-pointer"
+              >
+                {t('Reset Filters ✕', 'फ़िल्टर हटाएं ✕')}
+              </button>
+            )}
+          </div>
+
+          {/* Audit Logs Table */}
+          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase text-[10px]">
+                <tr>
+                  <th className="p-3">Timestamp / समय</th>
+                  <th className="p-3">User &amp; Role / उपयोगकर्ता</th>
+                  <th className="p-3">Action / गतिविधि</th>
+                  <th className="p-3">Target Entity / इकाई</th>
+                  <th className="p-3">Details / विवरण</th>
+                  <th className="p-3 text-right">IP Address</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loadingAuditLogs ? (
+                  <tr><td colSpan="6" className="text-center py-10 text-slate-400">Loading audit records...</td></tr>
+                ) : auditLogs.length === 0 ? (
+                  <tr><td colSpan="6" className="text-center py-10 text-slate-400">No audit activity recorded for selected filters.</td></tr>
+                ) : (
+                  auditLogs
+                    .filter(l => !auditSearchText || l.details?.toLowerCase().includes(auditSearchText.toLowerCase()) || l.user_name?.toLowerCase().includes(auditSearchText.toLowerCase()) || l.entity_id?.toLowerCase().includes(auditSearchText.toLowerCase()))
+                    .map(log => {
+                      const getActionBadge = (act) => {
+                        if (act?.includes('CREATE') || act?.includes('QUICK_TRADE') || act === 'CASH_RECEIPT' || act === 'PAYMENT_RECEIVED') {
+                          return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+                        }
+                        if (act?.includes('UPDATE')) {
+                          return 'bg-amber-100 text-amber-800 border-amber-200';
+                        }
+                        if (act?.includes('DELETE')) {
+                          return 'bg-rose-100 text-rose-800 border-rose-200';
+                        }
+                        if (act?.includes('IMPORT')) {
+                          return 'bg-purple-100 text-purple-800 border-purple-200';
+                        }
+                        return 'bg-blue-100 text-blue-800 border-blue-200';
+                      };
+
+                      return (
+                        <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-3 text-[11px] font-mono text-slate-600 whitespace-nowrap">
+                            {new Date(log.created_at).toLocaleString('en-IN', {
+                              day: '2-digit', month: 'short', year: 'numeric',
+                              hour: '2-digit', minute: '2-digit', second: '2-digit'
+                            })}
+                          </td>
+                          <td className="p-3">
+                            <div className="font-bold text-slate-900">{log.user_name || 'System / Admin'}</div>
+                            <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                              {log.user_role || 'Staff'}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded-md font-mono text-[10px] font-bold border ${getActionBadge(log.action)}`}>
+                              {log.action}
+                            </span>
+                          </td>
+                          <td className="p-3 font-mono text-[11px] text-slate-600">
+                            <span className="font-bold capitalize text-slate-800">{log.entity_type}</span>
+                            {log.entity_id && <span className="text-slate-400 block text-[10px]">{log.entity_id}</span>}
+                          </td>
+                          <td className="p-3 text-[11px] text-slate-700 max-w-md font-medium">
+                            {log.details || '—'}
+                          </td>
+                          <td className="p-3 text-right font-mono text-[10px] text-slate-400 whitespace-nowrap">
+                            {log.ip_address || '127.0.0.1'}
+                          </td>
+                        </tr>
+                      );
+                    })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* ================= MODAL 1: ADD PARTY ================= */}
       {showAddPartyModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -1946,6 +2417,7 @@ export default function Settings() {
                       >
                         <option value="Buyer">Buyer (खरीदार / व्यापारी)</option>
                         <option value="Farmer">Farmer (किसान / उत्पादक)</option>
+                        <option value="Agent">Agent (कमीशन एजेंट / दलाल)</option>
                       </select>
                     </div>
                   </div>
@@ -2258,6 +2730,7 @@ export default function Settings() {
                       >
                         <option value="Buyer">Buyer (खरीदार / व्यापारी)</option>
                         <option value="Farmer">Farmer (किसान / उत्पादक)</option>
+                        <option value="Agent">Agent (कमीशन एजेंट / दलाल)</option>
                       </select>
                     </div>
                   </div>

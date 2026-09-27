@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { query, queryOne, run } = require('../database/db');
+const { query, queryOne, run, auditLog } = require('../database/db');
 const { authenticate } = require('../middleware/auth');
 
 // ================= 1. COMMODITIES =================
@@ -276,9 +276,112 @@ router.post('/parties', authenticate, async (req, res) => {
       ]);
     }
 
+    await auditLog({
+      tenantId,
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'CREATE_PARTY',
+      entityType: 'party',
+      entityId: id,
+      details: `Created party ${name.trim()} (${type || 'Buyer'}) [${cleanCode}]`,
+      ipAddress: req.ip
+    });
+
     res.status(201).json({ message: 'Party registered successfully!', id, shortCode: cleanCode });
   } catch (err) {
     res.status(500).json({ error: 'Could not create party: ' + err.message });
+  }
+});
+
+router.post('/parties/import', authenticate, async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    const { parties } = req.body;
+    if (!Array.isArray(parties) || parties.length === 0) {
+      return res.status(400).json({ error: 'No parties provided for import.' });
+    }
+
+    let importedCount = 0;
+    const existingList = await query(`SELECT short_code FROM parties WHERE tenant_id = ?`, [tenantId]);
+    const existingCodes = new Set(existingList.map(p => (p.short_code || '').toUpperCase()));
+
+    for (const p of parties) {
+      const name = (p.name || '').trim();
+      if (!name) continue;
+
+      let type = (p.type || 'Buyer').trim();
+      if (!['Buyer', 'Farmer', 'Agent'].includes(type)) {
+        type = 'Buyer';
+      }
+
+      // Generate or normalize short code
+      let code = (p.shortCode || p.short_code || '').trim().toUpperCase();
+      if (!code) {
+        const initials = name.replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase() || 'PTY';
+        code = initials + Math.floor(100 + Math.random() * 900);
+      }
+      // Ensure unique code
+      let counter = 1;
+      let finalCode = code;
+      while (existingCodes.has(finalCode)) {
+        finalCode = `${code.slice(0, 4)}${counter++}`;
+      }
+      existingCodes.add(finalCode);
+
+      const id = 'P-' + Date.now() + '-' + Math.floor(100 + Math.random() * 900);
+      const creditLimit = parseFloat(p.creditLimit || p.credit_limit) || 0;
+      const openingBalance = parseFloat(p.openingBalance || p.opening_balance) || 0;
+      const balanceType = p.balanceType || p.balance_type || 'Dr';
+
+      await run(`
+        INSERT INTO parties (
+          id, tenant_id, short_code, name, type, mobile, address, credit_limit, current_balance,
+          bank_name, account_no, ifsc, upi_id, account_holder,
+          pan, gstin, state, city, pincode, father_name, alternate_mobile,
+          payment_terms_days, opening_balance, balance_type
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        id, tenantId, finalCode, name, type, (p.mobile || '').toString().trim(), (p.address || '').trim(),
+        creditLimit, openingBalance,
+        p.bankName || p.bank_name || '', p.accountNo || p.account_no || '', p.ifsc || '', p.upiId || p.upi_id || '', p.accountHolder || p.account_holder || name,
+        p.pan || '', p.gstin || '', p.state || 'Delhi', p.city || 'Delhi', p.pincode || '',
+        p.fatherName || p.father_name || '', p.alternateMobile || p.alternate_mobile || '', parseInt(p.paymentTermsDays || p.payment_terms_days) || 15,
+        openingBalance, balanceType
+      ]);
+
+      if (type === 'Buyer') {
+        const accExists = await queryOne(`SELECT id FROM accounts WHERE tenant_id = ? AND party_name = ?`, [tenantId, name]);
+        if (!accExists) {
+          await run(`
+            INSERT INTO accounts (id, tenant_id, party_name, short_code, contact, address, credit_limit, outstanding_udhaar)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            'ACC-' + Date.now() + '-' + Math.floor(100 + Math.random() * 900), tenantId, name, finalCode, (p.mobile || '').toString().trim(), (p.address || '').trim(),
+            creditLimit, openingBalance
+          ]);
+        }
+      }
+
+      importedCount++;
+    }
+
+    await auditLog({
+      tenantId,
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'IMPORT_PARTIES',
+      entityType: 'party',
+      entityId: null,
+      details: `Batch imported ${importedCount} parties`,
+      ipAddress: req.ip
+    });
+
+    res.json({ message: `Successfully imported ${importedCount} parties!`, importedCount });
+  } catch (err) {
+    res.status(500).json({ error: 'Party import failed: ' + err.message });
   }
 });
 
@@ -365,6 +468,18 @@ router.put('/parties/:id', authenticate, async (req, res) => {
       ]);
     }
 
+    await auditLog({
+      tenantId,
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'UPDATE_PARTY',
+      entityType: 'party',
+      entityId: id,
+      details: `Updated party ${name || id}`,
+      ipAddress: req.ip
+    });
+
     res.json({ message: 'Party details updated successfully!', id });
   } catch (err) {
     res.status(500).json({ error: 'Could not update party: ' + err.message });
@@ -373,7 +488,21 @@ router.put('/parties/:id', authenticate, async (req, res) => {
 
 router.delete('/parties/:id', authenticate, async (req, res) => {
   try {
-    await run(`DELETE FROM parties WHERE id = ? AND tenant_id = ?`, [req.params.id, req.user.tenantId]);
+    const tenantId = req.user.tenantId;
+    await run(`DELETE FROM parties WHERE id = ? AND tenant_id = ?`, [req.params.id, tenantId]);
+
+    await auditLog({
+      tenantId,
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'DELETE_PARTY',
+      entityType: 'party',
+      entityId: req.params.id,
+      details: `Deleted party ID: ${req.params.id}`,
+      ipAddress: req.ip
+    });
+
     res.json({ message: 'Party deleted successfully.' });
   } catch (err) {
     res.status(500).json({ error: 'Could not delete party.' });
@@ -399,6 +528,8 @@ router.post('/arrivals', authenticate, async (req, res) => {
     const fName = req.body.farmerName || req.body.farmer_name || 'Farmer';
     const fPhone = req.body.farmerPhone || req.body.farmer_mobile || '';
     const fLoc = req.body.farmerLocation || req.body.source_location || '';
+    const agentName = (req.body.agentName || req.body.agent_name || '').trim();
+    const agentPhone = (req.body.agentPhone || req.body.agent_phone || '').trim();
     const comm = req.body.commodity || req.body.commodity_name || 'Produce';
     const varName = req.body.variety || '';
     const qty = parseInt(req.body.quantity || req.body.bags, 10) || 1;
@@ -413,26 +544,26 @@ router.post('/arrivals', authenticate, async (req, res) => {
     const lotId = manualLotNo ? manualLotNo : ('LOT-' + id.replace('ARV-', ''));
     const customExpStr = req.body.customExpenses ? (typeof req.body.customExpenses === 'string' ? req.body.customExpenses : JSON.stringify(req.body.customExpenses)) : null;
 
-    const currentDate = new Date().toISOString().split('T')[0];
+    const entryDate = req.body.entryDate || req.body.date || new Date().toISOString().split('T')[0];
     const currentTime = new Date().toTimeString().split(' ')[0];
 
     await run(`
-      INSERT INTO arrivals (id, tenant_id, date, time, truck_no, driver_name, driver_phone, farmer_name, farmer_phone, farmer_location, commodity, variety, quantity, unit, total_freight, freight_advance_paid, freight_balance, arrival_rate, total_arrival_amount, status, transferred_to_lot, lot_id, manual_lot_no, custom_expenses)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Ready for Sale', 1, ?, ?, ?)
+      INSERT INTO arrivals (id, tenant_id, date, time, truck_no, driver_name, driver_phone, farmer_name, farmer_phone, farmer_location, commodity, variety, quantity, unit, total_freight, freight_advance_paid, freight_balance, arrival_rate, total_arrival_amount, status, transferred_to_lot, lot_id, manual_lot_no, custom_expenses, agent_name, agent_phone)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Ready for Sale', 1, ?, ?, ?, ?, ?)
     `, [
-      id, tenantId, currentDate, currentTime, truck, dName, dPhone,
+      id, tenantId, entryDate, currentTime, truck, dName, dPhone,
       fName, fPhone, fLoc, comm, varName,
       qty, u, totalF, advF, balF, arrRate, totalArrAmount, lotId,
-      manualLotNo || null, customExpStr
+      manualLotNo || null, customExpStr, agentName || null, agentPhone || null
     ]);
 
     // Create corresponding sales lot
     await run(`
-      INSERT INTO sales_lots (id, tenant_id, arrival_id, commodity_name, variety, farmer_name, farmer_location, farmer_phone, total_quantity, remaining_quantity, unit, arrival_rate, truck_no, freight_advance_paid, custom_expenses, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'live')
+      INSERT INTO sales_lots (id, tenant_id, arrival_id, commodity_name, variety, farmer_name, farmer_location, farmer_phone, total_quantity, remaining_quantity, unit, arrival_rate, truck_no, freight_advance_paid, custom_expenses, status, agent_name)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'live', ?)
     `, [
       lotId, tenantId, id, comm, varName, fName, fLoc,
-      fPhone, qty, qty, u, arrRate, truck, advF, customExpStr
+      fPhone, qty, qty, u, arrRate, truck, advF, customExpStr, agentName || null
     ]);
 
     // If freight advance paid in cash, record in cashbook
@@ -443,7 +574,19 @@ router.post('/arrivals', authenticate, async (req, res) => {
       `, ['TX-' + Date.now(), tenantId, `Driver Freight Advance (${truck} - ${fName})`, advF, currentTime]);
     }
 
-    res.status(201).json({ message: 'Truck arrival logged & Sales Lot created!', id, lotId, arrivalRate: arrRate, totalArrivalAmount: totalArrAmount, manualLotNo });
+    await auditLog({
+      tenantId,
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'CREATE_ARRIVAL',
+      entityType: 'arrival',
+      entityId: id,
+      details: `Arrival logged: ${truck} - ${fName}${agentName ? ` (Agent: ${agentName})` : ''}, ${qty} ${u} of ${comm}, Lot #${lotId}, Date: ${entryDate}`,
+      ipAddress: req.ip
+    });
+
+    res.status(201).json({ message: 'Truck arrival logged & Sales Lot created!', id, lotId, arrivalRate: arrRate, totalArrivalAmount: totalArrAmount, manualLotNo, entryDate });
   } catch (err) {
     res.status(500).json({ error: 'Could not log truck arrival: ' + err.message });
   }
@@ -486,14 +629,14 @@ router.post('/lots/:id/split', authenticate, async (req, res) => {
     const saleId = 'SL-' + Math.floor(100 + Math.random() * 900);
     const customExpStr = customExpenses ? (typeof customExpenses === 'string' ? customExpenses : JSON.stringify(customExpenses)) : null;
 
+    const entryDate = req.body.entryDate || req.body.date || new Date().toISOString().split('T')[0];
     const currentTime = new Date().toTimeString().split(' ')[0];
-    const currentDate = new Date().toISOString().split('T')[0];
 
-    // Insert split sale
+    // Insert split sale with date
     await run(`
-      INSERT INTO split_sales (id, lot_id, tenant_id, sale_code, buyer_name, buyer_contact, quantity, rate, arrival_rate, gross_amount, time, payment_mode, custom_expenses)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [saleId, lotId, tenantId, saleId, buyerName, buyerContact || '', qty, r, lotArrRate, saleAmount, currentTime, paymentMode || 'Credit (7 Days)', customExpStr]);
+      INSERT INTO split_sales (id, lot_id, tenant_id, sale_code, buyer_name, buyer_contact, quantity, rate, arrival_rate, gross_amount, time, payment_mode, custom_expenses, date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [saleId, lotId, tenantId, saleId, buyerName, buyerContact || '', qty, r, lotArrRate, saleAmount, currentTime, paymentMode || 'Credit (7 Days)', customExpStr, entryDate]);
 
     // Update remaining lot quantity
     const newRemaining = lot.remaining_quantity - qty;
@@ -520,13 +663,25 @@ router.post('/lots/:id/split', authenticate, async (req, res) => {
       'JV-' + Date.now(),
       tenantId,
       autoVoucherNo,
-      currentDate,
+      entryDate,
       `Sundry Debtors - ${buyerName}`,
       `Sundry Creditors - ${lot.farmer_name || 'Farmer Produce'}`,
       saleAmount,
       `Lot Sale: ${qty} ${lot.unit || 'units'} of ${lot.commodity_name} (${lot.variety || 'Grade A'}) @ ₹${r}/unit [Lot #${lotId}]`,
       req.user.name || 'System Auto Trade'
     ]);
+
+    await auditLog({
+      tenantId,
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'SPLIT_SALE',
+      entityType: 'split_sale',
+      entityId: saleId,
+      details: `Sale ${saleId} from Lot #${lotId}: ${qty} units to ${buyerName} @ ₹${r} (Total: ₹${saleAmount}), Date: ${entryDate}`,
+      ipAddress: req.ip
+    });
 
     res.json({ message: `Sold ${qty} units to ${buyerName} at ₹${r}! Journal Voucher ${autoVoucherNo} posted.`, saleId, remaining: newRemaining, voucherNo: autoVoucherNo });
   } catch (err) {
@@ -539,6 +694,9 @@ router.post('/quick-trade', authenticate, async (req, res) => {
   try {
     const tenantId = req.user.tenantId;
     const { truckNo, farmerName, farmerPhone, commodity, variety, totalFreight, freightAdvance, lots, splitSales, arrivalRate, manualLotNo, customExpenses } = req.body;
+    const agentName = (req.body.agentName || req.body.agent_name || '').trim();
+    const agentPhone = (req.body.agentPhone || req.body.agent_phone || '').trim();
+    const entryDate = req.body.entryDate || req.body.date || new Date().toISOString().split('T')[0];
 
     // 1. Sanitize and validate lots
     const rawLots = Array.isArray(lots) ? lots : [];
@@ -584,20 +742,19 @@ router.post('/quick-trade', authenticate, async (req, res) => {
     const customExpStr = customExpenses ? (typeof customExpenses === 'string' ? customExpenses : JSON.stringify(customExpenses)) : null;
     const selectedVariety = variety || (rawLots[0] && rawLots[0].variety) || '';
 
-    const currentDate = new Date().toISOString().split('T')[0];
     const currentTime = new Date().toTimeString().split(' ')[0];
 
-    // 1. Inward Arrival
+    // 1. Inward Arrival with agent and custom entryDate
     await run(`
-      INSERT INTO arrivals (id, tenant_id, date, time, truck_no, farmer_name, farmer_phone, commodity, variety, quantity, total_freight, freight_advance_paid, freight_balance, arrival_rate, total_arrival_amount, status, transferred_to_lot, lot_id, manual_lot_no, custom_expenses)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Sold Out', 1, ?, ?, ?)
-    `, [consignmentId, tenantId, currentDate, currentTime, (truckNo || 'LOCAL-TRUCK').toUpperCase(), farmerName || 'Produce Consignor', farmerPhone || '', commodity || 'Produce', selectedVariety, totalArrived, totalF, advF, Math.max(0, totalF - advF), arrRate, totalArrAmount, lotId, customLot || null, customExpStr]);
+      INSERT INTO arrivals (id, tenant_id, date, time, truck_no, farmer_name, farmer_phone, commodity, variety, quantity, total_freight, freight_advance_paid, freight_balance, arrival_rate, total_arrival_amount, status, transferred_to_lot, lot_id, manual_lot_no, custom_expenses, agent_name, agent_phone)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Sold Out', 1, ?, ?, ?, ?, ?)
+    `, [consignmentId, tenantId, entryDate, currentTime, (truckNo || 'LOCAL-TRUCK').toUpperCase(), farmerName || 'Produce Consignor', farmerPhone || '', commodity || 'Produce', selectedVariety, totalArrived, totalF, advF, Math.max(0, totalF - advF), arrRate, totalArrAmount, lotId, customLot || null, customExpStr, agentName || null, agentPhone || null]);
 
     // 2. Sales Lot
     await run(`
-      INSERT INTO sales_lots (id, tenant_id, arrival_id, commodity_name, variety, farmer_name, total_quantity, remaining_quantity, arrival_rate, status, truck_no, freight_advance_paid, custom_expenses)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 'sold', ?, ?, ?)
-    `, [lotId, tenantId, consignmentId, commodity || 'Produce', selectedVariety, farmerName || 'Produce Consignor', totalArrived, arrRate, (truckNo || 'LOCAL-TRUCK').toUpperCase(), advF, customExpStr]);
+      INSERT INTO sales_lots (id, tenant_id, arrival_id, commodity_name, variety, farmer_name, total_quantity, remaining_quantity, arrival_rate, status, truck_no, freight_advance_paid, custom_expenses, agent_name)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 'sold', ?, ?, ?, ?)
+    `, [lotId, tenantId, consignmentId, commodity || 'Produce', selectedVariety, farmerName || 'Produce Consignor', totalArrived, arrRate, (truckNo || 'LOCAL-TRUCK').toUpperCase(), advF, customExpStr, agentName || null]);
 
     // 3. Buyer Split Sales, Ledgers & Auto Double-Entry Journal Vouchers
     const postedVouchers = [];
@@ -607,9 +764,9 @@ router.post('/quick-trade', authenticate, async (req, res) => {
       const sExpStr = s.customExpenses ? (typeof s.customExpenses === 'string' ? s.customExpenses : JSON.stringify(s.customExpenses)) : null;
 
       await run(`
-        INSERT INTO split_sales (id, lot_id, tenant_id, sale_code, buyer_name, buyer_contact, quantity, rate, arrival_rate, gross_amount, time, payment_mode, custom_expenses)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [sId, lotId, tenantId, sId, s.buyerName, s.buyerContact || '', s.quantity, s.rate, arrRate, gross, currentTime, s.paymentMode || 'Credit (7 Days)', sExpStr]);
+        INSERT INTO split_sales (id, lot_id, tenant_id, sale_code, buyer_name, buyer_contact, quantity, rate, arrival_rate, gross_amount, time, payment_mode, custom_expenses, date)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [sId, lotId, tenantId, sId, s.buyerName, s.buyerContact || '', s.quantity, s.rate, arrRate, gross, currentTime, s.paymentMode || 'Credit (7 Days)', sExpStr, entryDate]);
 
       // Update buyer ledger
       await run(`
@@ -628,7 +785,7 @@ router.post('/quick-trade', authenticate, async (req, res) => {
         'JV-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
         tenantId,
         autoVoucherNo,
-        currentDate,
+        entryDate,
         `Sundry Debtors - ${s.buyerName}`,
         `Sundry Creditors - ${farmerName || 'Farmer Produce'}`,
         gross,
@@ -646,6 +803,18 @@ router.post('/quick-trade', authenticate, async (req, res) => {
       `, ['TX-' + Date.now(), tenantId, `Driver Freight Advance (${truckNo} / ${farmerName})`, advF, currentTime]);
     }
 
+    await auditLog({
+      tenantId,
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'QUICK_TRADE',
+      entityType: 'arrival',
+      entityId: consignmentId,
+      details: `Quick trade consignment ${consignmentId} (Lot #${lotId}): ${totalArrived} units ${commodity || 'Produce'}${agentName ? ` (Agent: ${agentName})` : ''}, ${validSales.length} buyers, Date: ${entryDate}`,
+      ipAddress: req.ip
+    });
+
     res.status(201).json({
       message: `⚡ Consignment ${consignmentId} sealed & Teep finalized! Auto JV posted.`,
       consignmentId,
@@ -653,7 +822,8 @@ router.post('/quick-trade', authenticate, async (req, res) => {
       totalArrived,
       arrivalRate: arrRate,
       totalArrivalAmount: totalArrAmount,
-      postedVouchers
+      postedVouchers,
+      entryDate
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to process quick trade: ' + err.message });
@@ -731,6 +901,37 @@ router.get('/reports/data', authenticate, async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch reports data: ' + err.message });
+  }
+});
+
+// ================= 7. AUDIT LOGS (ऑडिट लॉग्स) =================
+router.get('/audit-logs', authenticate, async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    const { fromDate, toDate, userId, action } = req.query;
+    let q = `SELECT * FROM audit_logs WHERE tenant_id = ?`;
+    const params = [tenantId];
+    if (fromDate) {
+      q += ` AND created_at >= ?`;
+      params.push(fromDate + ' 00:00:00');
+    }
+    if (toDate) {
+      q += ` AND created_at <= ?`;
+      params.push(toDate + ' 23:59:59');
+    }
+    if (userId) {
+      q += ` AND user_id = ?`;
+      params.push(userId);
+    }
+    if (action) {
+      q += ` AND action = ?`;
+      params.push(action);
+    }
+    q += ` ORDER BY created_at DESC LIMIT 300`;
+    const logs = await query(q, params);
+    res.json(logs);
+  } catch (err) {
+    res.status(500).json({ error: 'Could not fetch audit logs: ' + err.message });
   }
 });
 

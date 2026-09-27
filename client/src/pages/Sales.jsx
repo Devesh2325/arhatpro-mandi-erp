@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useLanguage } from '../context/LanguageContext';
-import { Gavel, Plus, Search, Filter, ShoppingBag, User, CheckCircle, Clock, FileText, ArrowRight, X, AlertCircle } from 'lucide-react';
+import { Gavel, Plus, Search, Filter, ShoppingBag, User, CheckCircle, Clock, FileText, ArrowRight, X, AlertCircle, Calendar } from 'lucide-react';
+import PartySearchSelect from '../components/PartySearchSelect';
 
 export default function Sales() {
   const { language, t } = useLanguage();
@@ -16,6 +17,7 @@ export default function Sales() {
   const [message, setMessage] = useState(null);
 
   const [saleForm, setSaleForm] = useState({
+    entry_date: new Date().toISOString().split('T')[0],
     buyer_party_id: '',
     buyer_name: '',
     bags_sold: '',
@@ -48,8 +50,9 @@ export default function Sales() {
   const handleOpenSaleModal = (lot) => {
     setSelectedLotForSale(lot);
     setSaleForm({
-      buyer_party_id: parties.find(p => p.party_type === 'buyer')?.id || '',
-      buyer_name: parties.find(p => p.party_type === 'buyer')?.name || '',
+      entry_date: new Date().toISOString().split('T')[0],
+      buyer_party_id: '',
+      buyer_name: '',
       bags_sold: lot.remaining_bags.toString(),
       sale_rate: '',
       rate_unit: lot.unit || 'quintal',
@@ -57,16 +60,6 @@ export default function Sales() {
       payment_terms: '15_days'
     });
     setMessage(null);
-  };
-
-  const handleBuyerSelect = (e) => {
-    const pId = e.target.value;
-    const party = parties.find(p => p.id === parseInt(pId, 10));
-    setSaleForm(prev => ({
-      ...prev,
-      buyer_party_id: pId,
-      buyer_name: party ? party.name : ''
-    }));
   };
 
   const handleSaleSubmit = async (e) => {
@@ -89,7 +82,8 @@ export default function Sales() {
         sale_rate: parseFloat(saleForm.sale_rate),
         rate_unit: saleForm.rate_unit,
         brokerage_rate: parseFloat(saleForm.brokerage_rate) || 0,
-        payment_terms: saleForm.payment_terms
+        payment_terms: saleForm.payment_terms,
+        entry_date: saleForm.entry_date
       });
       setMessage({ type: 'success', text: `Successfully auctioned & recorded ${bagsToSell} bags to ${saleForm.buyer_name}!` });
       setSelectedLotForSale(null);
@@ -364,35 +358,38 @@ export default function Sales() {
                 </div>
               </div>
 
-              {/* Buyer Selector */}
+              {/* Entry Date */}
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Select Registered Buyer *</label>
-                <select
-                  value={saleForm.buyer_party_id}
-                  onChange={handleBuyerSelect}
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                  {t('Sale Entry Date *', 'बिक्री दिनांक *')}
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={saleForm.entry_date}
+                  onChange={(e) => setSaleForm({ ...saleForm, entry_date: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-semibold focus:ring-2 focus:ring-indigo-500 outline-none"
-                >
-                  <option value="">-- Choose Buyer Party --</option>
-                  {parties.filter(p => p.party_type === 'buyer').map(b => (
-                    <option key={b.id} value={b.id}>{b.name} ({b.phone || b.city || 'Mandi Buyer'})</option>
-                  ))}
-                </select>
+                />
               </div>
 
-              {/* Or Manual Buyer Name */}
-              {!saleForm.buyer_party_id && (
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Or Enter Cash Buyer Name</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Ramesh Trading Co."
-                    value={saleForm.buyer_name}
-                    onChange={(e) => setSaleForm({ ...saleForm, buyer_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                </div>
-              )}
+              {/* Buyer Selector with PartySearchSelect */}
+              <div>
+                <PartySearchSelect
+                  partyType="Buyer"
+                  label={t('Select / Search Buyer *', 'खरीदार चुनें या खोजें *')}
+                  required
+                  value={saleForm.buyer_name}
+                  placeholder="खरीदार खोजें या नया जोड़ें..."
+                  onChange={(name, party) => {
+                    setSaleForm(prev => ({
+                      ...prev,
+                      buyer_name: name,
+                      buyer_party_id: party?.id || ''
+                    }));
+                  }}
+                />
+              </div>
 
               {/* Bags & Rate */}
               <div className="grid grid-cols-2 gap-4">

@@ -368,6 +368,23 @@ async function initSchema() {
     );
   `);
 
+  // 15. Audit Logs for Shift / User Activity Tracking
+  await run(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      user_id TEXT,
+      user_name TEXT NOT NULL,
+      user_role TEXT,
+      action TEXT NOT NULL,
+      entity_type TEXT,
+      entity_id TEXT,
+      details TEXT,
+      ip_address TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   // Safe migrations for table extensions
   const safeAlter = async (table, columnDef) => {
     try {
@@ -383,6 +400,7 @@ async function initSchema() {
   };
 
   await safeAlter('tenants', 'logo_url TEXT');
+  await safeAlter('tenants', 'opening_cash REAL DEFAULT 0');
   await safeAlter('parties', 'bank_name TEXT');
   await safeAlter('parties', 'account_no TEXT');
   await safeAlter('parties', 'ifsc TEXT');
@@ -402,10 +420,14 @@ async function initSchema() {
   await safeAlter('arrivals', 'total_arrival_amount REAL DEFAULT 0');
   await safeAlter('arrivals', 'manual_lot_no TEXT');
   await safeAlter('arrivals', 'custom_expenses TEXT');
+  await safeAlter('arrivals', 'agent_name TEXT');
+  await safeAlter('arrivals', 'agent_phone TEXT');
   await safeAlter('sales_lots', 'arrival_rate REAL DEFAULT 0');
   await safeAlter('sales_lots', 'custom_expenses TEXT');
+  await safeAlter('sales_lots', 'agent_name TEXT');
   await safeAlter('split_sales', 'arrival_rate REAL DEFAULT 0');
   await safeAlter('split_sales', 'custom_expenses TEXT');
+  await safeAlter('split_sales', 'date DATE');
   await safeAlter('subscriptions', "billing_cycle TEXT DEFAULT 'monthly'");
   await safeAlter('subscriptions', 'amount_paid REAL DEFAULT 0');
   await safeAlter('subscriptions', "payment_method TEXT DEFAULT 'UPI'");
@@ -536,6 +558,29 @@ async function seedInitialData() {
   }
 }
 
+async function auditLog({ tenantId, userId, userName, userRole, action, entityType, entityId, details, ipAddress }) {
+  try {
+    const id = 'AUD-' + Date.now() + '-' + Math.floor(100 + Math.random() * 900);
+    await run(`
+      INSERT INTO audit_logs (id, tenant_id, user_id, user_name, user_role, action, entity_type, entity_id, details, ip_address)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      id,
+      tenantId || 'system',
+      userId || null,
+      userName || 'Munshi / Staff',
+      userRole || 'staff',
+      action,
+      entityType || null,
+      entityId || null,
+      typeof details === 'object' ? JSON.stringify(details) : (details || ''),
+      ipAddress || null
+    ]);
+  } catch (err) {
+    console.error('Audit log write error:', err.message);
+  }
+}
+
 module.exports = {
   db: sqliteDb,
   pgPool,
@@ -543,5 +588,6 @@ module.exports = {
   query,
   queryOne,
   run,
-  initSchema
+  initSchema,
+  auditLog
 };
