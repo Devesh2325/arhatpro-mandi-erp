@@ -93,6 +93,19 @@ export const API = {
     const q = new URLSearchParams(params).toString();
     return apiRequest(`/trade/reports/data${q ? '?' + q : ''}`);
   },
+
+  // Varieties Master
+  getVarieties: () => apiRequest('/trade/varieties'),
+  addVariety: (data) => apiRequest('/trade/varieties', 'POST', data),
+  updateVariety: (id, data) => apiRequest(`/trade/varieties/${id}`, 'PUT', data),
+  deleteVariety: (id) => apiRequest(`/trade/varieties/${id}`, 'DELETE'),
+
+  // Mandi Expense Heads
+  getExpenses: () => apiRequest('/trade/expenses'),
+  addExpense: (data) => apiRequest('/trade/expenses', 'POST', data),
+  updateExpense: (id, data) => apiRequest(`/trade/expenses/${id}`, 'PUT', data),
+  deleteExpense: (id) => apiRequest(`/trade/expenses/${id}`, 'DELETE'),
+
   getParties: async () => {
     const data = await apiRequest('/trade/parties');
     const arr = Array.isArray(data) ? [...data] : (data?.parties ? [...data.parties] : []);
@@ -111,6 +124,7 @@ export const API = {
       farmer_name: a.farmer_name,
       source_location: a.farmer_location,
       commodity_name: a.commodity,
+      variety: a.variety,
       bags: a.quantity,
       remaining_bags: a.quantity,
       arrival_rate: a.arrival_rate || 0,
@@ -118,6 +132,8 @@ export const API = {
       freight_amount: a.total_freight,
       advance_paid: a.freight_advance_paid,
       lot_number: a.lot_id,
+      manual_lot_no: a.manual_lot_no,
+      custom_expenses: a.custom_expenses,
       arrival_date: a.date
     }));
     mapped.arrivals = mapped;
@@ -135,7 +151,9 @@ export const API = {
       quantity: data.bags,
       arrivalRate: data.arrival_rate || 0,
       totalFreight: data.freight_amount,
-      freightAdvance: data.advance_paid
+      freightAdvance: data.advance_paid,
+      manualLotNo: data.manual_lot_no || data.manualLotNo || data.lot_number,
+      customExpenses: data.custom_expenses || data.customExpenses
     });
   },
   addArrival: (data) => apiRequest('/trade/arrivals', 'POST', data),
@@ -227,6 +245,8 @@ export const API = {
       date: data.voucher_date
     });
   },
+  getTrialBalance: () => apiRequest('/ledger/trial-balance'),
+  getBalanceSheet: () => apiRequest('/ledger/balance-sheet'),
   getDebtorAging: async () => {
     const data = await apiRequest('/ledger/accounts');
     const list = Array.isArray(data) ? data : [];
@@ -242,6 +262,9 @@ export const API = {
     }));
     return { debtors };
   },
+
+  // Tenant Subscriptions
+  subscribePlan: (tenantId, data) => apiRequest(`/tenants/${tenantId}/subscribe`, 'POST', data),
 
   // Super Admin
   getAdminMetrics: async () => {

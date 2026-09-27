@@ -89,6 +89,137 @@ router.delete('/commodities/:id', authenticate, async (req, res) => {
   }
 });
 
+// ================= 1.1 VARIETIES & GRADES MASTER =================
+router.get('/varieties', authenticate, async (req, res) => {
+  try {
+    const list = await query(`SELECT * FROM varieties WHERE tenant_id = ? ORDER BY name ASC`, [req.user.tenantId]);
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: 'Could not fetch varieties.' });
+  }
+});
+
+router.post('/varieties', authenticate, async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    const { commodityId, commodityName, name, nameHi, grade, defaultRate } = req.body;
+    if (!name) return res.status(400).json({ error: 'Variety name is required.' });
+
+    const id = 'VAR-' + Date.now();
+    await run(`
+      INSERT INTO varieties (id, tenant_id, commodity_id, commodity_name, name, name_hi, grade, default_rate)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `, [id, tenantId, commodityId || null, commodityName || '', name.trim(), nameHi || '', grade || 'Grade A', parseFloat(defaultRate) || 0]);
+
+    res.status(201).json({ message: 'Variety added successfully!', id });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add variety: ' + err.message });
+  }
+});
+
+router.put('/varieties/:id', authenticate, async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    const { id } = req.params;
+    const { commodityId, commodityName, name, nameHi, grade, defaultRate } = req.body;
+
+    await run(`
+      UPDATE varieties SET
+        commodity_id = COALESCE(?, commodity_id),
+        commodity_name = COALESCE(?, commodity_name),
+        name = COALESCE(?, name),
+        name_hi = COALESCE(?, name_hi),
+        grade = COALESCE(?, grade),
+        default_rate = COALESCE(?, default_rate)
+      WHERE id = ? AND tenant_id = ?
+    `, [commodityId || null, commodityName || null, name ? name.trim() : null, nameHi || null, grade || null, defaultRate !== undefined ? parseFloat(defaultRate) : null, id, tenantId]);
+
+    res.json({ message: 'Variety updated successfully!' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update variety: ' + err.message });
+  }
+});
+
+router.delete('/varieties/:id', authenticate, async (req, res) => {
+  try {
+    await run(`DELETE FROM varieties WHERE id = ? AND tenant_id = ?`, [req.params.id, req.user.tenantId]);
+    res.json({ message: 'Variety removed successfully.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete variety.' });
+  }
+});
+
+// ================= 1.2 EXPENSE HEADS MASTER (कटौती व खर्चे) =================
+router.get('/expenses', authenticate, async (req, res) => {
+  try {
+    const list = await query(`SELECT * FROM expense_heads WHERE tenant_id = ? ORDER BY target ASC, name ASC`, [req.user.tenantId]);
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: 'Could not fetch expense heads.' });
+  }
+});
+
+router.post('/expenses', authenticate, async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    const { name, hindiName, target, type, defaultAmount, isMandatory } = req.body;
+    if (!name) return res.status(400).json({ error: 'Expense head name is required.' });
+
+    const id = 'EXP-' + Date.now();
+    await run(`
+      INSERT INTO expense_heads (id, tenant_id, name, hindi_name, target, type, default_amount, is_mandatory, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+    `, [id, tenantId, name.trim(), hindiName || '', target || 'farmer', type || 'per_unit', parseFloat(defaultAmount) || 0, isMandatory ? 1 : 0]);
+
+    res.status(201).json({ message: 'Expense head created!', id });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create expense head: ' + err.message });
+  }
+});
+
+router.put('/expenses/:id', authenticate, async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    const { id } = req.params;
+    const { name, hindiName, target, type, defaultAmount, isMandatory, isActive } = req.body;
+
+    await run(`
+      UPDATE expense_heads SET
+        name = COALESCE(?, name),
+        hindi_name = COALESCE(?, hindi_name),
+        target = COALESCE(?, target),
+        type = COALESCE(?, type),
+        default_amount = COALESCE(?, default_amount),
+        is_mandatory = COALESCE(?, is_mandatory),
+        is_active = COALESCE(?, is_active)
+      WHERE id = ? AND tenant_id = ?
+    `, [
+      name ? name.trim() : null,
+      hindiName || null,
+      target || null,
+      type || null,
+      defaultAmount !== undefined ? parseFloat(defaultAmount) : null,
+      isMandatory !== undefined ? (isMandatory ? 1 : 0) : null,
+      isActive !== undefined ? (isActive ? 1 : 0) : null,
+      id,
+      tenantId
+    ]);
+
+    res.json({ message: 'Expense head updated!' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update expense head: ' + err.message });
+  }
+});
+
+router.delete('/expenses/:id', authenticate, async (req, res) => {
+  try {
+    await run(`DELETE FROM expense_heads WHERE id = ? AND tenant_id = ?`, [req.params.id, req.user.tenantId]);
+    res.json({ message: 'Expense head deleted.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete expense head.' });
+  }
+});
+
 // ================= 2. PARTIES (Farmers & Buyers) =================
 router.get('/parties', authenticate, async (req, res) => {
   try {
@@ -262,36 +393,54 @@ router.get('/arrivals', authenticate, async (req, res) => {
 router.post('/arrivals', authenticate, async (req, res) => {
   try {
     const tenantId = req.user.tenantId;
-    const { truckNo, driverName, driverPhone, farmerName, farmerPhone, farmerLocation, commodity, variety, quantity, unit, totalFreight, freightAdvance, arrivalRate } = req.body;
-
-    const totalF = parseFloat(totalFreight) || 0;
-    const advF = parseFloat(freightAdvance) || 0;
+    const truck = (req.body.truckNo || req.body.truck_no || '').trim().toUpperCase();
+    const dName = req.body.driverName || req.body.driver_name || '';
+    const dPhone = req.body.driverPhone || req.body.driver_mobile || '';
+    const fName = req.body.farmerName || req.body.farmer_name || 'Farmer';
+    const fPhone = req.body.farmerPhone || req.body.farmer_mobile || '';
+    const fLoc = req.body.farmerLocation || req.body.source_location || '';
+    const comm = req.body.commodity || req.body.commodity_name || 'Produce';
+    const varName = req.body.variety || '';
+    const qty = parseInt(req.body.quantity || req.body.bags, 10) || 1;
+    const u = req.body.unit || 'Box (20kg)';
+    const totalF = parseFloat(req.body.totalFreight || req.body.freight_amount) || 0;
+    const advF = parseFloat(req.body.freightAdvance || req.body.advance_paid) || 0;
     const balF = Math.max(0, totalF - advF);
-    const qty = parseInt(quantity) || 1;
-    const arrRate = parseFloat(arrivalRate) || 0;
+    const arrRate = parseFloat(req.body.arrivalRate || req.body.arrival_rate) || 0;
     const totalArrAmount = qty * arrRate;
     const id = 'ARV-' + Math.floor(1000 + Math.random() * 9000);
-    const lotId = 'LOT-' + id.replace('ARV-', '');
+    const manualLotNo = (req.body.manualLotNo || req.body.lotNumber || req.body.manual_lot_no || '').trim();
+    const lotId = manualLotNo ? manualLotNo : ('LOT-' + id.replace('ARV-', ''));
+    const customExpStr = req.body.customExpenses ? (typeof req.body.customExpenses === 'string' ? req.body.customExpenses : JSON.stringify(req.body.customExpenses)) : null;
 
     await run(`
-      INSERT INTO arrivals (id, tenant_id, date, time, truck_no, driver_name, driver_phone, farmer_name, farmer_phone, farmer_location, commodity, variety, quantity, unit, total_freight, freight_advance_paid, freight_balance, arrival_rate, total_arrival_amount, status, transferred_to_lot, lot_id)
-      VALUES (?, ?, DATE('now'), TIME('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Ready for Sale', 1, ?)
+      INSERT INTO arrivals (id, tenant_id, date, time, truck_no, driver_name, driver_phone, farmer_name, farmer_phone, farmer_location, commodity, variety, quantity, unit, total_freight, freight_advance_paid, freight_balance, arrival_rate, total_arrival_amount, status, transferred_to_lot, lot_id, manual_lot_no, custom_expenses)
+      VALUES (?, ?, DATE('now'), TIME('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Ready for Sale', 1, ?, ?, ?)
     `, [
-      id, tenantId, truckNo.toUpperCase(), driverName || '', driverPhone || '',
-      farmerName, farmerPhone || '', farmerLocation || '', commodity, variety || '',
-      qty, unit || 'Box (20kg)', totalF, advF, balF, arrRate, totalArrAmount, lotId
+      id, tenantId, truck, dName, dPhone,
+      fName, fPhone, fLoc, comm, varName,
+      qty, u, totalF, advF, balF, arrRate, totalArrAmount, lotId,
+      manualLotNo || null, customExpStr
     ]);
 
     // Create corresponding sales lot
     await run(`
-      INSERT INTO sales_lots (id, tenant_id, arrival_id, commodity_name, variety, farmer_name, farmer_location, farmer_phone, total_quantity, remaining_quantity, unit, arrival_rate, truck_no, freight_advance_paid, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'live')
+      INSERT INTO sales_lots (id, tenant_id, arrival_id, commodity_name, variety, farmer_name, farmer_location, farmer_phone, total_quantity, remaining_quantity, unit, arrival_rate, truck_no, freight_advance_paid, custom_expenses, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'live')
     `, [
-      lotId, tenantId, id, commodity, variety || '', farmerName, farmerLocation || '',
-      farmerPhone || '', qty, qty, unit || 'Box (20kg)', arrRate, truckNo.toUpperCase(), advF
+      lotId, tenantId, id, comm, varName, fName, fLoc,
+      fPhone, qty, qty, u, arrRate, truck, advF, customExpStr
     ]);
 
-    res.status(201).json({ message: 'Truck arrival logged & Sales Lot created!', id, lotId, arrivalRate: arrRate, totalArrivalAmount: totalArrAmount });
+    // If freight advance paid in cash, record in cashbook
+    if (advF > 0) {
+      await run(`
+        INSERT INTO cash_transactions (id, tenant_id, type, title, amount, time)
+        VALUES (?, ?, 'KHARCH', ?, ?, TIME('now'))
+      `, ['TX-' + Date.now(), tenantId, `Driver Freight Advance (${truck} - ${fName})`, advF]);
+    }
+
+    res.status(201).json({ message: 'Truck arrival logged & Sales Lot created!', id, lotId, arrivalRate: arrRate, totalArrivalAmount: totalArrAmount, manualLotNo });
   } catch (err) {
     res.status(500).json({ error: 'Could not log truck arrival: ' + err.message });
   }
@@ -318,7 +467,7 @@ router.post('/lots/:id/split', authenticate, async (req, res) => {
   try {
     const tenantId = req.user.tenantId;
     const lotId = req.params.id;
-    const { buyerName, buyerContact, quantity, rate, paymentMode } = req.body;
+    const { buyerName, buyerContact, quantity, rate, paymentMode, customExpenses } = req.body;
 
     const lot = await queryOne(`SELECT * FROM sales_lots WHERE id = ? AND tenant_id = ?`, [lotId, tenantId]);
     if (!lot) return res.status(404).json({ error: 'Lot not found.' });
@@ -332,12 +481,13 @@ router.post('/lots/:id/split', authenticate, async (req, res) => {
 
     const saleAmount = qty * r;
     const saleId = 'SL-' + Math.floor(100 + Math.random() * 900);
+    const customExpStr = customExpenses ? (typeof customExpenses === 'string' ? customExpenses : JSON.stringify(customExpenses)) : null;
 
     // Insert split sale
     await run(`
-      INSERT INTO split_sales (id, lot_id, tenant_id, sale_code, buyer_name, buyer_contact, quantity, rate, arrival_rate, gross_amount, time, payment_mode)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TIME('now'), ?)
-    `, [saleId, lotId, tenantId, saleId, buyerName, buyerContact || '', qty, r, lotArrRate, saleAmount, paymentMode || 'Credit (7 Days)']);
+      INSERT INTO split_sales (id, lot_id, tenant_id, sale_code, buyer_name, buyer_contact, quantity, rate, arrival_rate, gross_amount, time, payment_mode, custom_expenses)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TIME('now'), ?, ?)
+    `, [saleId, lotId, tenantId, saleId, buyerName, buyerContact || '', qty, r, lotArrRate, saleAmount, paymentMode || 'Credit (7 Days)', customExpStr]);
 
     // Update remaining lot quantity
     const newRemaining = lot.remaining_quantity - qty;
@@ -355,7 +505,23 @@ router.post('/lots/:id/split', authenticate, async (req, res) => {
       WHERE tenant_id = ? AND party_name = ?
     `, [saleAmount, saleAmount, tenantId, buyerName]);
 
-    res.json({ message: `Sold ${qty} units to ${buyerName} at ₹${r}!`, saleId, remaining: newRemaining });
+    // Automatic Balanced Double-Entry Journal Voucher (Dr = Cr)
+    const autoVoucherNo = `JV-SL-${Date.now().toString().slice(-6)}`;
+    await run(`
+      INSERT INTO journal_entries (id, tenant_id, voucher_no, date, debit_account, credit_account, amount, narration, created_by)
+      VALUES (?, ?, ?, DATE('now'), ?, ?, ?, ?, ?)
+    `, [
+      'JV-' + Date.now(),
+      tenantId,
+      autoVoucherNo,
+      `Sundry Debtors - ${buyerName}`,
+      `Sundry Creditors - ${lot.farmer_name || 'Farmer Produce'}`,
+      saleAmount,
+      `Lot Sale: ${qty} ${lot.unit || 'units'} of ${lot.commodity_name} (${lot.variety || 'Grade A'}) @ ₹${r}/unit [Lot #${lotId}]`,
+      req.user.name || 'System Auto Trade'
+    ]);
+
+    res.json({ message: `Sold ${qty} units to ${buyerName} at ₹${r}! Journal Voucher ${autoVoucherNo} posted.`, saleId, remaining: newRemaining, voucherNo: autoVoucherNo });
   } catch (err) {
     res.status(500).json({ error: 'Failed to record split sale: ' + err.message });
   }
@@ -365,38 +531,43 @@ router.post('/lots/:id/split', authenticate, async (req, res) => {
 router.post('/quick-trade', authenticate, async (req, res) => {
   try {
     const tenantId = req.user.tenantId;
-    const { truckNo, farmerName, farmerPhone, commodity, totalFreight, freightAdvance, lots, splitSales, arrivalRate } = req.body;
+    const { truckNo, farmerName, farmerPhone, commodity, variety, totalFreight, freightAdvance, lots, splitSales, arrivalRate, manualLotNo, customExpenses } = req.body;
 
     const totalArrived = (lots || []).reduce((acc, l) => acc + (parseInt(l.qty) || 0), 0);
     const consignmentId = 'ARV-' + Math.floor(1000 + Math.random() * 9000);
-    const lotId = 'LOT-' + consignmentId.replace('ARV-', '');
+    const customLot = (manualLotNo || (lots && lots[0] && lots[0].manualLotNo) || '').trim();
+    const lotId = customLot ? customLot : ('LOT-' + consignmentId.replace('ARV-', ''));
 
     const totalF = parseFloat(totalFreight) || 0;
     const advF = parseFloat(freightAdvance) || 0;
     const arrRate = parseFloat(arrivalRate || (lots && lots[0] && lots[0].arrivalRate)) || 0;
     const totalArrAmount = totalArrived * arrRate;
+    const customExpStr = customExpenses ? (typeof customExpenses === 'string' ? customExpenses : JSON.stringify(customExpenses)) : null;
+    const selectedVariety = variety || (lots && lots[0] && lots[0].variety) || '';
 
     // 1. Inward Arrival
     await run(`
-      INSERT INTO arrivals (id, tenant_id, date, time, truck_no, farmer_name, farmer_phone, commodity, quantity, total_freight, freight_advance_paid, freight_balance, arrival_rate, total_arrival_amount, status, transferred_to_lot, lot_id)
-      VALUES (?, ?, DATE('now'), TIME('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Sold Out', 1, ?)
-    `, [consignmentId, tenantId, truckNo.toUpperCase(), farmerName, farmerPhone || '', commodity, totalArrived, totalF, advF, Math.max(0, totalF - advF), arrRate, totalArrAmount, lotId]);
+      INSERT INTO arrivals (id, tenant_id, date, time, truck_no, farmer_name, farmer_phone, commodity, variety, quantity, total_freight, freight_advance_paid, freight_balance, arrival_rate, total_arrival_amount, status, transferred_to_lot, lot_id, manual_lot_no, custom_expenses)
+      VALUES (?, ?, DATE('now'), TIME('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Sold Out', 1, ?, ?, ?)
+    `, [consignmentId, tenantId, truckNo.toUpperCase(), farmerName, farmerPhone || '', commodity, selectedVariety, totalArrived, totalF, advF, Math.max(0, totalF - advF), arrRate, totalArrAmount, lotId, customLot || null, customExpStr]);
 
     // 2. Sales Lot
     await run(`
-      INSERT INTO sales_lots (id, tenant_id, arrival_id, commodity_name, farmer_name, total_quantity, remaining_quantity, arrival_rate, status, truck_no, freight_advance_paid)
-      VALUES (?, ?, ?, ?, ?, ?, 0, ?, 'sold', ?, ?)
-    `, [lotId, tenantId, consignmentId, commodity, farmerName, totalArrived, arrRate, truckNo.toUpperCase(), advF]);
+      INSERT INTO sales_lots (id, tenant_id, arrival_id, commodity_name, variety, farmer_name, total_quantity, remaining_quantity, arrival_rate, status, truck_no, freight_advance_paid, custom_expenses)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 'sold', ?, ?, ?)
+    `, [lotId, tenantId, consignmentId, commodity, selectedVariety, farmerName, totalArrived, arrRate, truckNo.toUpperCase(), advF, customExpStr]);
 
-    // 3. Buyer Split Sales & Ledger Updates
+    // 3. Buyer Split Sales, Ledgers & Auto Double-Entry Journal Vouchers
+    const postedVouchers = [];
     for (let s of (splitSales || [])) {
       const sId = 'SL-' + Math.floor(1000 + Math.random() * 9000);
       const gross = s.quantity * s.rate;
+      const sExpStr = s.customExpenses ? (typeof s.customExpenses === 'string' ? s.customExpenses : JSON.stringify(s.customExpenses)) : null;
 
       await run(`
-        INSERT INTO split_sales (id, lot_id, tenant_id, sale_code, buyer_name, buyer_contact, quantity, rate, arrival_rate, gross_amount, time, payment_mode)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TIME('now'), ?)
-      `, [sId, lotId, tenantId, sId, s.buyerName, s.buyerContact || '', s.quantity, s.rate, arrRate, gross, s.paymentMode || 'Credit (7 Days)']);
+        INSERT INTO split_sales (id, lot_id, tenant_id, sale_code, buyer_name, buyer_contact, quantity, rate, arrival_rate, gross_amount, time, payment_mode, custom_expenses)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TIME('now'), ?, ?)
+      `, [sId, lotId, tenantId, sId, s.buyerName, s.buyerContact || '', s.quantity, s.rate, arrRate, gross, s.paymentMode || 'Credit (7 Days)', sExpStr]);
 
       // Update buyer ledger
       await run(`
@@ -405,6 +576,23 @@ router.post('/quick-trade', authenticate, async (req, res) => {
           outstanding_udhaar = outstanding_udhaar + ? 
         WHERE tenant_id = ? AND party_name = ?
       `, [gross, gross, tenantId, s.buyerName]);
+
+      // Automatic Double Entry Journal Voucher (Dr = Cr)
+      const autoVoucherNo = `JV-QT-${Date.now().toString().slice(-6)}`;
+      await run(`
+        INSERT INTO journal_entries (id, tenant_id, voucher_no, date, debit_account, credit_account, amount, narration, created_by)
+        VALUES (?, ?, ?, DATE('now'), ?, ?, ?, ?, ?)
+      `, [
+        'JV-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        tenantId,
+        autoVoucherNo,
+        `Sundry Debtors - ${s.buyerName}`,
+        `Sundry Creditors - ${farmerName || 'Farmer Produce'}`,
+        gross,
+        `Quick Trade Sale: ${s.quantity} units ${commodity} (${selectedVariety || 'Standard'}) @ ₹${s.rate}/unit to ${s.buyerName} [Consignment #${consignmentId}]`,
+        req.user.name || 'System Auto Trade'
+      ]);
+      postedVouchers.push(autoVoucherNo);
     }
 
     // 4. Log Driver Cash Advance in Rokad if paid
@@ -416,12 +604,13 @@ router.post('/quick-trade', authenticate, async (req, res) => {
     }
 
     res.status(201).json({
-      message: `⚡ Consignment ${consignmentId} sealed & Teep finalized!`,
+      message: `⚡ Consignment ${consignmentId} sealed & Teep finalized! Auto JV posted.`,
       consignmentId,
       lotId,
       totalArrived,
       arrivalRate: arrRate,
-      totalArrivalAmount: totalArrAmount
+      totalArrivalAmount: totalArrAmount,
+      postedVouchers
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to process quick trade: ' + err.message });

@@ -79,9 +79,18 @@ export default function Sidebar({ activeTab, setActiveTab }) {
           <div className="pt-2 border-t border-slate-200 flex flex-col gap-1.5">
             <div className="flex justify-between items-center text-[10px]">
               <span className="font-bold text-slate-400 uppercase tracking-wide">{t('agency_switcher')}</span>
-              <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wide border ${planStyles[subPlan] || 'bg-slate-100 text-slate-700'}`}>
-                ⭐ {subPlan.toUpperCase()} • {subStatus.toUpperCase()}
-              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  sessionStorage.setItem('settings_active_subtab', 'PLANS');
+                  setActiveTab('settings');
+                }}
+                className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wide border cursor-pointer hover:shadow-xs hover:scale-105 transition-all flex items-center gap-1 ${planStyles[subPlan] || 'bg-slate-100 text-slate-700'}`}
+                title="Click to upgrade subscription / प्लान अपग्रेड करें"
+              >
+                <span>⭐ {subPlan.toUpperCase()}</span>
+                <span className="text-[8px] bg-black/10 px-1 rounded uppercase font-mono">Buy Plan ↗</span>
+              </button>
             </div>
             
             <select

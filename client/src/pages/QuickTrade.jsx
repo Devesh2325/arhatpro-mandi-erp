@@ -20,6 +20,7 @@ export default function QuickTrade() {
   const { t, isHindi } = useLanguage();
 
   // Fresh initial states - completely clean for new users
+  const [manualLotNo, setManualLotNo] = useState('');
   const [truckNo, setTruckNo] = useState('');
   const [farmerName, setFarmerName] = useState('');
   const [farmerPhone, setFarmerPhone] = useState('');
@@ -37,6 +38,9 @@ export default function QuickTrade() {
   ]);
 
   const [commoditiesList, setCommoditiesList] = useState([]);
+  const [varietiesList, setVarietiesList] = useState([]);
+  const [farmerExpenses, setFarmerExpenses] = useState([]);
+  const [buyerExpenses, setBuyerExpenses] = useState([]);
   const [partiesList, setPartiesList] = useState([]);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -49,6 +53,26 @@ export default function QuickTrade() {
         if (data && data.length > 0 && !commodity) {
           setCommodity(data[0].name_en || data[0].name);
         }
+      })
+      .catch(() => {});
+
+    API.getVarieties()
+      .then(data => {
+        setVarietiesList(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {});
+
+    API.getExpenses()
+      .then(data => {
+        const list = Array.isArray(data) ? data : [];
+        const f = list.filter(e => e.target === 'farmer' || e.target === 'both').map(e => ({
+          id: e.id, name: e.name, hindi_name: e.hindi_name, type: e.type, amount: e.default_amount || 0, enabled: true
+        }));
+        const b = list.filter(e => e.target === 'buyer' || e.target === 'both').map(e => ({
+          id: e.id, name: e.name, hindi_name: e.hindi_name, type: e.type, amount: e.default_amount || 0, enabled: true
+        }));
+        setFarmerExpenses(f);
+        setBuyerExpenses(b);
       })
       .catch(() => {});
 
@@ -171,6 +195,7 @@ export default function QuickTrade() {
     setLoading(true);
     try {
       const res = await API.quickTrade({
+        manualLotNo: manualLotNo ? manualLotNo.trim() : null,
         truckNo,
         farmerName,
         farmerPhone,
@@ -179,12 +204,17 @@ export default function QuickTrade() {
         totalFreight: parseFloat(totalFreight) || 0,
         freightAdvance: parseFloat(freightAdvance) || 0,
         lots: lots.map(l => ({ ...l, qty: parseInt(l.qty, 10) || 0 })),
-        splitSales: buyerRows.map(r => ({ ...r, qty: parseInt(r.qty, 10) || 0, rate: parseFloat(r.rate) || 0 }))
+        splitSales: buyerRows.map(r => ({ ...r, qty: parseInt(r.qty, 10) || 0, rate: parseFloat(r.rate) || 0 })),
+        customExpenses: {
+          farmer: farmerExpenses.filter(e => e.enabled),
+          buyer: buyerExpenses.filter(e => e.enabled)
+        }
       });
       
-      setMessage(`⚡ Consignment ${res.consignmentId || 'TC-' + Date.now().toString().slice(-4)} sealed & Teep generated for ${res.totalArrived || totalArrived} units! Ready for next trade.`);
+      setMessage(`⚡ Consignment ${res.consignmentId || 'TC-' + Date.now().toString().slice(-4)} sealed & Teep generated for ${res.totalArrived || totalArrived} units! Auto-JV posted.`);
       
       // Auto-reset form for fresh next trade
+      setManualLotNo('');
       setTruckNo('');
       setFarmerName('');
       setFarmerPhone('');
@@ -219,6 +249,14 @@ export default function QuickTrade() {
         {buyers.map(b => (
           <option key={b.id} value={b.name}>
             {b.name} {b.short_code ? `[${b.short_code}]` : ''} - {b.mobile || ''}
+          </option>
+        ))}
+      </datalist>
+
+      <datalist id="quicktrade-varieties-list">
+        {varietiesList.map(v => (
+          <option key={v.id} value={v.name}>
+            {v.commodity_name ? `${v.commodity_name} - ` : ''}{v.name} {v.grade ? `(${v.grade})` : ''}
           </option>
         ))}
       </datalist>
@@ -320,6 +358,28 @@ export default function QuickTrade() {
             </div>
           </div>
 
+          {/* Row 0: Manual Lot Number */}
+          <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+              <div>
+                <label className="font-bold text-slate-800 text-xs block mb-1">
+                  {t('Consignment Lot No. (Manual / Auto)', 'लॉट नंबर (वैकल्पिक / खाली छोड़ें तो स्वतः बनेगा)')}
+                </label>
+                <input
+                  type="text"
+                  value={manualLotNo}
+                  onChange={(e) => setManualLotNo(e.target.value.toUpperCase())}
+                  placeholder="e.g. LOT-QT101 (or leave blank for auto LOT-xxxx)"
+                  className="w-full p-2.5 border border-slate-300 rounded-xl font-mono uppercase font-black text-indigo-900 bg-white placeholder:font-normal placeholder:normal-case placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none text-xs"
+                />
+              </div>
+              <div className="text-[11px] text-slate-500">
+                <span className="font-bold text-slate-700 block">💡 Manual Lot / Marka:</span>
+                Custom lot identifier for this truck consignment. Auto-assigned if left empty.
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
             <div>
               <label className="font-bold text-slate-700 block mb-1">{t('Truck / Vehicle No. *', 'गाड़ी / वाहन संख्या *')}</label>
@@ -395,6 +455,104 @@ export default function QuickTrade() {
               />
             </div>
           </div>
+
+          {/* Dynamic Mandi Expenses Checklist (Farmer & Buyer) */}
+          {(farmerExpenses.length > 0 || buyerExpenses.length > 0) && (
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                  <span className="text-emerald-700">⚖️</span> {t('Applicable Mandi Expenses & Deductions', 'लागू मंडी खर्चे व कटौतियां (Farmer & Buyer Expenses)')}
+                </span>
+                <span className="text-[11px] text-slate-500">Settings से स्वतः लोड (जरूरत अनुसार बदलें)</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Farmer Deductions */}
+                {farmerExpenses.length > 0 && (
+                  <div className="space-y-1.5">
+                    <span className="font-bold text-slate-600 text-[11px] block">किसान कटौतियां (Farmer Deductions):</span>
+                    <div className="space-y-1.5">
+                      {farmerExpenses.map((exp, idx) => (
+                        <div key={exp.id || idx} className="bg-white p-2 rounded-xl border border-slate-200 flex items-center justify-between gap-2">
+                          <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800">
+                            <input
+                              type="checkbox"
+                              checked={exp.enabled}
+                              onChange={(e) => {
+                                const updated = [...farmerExpenses];
+                                updated[idx].enabled = e.target.checked;
+                                setFarmerExpenses(updated);
+                              }}
+                              className="rounded text-emerald-600 cursor-pointer"
+                            />
+                            <span>{exp.name} {exp.hindi_name ? `(${exp.hindi_name})` : ''}</span>
+                          </label>
+                          <div className="flex items-center gap-1">
+                            <span className="text-slate-400 font-mono text-[10px]">
+                              {exp.type === 'per_unit' ? '₹/नग' : exp.type === 'percentage' ? '%' : '₹'}
+                            </span>
+                            <input
+                              type="number"
+                              step="any"
+                              value={exp.amount}
+                              onChange={(e) => {
+                                const updated = [...farmerExpenses];
+                                updated[idx].amount = parseFloat(e.target.value) || 0;
+                                setFarmerExpenses(updated);
+                              }}
+                              className="w-16 px-1.5 py-1 border border-slate-300 rounded-lg font-mono text-right text-xs"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Buyer Charges */}
+                {buyerExpenses.length > 0 && (
+                  <div className="space-y-1.5">
+                    <span className="font-bold text-slate-600 text-[11px] block">खरीदार खर्चे (Buyer Charges):</span>
+                    <div className="space-y-1.5">
+                      {buyerExpenses.map((exp, idx) => (
+                        <div key={exp.id || idx} className="bg-white p-2 rounded-xl border border-slate-200 flex items-center justify-between gap-2">
+                          <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800">
+                            <input
+                              type="checkbox"
+                              checked={exp.enabled}
+                              onChange={(e) => {
+                                const updated = [...buyerExpenses];
+                                updated[idx].enabled = e.target.checked;
+                                setBuyerExpenses(updated);
+                              }}
+                              className="rounded text-emerald-600 cursor-pointer"
+                            />
+                            <span>{exp.name} {exp.hindi_name ? `(${exp.hindi_name})` : ''}</span>
+                          </label>
+                          <div className="flex items-center gap-1">
+                            <span className="text-slate-400 font-mono text-[10px]">
+                              {exp.type === 'per_unit' ? '₹/नग' : exp.type === 'percentage' ? '%' : '₹'}
+                            </span>
+                            <input
+                              type="number"
+                              step="any"
+                              value={exp.amount}
+                              onChange={(e) => {
+                                const updated = [...buyerExpenses];
+                                updated[idx].amount = parseFloat(e.target.value) || 0;
+                                setBuyerExpenses(updated);
+                              }}
+                              className="w-16 px-1.5 py-1 border border-slate-300 rounded-lg font-mono text-right text-xs"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Kisan Arrival Rate (Awak Rate) */}
           <div className="bg-emerald-50/70 p-3.5 rounded-2xl border border-emerald-200">
@@ -478,6 +636,7 @@ export default function QuickTrade() {
                     <label className="text-[10px] text-slate-400 font-bold block mb-0.5">{t('Variety / Grade', 'किस्म / ग्रेड')}</label>
                     <input
                       type="text"
+                      list="quicktrade-varieties-list"
                       value={lot.variety}
                       placeholder="e.g. Medium 24mm"
                       onChange={(e) => {

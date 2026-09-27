@@ -20,7 +20,11 @@ import {
   X,
   CreditCard,
   QrCode,
-  Edit
+  Edit,
+  Sparkles,
+  Receipt,
+  Crown,
+  Check
 } from 'lucide-react';
 
 export default function Settings() {
@@ -29,7 +33,14 @@ export default function Settings() {
   const { user } = useAuth();
   const { language, t } = useLanguage();
 
-  const [activeTab, setActiveTab] = useState('PROFILE'); // PROFILE, THEME, STATUTORY, PRINTER, PARTIES, COMMODITIES, TEAM
+  const [activeTab, setActiveTab] = useState(() => {
+    const saved = sessionStorage.getItem('settings_active_subtab');
+    if (saved) {
+      sessionStorage.removeItem('settings_active_subtab');
+      return saved;
+    }
+    return 'PROFILE';
+  }); // PROFILE, THEME, STATUTORY, PRINTER, PARTIES, COMMODITIES, TEAM, VARIETIES, EXPENSES, PLANS
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
 
@@ -38,6 +49,28 @@ export default function Settings() {
   const [commodities, setCommodities] = useState([]);
   const [members, setMembers] = useState([]);
   const [partySearch, setPartySearch] = useState('');
+
+  // Varieties Master State
+  const [varieties, setVarieties] = useState([]);
+  const [showAddVarietyModal, setShowAddVarietyModal] = useState(false);
+  const [showEditVarietyModal, setShowEditVarietyModal] = useState(false);
+  const [varietyForm, setVarietyForm] = useState({ commodityName: '', name: '', nameHi: '', grade: 'Grade A', defaultRate: '' });
+  const [editVarietyForm, setEditVarietyForm] = useState({ id: '', commodityName: '', name: '', nameHi: '', grade: 'Grade A', defaultRate: '' });
+
+  // Mandi Expense Heads State
+  const [expenseHeads, setExpenseHeads] = useState([]);
+  const [expenseTargetFilter, setExpenseTargetFilter] = useState('ALL');
+  const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
+  const [showEditExpenseModal, setShowEditExpenseModal] = useState(false);
+  const [expenseForm, setExpenseForm] = useState({ name: '', hindiName: '', target: 'farmer', type: 'per_unit', defaultAmount: '', isMandatory: false });
+  const [editExpenseForm, setEditExpenseForm] = useState({ id: '', name: '', hindiName: '', target: 'farmer', type: 'per_unit', defaultAmount: '', isMandatory: false, isActive: true });
+
+  // Subscription Plans & Buy Plan Flow State
+  const [billingCycle, setBillingCycle] = useState('monthly'); // 'monthly' | 'annual'
+  const [showBuyPlanModal, setShowBuyPlanModal] = useState(false);
+  const [selectedPlanForBuy, setSelectedPlanForBuy] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('UPI');
+  const [subscribing, setSubscribing] = useState(false);
 
   // 1. Profile & Bank Form
   // 1. Profile & Bank Form
@@ -180,6 +213,8 @@ export default function Settings() {
     if (activeTab === 'PARTIES') loadParties();
     if (activeTab === 'COMMODITIES') loadCommodities();
     if (activeTab === 'TEAM') loadMembers();
+    if (activeTab === 'VARIETIES') loadVarieties();
+    if (activeTab === 'EXPENSES') loadExpenses();
   }, [activeTab]);
 
   const loadParties = async () => {
@@ -215,6 +250,261 @@ export default function Settings() {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadVarieties = async () => {
+    setLoading(true);
+    try {
+      const res = await api.getVarieties();
+      setVarieties(Array.isArray(res) ? res : []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadExpenses = async () => {
+    setLoading(true);
+    try {
+      const res = await api.getExpenses();
+      setExpenseHeads(Array.isArray(res) ? res : []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Varieties Handlers
+  const handleAddVarietySubmit = async (e) => {
+    e.preventDefault();
+    setMessage(null);
+    try {
+      await api.addVariety({
+        commodityName: varietyForm.commodityName || 'Produce',
+        name: varietyForm.name.trim(),
+        nameHi: varietyForm.nameHi ? varietyForm.nameHi.trim() : '',
+        grade: varietyForm.grade || 'Grade A',
+        defaultRate: parseFloat(varietyForm.defaultRate) || 0
+      });
+      setMessage({ type: 'success', text: `Variety "${varietyForm.name}" added successfully!` });
+      setShowAddVarietyModal(false);
+      setVarietyForm({ commodityName: '', name: '', nameHi: '', grade: 'Grade A', defaultRate: '' });
+      loadVarieties();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Failed to add variety.' });
+    }
+  };
+
+  const handleOpenEditVariety = (v) => {
+    setEditVarietyForm({
+      id: v.id,
+      commodityName: v.commodity_name || '',
+      name: v.name || '',
+      nameHi: v.name_hi || '',
+      grade: v.grade || 'Grade A',
+      defaultRate: (v.default_rate || '').toString()
+    });
+    setShowEditVarietyModal(true);
+  };
+
+  const handleSaveEditVariety = async (e) => {
+    e.preventDefault();
+    setMessage(null);
+    try {
+      await api.updateVariety(editVarietyForm.id, {
+        commodityName: editVarietyForm.commodityName,
+        name: editVarietyForm.name.trim(),
+        nameHi: editVarietyForm.nameHi ? editVarietyForm.nameHi.trim() : '',
+        grade: editVarietyForm.grade,
+        defaultRate: parseFloat(editVarietyForm.defaultRate) || 0
+      });
+      setMessage({ type: 'success', text: `Variety "${editVarietyForm.name}" updated successfully!` });
+      setShowEditVarietyModal(false);
+      loadVarieties();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Failed to update variety.' });
+    }
+  };
+
+  const handleDeleteVariety = async (id, name) => {
+    if (!window.confirm(`Are you sure you want to delete variety "${name}"?`)) return;
+    try {
+      await api.deleteVariety(id);
+      setMessage({ type: 'success', text: `Variety "${name}" deleted.` });
+      loadVarieties();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Failed to delete variety.' });
+    }
+  };
+
+  // Expenses Handlers
+  const handleAddExpenseSubmit = async (e) => {
+    e.preventDefault();
+    setMessage(null);
+    try {
+      await api.addExpense({
+        name: expenseForm.name.trim(),
+        hindiName: expenseForm.hindiName ? expenseForm.hindiName.trim() : '',
+        target: expenseForm.target || 'farmer',
+        type: expenseForm.type || 'per_unit',
+        defaultAmount: parseFloat(expenseForm.defaultAmount) || 0,
+        isMandatory: expenseForm.isMandatory
+      });
+      setMessage({ type: 'success', text: `Expense head "${expenseForm.name}" created successfully!` });
+      setShowAddExpenseModal(false);
+      setExpenseForm({ name: '', hindiName: '', target: 'farmer', type: 'per_unit', defaultAmount: '', isMandatory: false });
+      loadExpenses();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Failed to create expense head.' });
+    }
+  };
+
+  const handleOpenEditExpense = (exp) => {
+    setEditExpenseForm({
+      id: exp.id,
+      name: exp.name || '',
+      hindiName: exp.hindi_name || '',
+      target: exp.target || 'farmer',
+      type: exp.type || 'per_unit',
+      defaultAmount: (exp.default_amount || 0).toString(),
+      isMandatory: !!exp.is_mandatory,
+      isActive: exp.is_active !== 0
+    });
+    setShowEditExpenseModal(true);
+  };
+
+  const handleSaveEditExpense = async (e) => {
+    e.preventDefault();
+    setMessage(null);
+    try {
+      await api.updateExpense(editExpenseForm.id, {
+        name: editExpenseForm.name.trim(),
+        hindiName: editExpenseForm.hindiName ? editExpenseForm.hindiName.trim() : '',
+        target: editExpenseForm.target,
+        type: editExpenseForm.type,
+        defaultAmount: parseFloat(editExpenseForm.defaultAmount) || 0,
+        isMandatory: editExpenseForm.isMandatory,
+        isActive: editExpenseForm.isActive
+      });
+      setMessage({ type: 'success', text: `Expense head "${editExpenseForm.name}" updated successfully!` });
+      setShowEditExpenseModal(false);
+      loadExpenses();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Failed to update expense head.' });
+    }
+  };
+
+  const handleDeleteExpense = async (id, name) => {
+    if (!window.confirm(`Are you sure you want to delete expense head "${name}"?`)) return;
+    try {
+      await api.deleteExpense(id);
+      setMessage({ type: 'success', text: `Expense head "${name}" deleted.` });
+      loadExpenses();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Failed to delete expense head.' });
+    }
+  };
+
+  // Buy Plan Flow Handlers
+  const SUBSCRIPTION_PLANS = [
+    {
+      id: 'Free',
+      name: 'Free Trial (मुफ़्त - परीक्षण)',
+      priceMonthly: 0,
+      priceAnnual: 0,
+      tag: 'Free Forever',
+      color: 'slate',
+      features: [
+        '1 Shop Munshi / User',
+        'Up to 50 Consignments/month',
+        'Basic Inward Arrivals & Truck Log',
+        'Basic Rokad Cashbook',
+        'Standard Thermal Slip Print'
+      ]
+    },
+    {
+      id: 'Starter',
+      name: 'Mandi Starter (शुरुआती आढ़त)',
+      priceMonthly: 999,
+      priceAnnual: 9999,
+      tag: 'Best for Small Agencies',
+      color: 'blue',
+      features: [
+        '2 Users (Munshi + Cashier)',
+        'Up to 250 Consignments/month',
+        'Full Bahi-Khata Ledger & Udhaar Aging',
+        'Multi-Buyer Lot Split Sales',
+        'WhatsApp Teep & J-Form PDF Sharing',
+        '15-Day Statutory APMC Interest'
+      ]
+    },
+    {
+      id: 'Pro',
+      name: 'Mandi Pro (प्रो - बेस्ट सेलर)',
+      priceMonthly: 2499,
+      priceAnnual: 24999,
+      tag: '⭐ Most Popular (बेस्ट चॉइस)',
+      popular: true,
+      color: 'emerald',
+      features: [
+        '5 Users (Admin, Cashier, Munshis)',
+        'Unlimited Trucks & Consignments',
+        'Automated Double-Entry Journal (Dr = Cr)',
+        'Full Trial Balance (तलपट) & Balance Sheet',
+        'Custom Mandi Expense Heads (Farmer & Buyer)',
+        'Varieties & Grades Master Configuration',
+        'Priority WhatsApp & Call Support'
+      ]
+    },
+    {
+      id: 'Enterprise',
+      name: 'Corporate Mandi (मंडी लीडर)',
+      priceMonthly: 4999,
+      priceAnnual: 49999,
+      tag: 'Multi-Branch & Cold Storage',
+      color: 'purple',
+      features: [
+        'Unlimited Staff Accounts',
+        'Multi-Branch & Yard Storage Sync',
+        'Cold Storage Integration Ready',
+        'Custom APMC Statutory Tax Engines',
+        'Dedicated Account Manager (24/7)',
+        'Data Backup & Custom Reports'
+      ]
+    }
+  ];
+
+  const handleOpenBuyPlan = (plan) => {
+    setSelectedPlanForBuy(plan);
+    setShowBuyPlanModal(true);
+  };
+
+  const handleConfirmSubscription = async (e) => {
+    e.preventDefault();
+    if (!tenant || !selectedPlanForBuy) return;
+    setSubscribing(true);
+    setMessage(null);
+    try {
+      const price = billingCycle === 'annual' ? selectedPlanForBuy.priceAnnual : selectedPlanForBuy.priceMonthly;
+      const res = await api.subscribePlan(tenant.id, {
+        plan: selectedPlanForBuy.id,
+        billingCycle,
+        paymentMethod,
+        amountPaid: price
+      });
+      setMessage({
+        type: 'success',
+        text: `🎉 Congratulations! Successfully subscribed to ${selectedPlanForBuy.name} (${billingCycle.toUpperCase()})! Invoice: ${res.invoiceNo || 'INV-' + Date.now().toString().slice(-4)}`
+      });
+      setShowBuyPlanModal(false);
+      refreshTenant();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Subscription failed.' });
+    } finally {
+      setSubscribing(false);
     }
   };
 
@@ -510,7 +800,10 @@ export default function Settings() {
           { id: 'PRINTER', labelEn: '4. Printer & Formats', labelHi: '4. प्रिंटर व फॉर्मेट', icon: Printer },
           { id: 'PARTIES', labelEn: '5. Party Master', labelHi: '5. पार्टी मास्टर (शॉर्ट कोड)', icon: Tag },
           { id: 'COMMODITIES', labelEn: '6. Commodity Master', labelHi: '6. फसल मास्टर', icon: Apple },
-          { id: 'TEAM', labelEn: '7. Staff & Munshis', labelHi: '7. स्टाफ एवं मुनीम', icon: Users }
+          { id: 'TEAM', labelEn: '7. Staff & Munshis', labelHi: '7. स्टाफ एवं मुनीम', icon: Users },
+          { id: 'VARIETIES', labelEn: '8. Varieties & Grades', labelHi: '8. किस्म व ग्रेड मास्टर', icon: Sparkles },
+          { id: 'EXPENSES', labelEn: '9. Expense Heads', labelHi: '9. मंडी खर्चे (कटौतियां)', icon: Receipt },
+          { id: 'PLANS', labelEn: '10. Subscription Plans', labelHi: '10. सब्सक्रिप्शन व प्लान', icon: Crown }
         ].map(tItem => {
           const Icon = tItem.icon;
           const isActive = activeTab === tItem.id;
@@ -1222,6 +1515,374 @@ export default function Settings() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ================= SUB-TAB 8: VARIETIES & QUALITY GRADES ================= */}
+      {activeTab === 'VARIETIES' && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden text-xs space-y-4 p-5">
+          <div className="flex justify-between items-center flex-wrap gap-2">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-purple-600" />
+                Varieties & Quality Grades Master (किस्म व ग्रेड मास्टर)
+              </h3>
+              <p className="text-slate-500 text-[11px]">
+                Configure produce variety names (e.g. Royal Delicious, Golden Grade A) and quality grades for quick autocomplete on Inward Arrivals and Sales.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setVarietyForm({ commodityName: commodities[0]?.name_en || commodities[0]?.name || 'Produce', name: '', nameHi: '', grade: 'Grade A', defaultRate: '' });
+                setShowAddVarietyModal(true);
+              }}
+              className="px-3.5 py-1.5 bg-purple-700 hover:bg-purple-800 text-white rounded-xl font-bold shadow-xs flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Variety (नई किस्म)
+            </button>
+          </div>
+
+          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase text-[10px]">
+                <tr>
+                  <th className="p-3">Variety / Quality Name</th>
+                  <th className="p-3">Linked Commodity</th>
+                  <th className="p-3 text-center">Grade</th>
+                  <th className="p-3 text-right">Default Rate (₹)</th>
+                  <th className="p-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {varieties.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="text-center py-10 text-slate-400">
+                      <Sparkles className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      No produce varieties registered yet. Click &quot;Add Variety&quot; to configure your first quality grade.
+                    </td>
+                  </tr>
+                ) : (
+                  varieties.map(v => (
+                    <tr key={v.id} className="hover:bg-slate-50">
+                      <td className="p-3 font-bold text-slate-900">
+                        {v.name}
+                        {v.name_hi && <span className="block text-[10px] font-normal text-slate-500">{v.name_hi}</span>}
+                      </td>
+                      <td className="p-3 text-slate-700 font-medium">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-800">
+                          {v.commodity_name || 'All Commodities'}
+                        </span>
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                          {v.grade || 'Standard'}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right font-mono font-bold text-emerald-700">
+                        {v.default_rate ? `₹${Number(v.default_rate).toLocaleString('en-IN')}` : '—'}
+                      </td>
+                      <td className="p-3 text-right space-x-1.5 whitespace-nowrap">
+                        <button
+                          onClick={() => handleOpenEditVariety(v)}
+                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer transition-colors border border-blue-200"
+                          title="Edit Variety"
+                        >
+                          <Edit className="w-3 h-3" /> Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteVariety(v.id, v.name)}
+                          className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
+                          title="Delete Variety"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ================= SUB-TAB 9: MANDI EXPENSE HEADS ================= */}
+      {activeTab === 'EXPENSES' && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden text-xs space-y-4 p-5">
+          <div className="flex justify-between items-center flex-wrap gap-2">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-emerald-600" />
+                Mandi Expense Heads & Deductions (मंडी खर्चे व कटौतियां)
+              </h3>
+              <p className="text-slate-500 text-[11px]">
+                Configure standard APMC charges, palledari (labour), freight, bardana, and custom deductions for Farmers (Inward) and Buyers (Sales Invoices).
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setExpenseForm({ name: '', hindiName: '', target: 'farmer', type: 'per_unit', defaultAmount: '', isMandatory: false });
+                setShowAddExpenseModal(true);
+              }}
+              className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold shadow-xs flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Expense Head (नया खर्च)
+            </button>
+          </div>
+
+          {/* Filter Bar */}
+          <div className="flex items-center gap-2 pt-1 border-b border-slate-100 pb-2">
+            <span className="text-slate-400 font-bold uppercase text-[10px]">Filter Target:</span>
+            {[
+              { id: 'ALL', label: 'All Expenses (सभी खर्चे)' },
+              { id: 'farmer', label: 'Farmer Deductions (किसान से कटौती)' },
+              { id: 'buyer', label: 'Buyer Charges (खरीदार प्रभार)' }
+            ].map(f => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setExpenseTargetFilter(f.id)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                  expenseTargetFilter === f.id
+                    ? 'bg-emerald-700 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase text-[10px]">
+                <tr>
+                  <th className="p-3">Expense Head</th>
+                  <th className="p-3 text-center">Applied To (Target)</th>
+                  <th className="p-3 text-center">Calculation Type</th>
+                  <th className="p-3 text-right">Default Amount / Rate</th>
+                  <th className="p-3 text-center">Mandatory</th>
+                  <th className="p-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {expenseHeads.filter(e => expenseTargetFilter === 'ALL' || e.target === expenseTargetFilter).length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="text-center py-10 text-slate-400">
+                      <Receipt className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      No expense heads configured for this filter. Click &quot;Add Expense Head&quot; to define standard Mandi charges.
+                    </td>
+                  </tr>
+                ) : (
+                  expenseHeads
+                    .filter(e => expenseTargetFilter === 'ALL' || e.target === expenseTargetFilter)
+                    .map(exp => (
+                      <tr key={exp.id} className="hover:bg-slate-50">
+                        <td className="p-3 font-bold text-slate-900">
+                          {exp.name}
+                          {exp.hindi_name && <span className="block text-[10px] font-normal text-slate-500">{exp.hindi_name}</span>}
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                            exp.target === 'farmer'
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : 'bg-blue-50 text-blue-700 border-blue-200'
+                          }`}>
+                            {exp.target === 'farmer' ? '🌾 Farmer (आवक)' : '🛒 Buyer (बिक्री)'}
+                          </span>
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-700">
+                            {exp.type === 'per_unit' && '₹ / Nag (प्रति नग)'}
+                            {exp.type === 'percentage' && '% of Gross (प्रतिशत)'}
+                            {exp.type === 'fixed' && 'Flat Fixed (एकमुश्त ₹)'}
+                          </span>
+                        </td>
+                        <td className="p-3 text-right font-mono font-bold text-slate-900">
+                          {exp.type === 'percentage' ? `${exp.default_amount}%` : `₹${exp.default_amount}`}
+                        </td>
+                        <td className="p-3 text-center">
+                          {exp.is_mandatory ? (
+                            <span className="text-emerald-700 font-bold text-[10px] bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                              Mandatory
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-[10px]">Optional</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-right space-x-1.5 whitespace-nowrap">
+                          <button
+                            onClick={() => handleOpenEditExpense(exp)}
+                            className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer transition-colors border border-blue-200"
+                            title="Edit Expense"
+                          >
+                            <Edit className="w-3 h-3" /> Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteExpense(exp.id, exp.name)}
+                            className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
+                            title="Delete Expense"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ================= SUB-TAB 10: SUBSCRIPTION PLANS & BUY PLAN ================= */}
+      {activeTab === 'PLANS' && (
+        <div className="space-y-6">
+          {/* Active Plan Header Banner */}
+          <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white rounded-3xl p-6 shadow-xl relative overflow-hidden">
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 mb-2">
+                  <Crown className="w-3.5 h-3.5" /> Current Active Plan
+                </span>
+                <h2 className="text-2xl font-black tracking-tight flex items-center gap-2">
+                  {(tenant?.subscription_plan || 'Free').toUpperCase()} TIER
+                  <span className="text-xs font-bold text-emerald-400 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                    Active &bull; {tenant?.subscription_status || 'Active'}
+                  </span>
+                </h2>
+                <p className="text-slate-300 text-xs mt-1 max-w-xl">
+                  {tenant?.firm_name} is operating on the {tenant?.subscription_plan || 'Free'} tier. Upgrade to unlock unlimited consignments, double-entry automated trial balance & balance sheet, custom expense heads, and multi-user access.
+                </p>
+              </div>
+
+              {/* Billing Cycle Toggle */}
+              <div className="bg-white/10 p-1.5 rounded-2xl flex items-center gap-1 border border-white/10 shrink-0 self-start md:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setBillingCycle('monthly')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    billingCycle === 'monthly'
+                      ? 'bg-white text-slate-950 shadow-md'
+                      : 'text-white/80 hover:text-white'
+                  }`}
+                >
+                  Monthly (मासिक)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBillingCycle('annual')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    billingCycle === 'annual'
+                      ? 'bg-emerald-500 text-white shadow-md'
+                      : 'text-white/80 hover:text-white'
+                  }`}
+                >
+                  Annual (वार्षिक)
+                  <span className="bg-amber-400 text-slate-900 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase">
+                    Save 20%
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* 4 Tier Plan Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {SUBSCRIPTION_PLANS.map(plan => {
+              const isCurrent = (tenant?.subscription_plan || 'Free').toLowerCase() === plan.id.toLowerCase();
+              const price = billingCycle === 'annual' ? plan.priceAnnual : plan.priceMonthly;
+              const period = billingCycle === 'annual' ? '/year' : '/month';
+
+              return (
+                <div
+                  key={plan.id}
+                  className={`relative rounded-3xl p-5 flex flex-col justify-between transition-all duration-200 ${
+                    plan.popular
+                      ? 'bg-white border-2 border-emerald-500 shadow-xl ring-2 ring-emerald-500/20'
+                      : 'bg-white border border-slate-200 shadow-sm hover:shadow-md'
+                  }`}
+                >
+                  {plan.popular && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-[10px] font-black uppercase px-3 py-0.5 rounded-full shadow-sm tracking-wider">
+                      Most Popular
+                    </div>
+                  )}
+
+                  <div>
+                    {/* Header */}
+                    <div className="flex items-center justify-between gap-1 mb-2">
+                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${
+                        plan.id === 'Pro'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : plan.id === 'Enterprise'
+                          ? 'bg-purple-100 text-purple-800'
+                          : plan.id === 'Starter'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-slate-100 text-slate-700'
+                      }`}>
+                        {plan.tag}
+                      </span>
+                    </div>
+
+                    <h3 className="font-black text-slate-900 text-base">{plan.name}</h3>
+
+                    {/* Price */}
+                    <div className="mt-3 mb-4">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-black text-slate-900 tracking-tight">
+                          ₹{price.toLocaleString('en-IN')}
+                        </span>
+                        <span className="text-slate-400 text-xs font-medium">{period}</span>
+                      </div>
+                      {billingCycle === 'annual' && plan.priceMonthly > 0 && (
+                        <p className="text-[10px] text-emerald-600 font-bold mt-0.5">
+                          Equivalent to ₹{Math.round(price / 12).toLocaleString('en-IN')}/mo &bull; 2 Months Free
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Features List */}
+                    <div className="space-y-2 border-t border-slate-100 pt-3 text-xs">
+                      {plan.features.map((feat, idx) => (
+                        <div key={idx} className="flex items-start gap-2">
+                          <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                          <span className="text-slate-600 font-medium leading-tight text-[11px]">{feat}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Action Button */}
+                  <div className="pt-5 mt-4 border-t border-slate-100">
+                    {isCurrent ? (
+                      <button
+                        type="button"
+                        disabled
+                        className="w-full py-2.5 rounded-xl font-bold text-xs bg-slate-100 text-slate-500 cursor-default flex items-center justify-center gap-1.5"
+                      >
+                        <CheckCircle className="w-4 h-4 text-emerald-600" /> Current Plan (सक्रिय)
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenBuyPlan(plan)}
+                        className={`w-full py-2.5 rounded-xl font-bold text-xs transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5 ${
+                          plan.popular
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                            : plan.id === 'Enterprise'
+                            ? 'bg-purple-700 hover:bg-purple-800 text-white'
+                            : 'bg-slate-900 hover:bg-slate-800 text-white'
+                        }`}
+                      >
+                        <Crown className="w-3.5 h-3.5" /> Buy Plan (प्लान खरीदें)
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -2120,6 +2781,544 @@ export default function Settings() {
                 </button>
                 <button type="button" onClick={() => setShowAddMemberModal(false)} className="px-4 py-2.5 border rounded-xl">
                   {t('Cancel', 'रद्द करें')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: ADD VARIETY ================= */}
+      {showAddVarietyModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-3">
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-purple-600" />
+                  Add Variety &amp; Grade (नई किस्म जोड़ें)
+                </h3>
+                <p className="text-[11px] text-slate-500">Configure quality grade and benchmark rate for produce.</p>
+              </div>
+              <button onClick={() => setShowAddVarietyModal(false)} className="text-slate-400 hover:text-slate-700 text-lg cursor-pointer">✕</button>
+            </div>
+
+            <form onSubmit={handleAddVarietySubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Linked Commodity (फसल / जिंस) *</label>
+                <select
+                  value={varietyForm.commodityName}
+                  onChange={(e) => setVarietyForm({ ...varietyForm, commodityName: e.target.value })}
+                  className="w-full p-2 border border-slate-300 rounded-xl bg-white font-bold"
+                  required
+                >
+                  <option value="">-- Select Commodity --</option>
+                  {commodities.map(c => (
+                    <option key={c.id} value={c.name_en || c.name}>
+                      {c.name_en || c.name} {c.name_hi ? `(${c.name_hi})` : ''}
+                    </option>
+                  ))}
+                  <option value="Produce">Other Produce (अन्य)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Variety Name (English) *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Royal Delicious, Golden Grade A"
+                  value={varietyForm.name}
+                  onChange={(e) => setVarietyForm({ ...varietyForm, name: e.target.value })}
+                  className="w-full p-2 border border-slate-300 rounded-xl font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Hindi Name (हिंदी नाम - वैकल्पिक)</label>
+                <input
+                  type="text"
+                  placeholder="उदा. रॉयल डिलीशियस, गोल्डन ए-ग्रेड"
+                  value={varietyForm.nameHi}
+                  onChange={(e) => setVarietyForm({ ...varietyForm, nameHi: e.target.value })}
+                  className="w-full p-2 border border-slate-300 rounded-xl"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Grade / Quality</label>
+                  <select
+                    value={varietyForm.grade}
+                    onChange={(e) => setVarietyForm({ ...varietyForm, grade: e.target.value })}
+                    className="w-full p-2 border border-slate-300 rounded-xl bg-white"
+                  >
+                    <option value="Grade A">Grade A (सुपीरियर)</option>
+                    <option value="Grade B">Grade B (मध्यम)</option>
+                    <option value="Grade C">Grade C (लोकल)</option>
+                    <option value="Supreme">Supreme Premium</option>
+                    <option value="Standard">Standard Medium</option>
+                    <option value="Small">Small / Chhanta</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Default Rate (₹ / Nag)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="e.g. 1200"
+                    value={varietyForm.defaultRate}
+                    onChange={(e) => setVarietyForm({ ...varietyForm, defaultRate: e.target.value })}
+                    className="w-full p-2 border border-slate-300 rounded-xl font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-3 border-t">
+                <button type="submit" className="flex-1 py-2.5 bg-purple-700 hover:bg-purple-800 text-white rounded-xl font-bold shadow-xs cursor-pointer">
+                  Save Variety (किस्म सेव करें)
+                </button>
+                <button type="button" onClick={() => setShowAddVarietyModal(false)} className="px-4 py-2.5 border rounded-xl cursor-pointer">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: EDIT VARIETY ================= */}
+      {showEditVarietyModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-3">
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                  <Edit className="w-4 h-4 text-blue-600" />
+                  Edit Variety &amp; Grade (किस्म संपादित करें)
+                </h3>
+                <p className="text-[11px] text-slate-500">Update quality grade and rate configuration.</p>
+              </div>
+              <button onClick={() => setShowEditVarietyModal(false)} className="text-slate-400 hover:text-slate-700 text-lg cursor-pointer">✕</button>
+            </div>
+
+            <form onSubmit={handleSaveEditVariety} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Linked Commodity (फसल / जिंस) *</label>
+                <select
+                  value={editVarietyForm.commodityName}
+                  onChange={(e) => setEditVarietyForm({ ...editVarietyForm, commodityName: e.target.value })}
+                  className="w-full p-2 border border-slate-300 rounded-xl bg-white font-bold"
+                  required
+                >
+                  <option value="">-- Select Commodity --</option>
+                  {commodities.map(c => (
+                    <option key={c.id} value={c.name_en || c.name}>
+                      {c.name_en || c.name} {c.name_hi ? `(${c.name_hi})` : ''}
+                    </option>
+                  ))}
+                  <option value="Produce">Other Produce (अन्य)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Variety Name (English) *</label>
+                <input
+                  type="text"
+                  required
+                  value={editVarietyForm.name}
+                  onChange={(e) => setEditVarietyForm({ ...editVarietyForm, name: e.target.value })}
+                  className="w-full p-2 border border-slate-300 rounded-xl font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Hindi Name (हिंदी नाम - वैकल्पिक)</label>
+                <input
+                  type="text"
+                  value={editVarietyForm.nameHi}
+                  onChange={(e) => setEditVarietyForm({ ...editVarietyForm, nameHi: e.target.value })}
+                  className="w-full p-2 border border-slate-300 rounded-xl"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Grade / Quality</label>
+                  <select
+                    value={editVarietyForm.grade}
+                    onChange={(e) => setEditVarietyForm({ ...editVarietyForm, grade: e.target.value })}
+                    className="w-full p-2 border border-slate-300 rounded-xl bg-white"
+                  >
+                    <option value="Grade A">Grade A (सुपीरियर)</option>
+                    <option value="Grade B">Grade B (मध्यम)</option>
+                    <option value="Grade C">Grade C (लोकल)</option>
+                    <option value="Supreme">Supreme Premium</option>
+                    <option value="Standard">Standard Medium</option>
+                    <option value="Small">Small / Chhanta</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Default Rate (₹ / Nag)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editVarietyForm.defaultRate}
+                    onChange={(e) => setEditVarietyForm({ ...editVarietyForm, defaultRate: e.target.value })}
+                    className="w-full p-2 border border-slate-300 rounded-xl font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-3 border-t">
+                <button type="submit" className="flex-1 py-2.5 bg-blue-700 hover:bg-blue-800 text-white rounded-xl font-bold shadow-xs cursor-pointer">
+                  Update Variety (अपडेट करें)
+                </button>
+                <button type="button" onClick={() => setShowEditVarietyModal(false)} className="px-4 py-2.5 border rounded-xl cursor-pointer">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: ADD EXPENSE HEAD ================= */}
+      {showAddExpenseModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-3">
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                  <Receipt className="w-4 h-4 text-emerald-600" />
+                  Add Mandi Expense Head (नया खर्च जोड़ें)
+                </h3>
+                <p className="text-[11px] text-slate-500">Configure standard deduction or charge rule.</p>
+              </div>
+              <button onClick={() => setShowAddExpenseModal(false)} className="text-slate-400 hover:text-slate-700 text-lg cursor-pointer">✕</button>
+            </div>
+
+            <form onSubmit={handleAddExpenseSubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Expense Name (English) *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Mandi Fee, Palledari, Bardana, Freight"
+                  value={expenseForm.name}
+                  onChange={(e) => setExpenseForm({ ...expenseForm, name: e.target.value })}
+                  className="w-full p-2 border border-slate-300 rounded-xl font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Hindi Name (हिंदी नाम - वैकल्पिक)</label>
+                <input
+                  type="text"
+                  placeholder="उदा. मंडी शुल्क, पल्लेदारी, बारदाना, भाड़ा"
+                  value={expenseForm.hindiName}
+                  onChange={(e) => setExpenseForm({ ...expenseForm, hindiName: e.target.value })}
+                  className="w-full p-2 border border-slate-300 rounded-xl"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Applies To (Target Party) *</label>
+                  <select
+                    value={expenseForm.target}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, target: e.target.value })}
+                    className="w-full p-2 border border-slate-300 rounded-xl bg-white font-bold"
+                  >
+                    <option value="farmer">🌾 Farmer (किसान आवक)</option>
+                    <option value="buyer">🛒 Buyer (खरीदार बिक्री)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Calculation Type *</label>
+                  <select
+                    value={expenseForm.type}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, type: e.target.value })}
+                    className="w-full p-2 border border-slate-300 rounded-xl bg-white font-bold"
+                  >
+                    <option value="per_unit">₹ / Nag (प्रति नग)</option>
+                    <option value="percentage">% of Gross (प्रतिशत)</option>
+                    <option value="fixed">Flat Fixed (एकमुश्त ₹)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Default Amount / Rate ({expenseForm.type === 'percentage' ? '%' : '₹'}) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  placeholder={expenseForm.type === 'percentage' ? 'e.g. 1.5' : 'e.g. 10'}
+                  value={expenseForm.defaultAmount}
+                  onChange={(e) => setExpenseForm({ ...expenseForm, defaultAmount: e.target.value })}
+                  className="w-full p-2 border border-slate-300 rounded-xl font-mono font-bold"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="isMandatory"
+                  checked={expenseForm.isMandatory}
+                  onChange={(e) => setExpenseForm({ ...expenseForm, isMandatory: e.target.checked })}
+                  className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
+                />
+                <label htmlFor="isMandatory" className="text-slate-700 font-bold cursor-pointer select-none">
+                  Mandatory by default (डिफ़ॉल्ट रूप से अनिवार्य)
+                </label>
+              </div>
+
+              <div className="flex gap-2 pt-3 border-t">
+                <button type="submit" className="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold shadow-xs cursor-pointer">
+                  Save Expense Head (खर्च सेव करें)
+                </button>
+                <button type="button" onClick={() => setShowAddExpenseModal(false)} className="px-4 py-2.5 border rounded-xl cursor-pointer">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: EDIT EXPENSE HEAD ================= */}
+      {showEditExpenseModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-3">
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                  <Edit className="w-4 h-4 text-blue-600" />
+                  Edit Expense Head (खर्च संशोधित करें)
+                </h3>
+                <p className="text-[11px] text-slate-500">Update deduction rate and active status.</p>
+              </div>
+              <button onClick={() => setShowEditExpenseModal(false)} className="text-slate-400 hover:text-slate-700 text-lg cursor-pointer">✕</button>
+            </div>
+
+            <form onSubmit={handleSaveEditExpense} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Expense Name (English) *</label>
+                <input
+                  type="text"
+                  required
+                  value={editExpenseForm.name}
+                  onChange={(e) => setEditExpenseForm({ ...editExpenseForm, name: e.target.value })}
+                  className="w-full p-2 border border-slate-300 rounded-xl font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Hindi Name (हिंदी नाम - वैकल्पिक)</label>
+                <input
+                  type="text"
+                  value={editExpenseForm.hindiName}
+                  onChange={(e) => setEditExpenseForm({ ...editExpenseForm, hindiName: e.target.value })}
+                  className="w-full p-2 border border-slate-300 rounded-xl"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Applies To (Target Party) *</label>
+                  <select
+                    value={editExpenseForm.target}
+                    onChange={(e) => setEditExpenseForm({ ...editExpenseForm, target: e.target.value })}
+                    className="w-full p-2 border border-slate-300 rounded-xl bg-white font-bold"
+                  >
+                    <option value="farmer">🌾 Farmer (किसान आवक)</option>
+                    <option value="buyer">🛒 Buyer (खरीदार बिक्री)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Calculation Type *</label>
+                  <select
+                    value={editExpenseForm.type}
+                    onChange={(e) => setEditExpenseForm({ ...editExpenseForm, type: e.target.value })}
+                    className="w-full p-2 border border-slate-300 rounded-xl bg-white font-bold"
+                  >
+                    <option value="per_unit">₹ / Nag (प्रति नग)</option>
+                    <option value="percentage">% of Gross (प्रतिशत)</option>
+                    <option value="fixed">Flat Fixed (एकमुश्त ₹)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Default Amount / Rate ({editExpenseForm.type === 'percentage' ? '%' : '₹'}) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={editExpenseForm.defaultAmount}
+                  onChange={(e) => setEditExpenseForm({ ...editExpenseForm, defaultAmount: e.target.value })}
+                  className="w-full p-2 border border-slate-300 rounded-xl font-mono font-bold"
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <label className="flex items-center gap-2 text-slate-700 font-bold cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={editExpenseForm.isMandatory}
+                    onChange={(e) => setEditExpenseForm({ ...editExpenseForm, isMandatory: e.target.checked })}
+                    className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
+                  />
+                  Mandatory by default
+                </label>
+
+                <label className="flex items-center gap-2 text-slate-700 font-bold cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={editExpenseForm.isActive}
+                    onChange={(e) => setEditExpenseForm({ ...editExpenseForm, isActive: e.target.checked })}
+                    className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
+                  />
+                  Active in Forms
+                </label>
+              </div>
+
+              <div className="flex gap-2 pt-3 border-t">
+                <button type="submit" className="flex-1 py-2.5 bg-blue-700 hover:bg-blue-800 text-white rounded-xl font-bold shadow-xs cursor-pointer">
+                  Update Expense (अपडेट करें)
+                </button>
+                <button type="button" onClick={() => setShowEditExpenseModal(false)} className="px-4 py-2.5 border rounded-xl cursor-pointer">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: BUY PLAN / CHECKOUT ================= */}
+      {showBuyPlanModal && selectedPlanForBuy && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-3">
+              <div>
+                <span className="text-[10px] font-black uppercase text-emerald-600 tracking-wider">Checkout &bull; प्लान खरीदें</span>
+                <h3 className="font-black text-slate-900 text-base flex items-center gap-2">
+                  <Crown className="w-5 h-5 text-emerald-600" />
+                  Upgrade to {selectedPlanForBuy.name}
+                </h3>
+              </div>
+              <button onClick={() => setShowBuyPlanModal(false)} className="text-slate-400 hover:text-slate-700 text-lg cursor-pointer">✕</button>
+            </div>
+
+            <form onSubmit={handleConfirmSubscription} className="space-y-4 text-xs">
+              {/* Plan Pricing Summary Card */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-slate-600">Selected Plan Tier:</span>
+                  <span className="font-black text-slate-900 text-sm">{selectedPlanForBuy.id.toUpperCase()}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-slate-600">Billing Cycle:</span>
+                  <div className="flex items-center gap-1 bg-white border border-slate-200 p-1 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setBillingCycle('monthly')}
+                      className={`px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer ${
+                        billingCycle === 'monthly' ? 'bg-slate-900 text-white' : 'text-slate-600'
+                      }`}
+                    >
+                      Monthly
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBillingCycle('annual')}
+                      className={`px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer ${
+                        billingCycle === 'annual' ? 'bg-emerald-600 text-white' : 'text-slate-600'
+                      }`}
+                    >
+                      Annual (-20%)
+                    </button>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t border-slate-200">
+                  <span className="font-black text-slate-900 text-sm">Total Payable (कुल देय):</span>
+                  <span className="font-black text-emerald-700 text-lg">
+                    ₹{(billingCycle === 'annual' ? selectedPlanForBuy.priceAnnual : selectedPlanForBuy.priceMonthly).toLocaleString('en-IN')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Payment Method Selector */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-2">Select Payment Method (भुगतान विधि) *</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'UPI', label: 'UPI / QR Code', desc: 'GPay, PhonePe, Paytm', icon: '📱' },
+                    { id: 'NETBANKING', label: 'Net Banking / IMPS', desc: 'All Major Indian Banks', icon: '🏛️' },
+                    { id: 'CARD', label: 'Debit / Credit Card', desc: 'Visa, Rupay, Mastercard', icon: '💳' },
+                    { id: 'OFFLINE', label: 'Cheque / APMC Bank', desc: 'Direct Mandi Settlement', icon: '📝' }
+                  ].map(pm => (
+                    <div
+                      key={pm.id}
+                      onClick={() => setPaymentMethod(pm.id)}
+                      className={`p-3 rounded-2xl border cursor-pointer transition-all ${
+                        paymentMethod === pm.id
+                          ? 'border-emerald-600 bg-emerald-50/50 shadow-xs ring-1 ring-emerald-500'
+                          : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{pm.icon}</span>
+                        <div>
+                          <p className="font-bold text-slate-900 text-[11px] leading-tight">{pm.label}</p>
+                          <p className="text-[10px] text-slate-500">{pm.desc}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Payment Gateway Sandbox Note */}
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-[11px] text-amber-900 space-y-1">
+                <p className="font-bold flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  Instant Activation Demo Flow
+                </p>
+                <p className="text-amber-800 text-[10px] leading-relaxed">
+                  Razorpay / Cashfree Mandi PG integration is scheduled for production release. In this release, clicking &quot;Confirm &amp; Activate Plan&quot; simulates payment approval and instantly updates your firm&apos;s subscription in Supabase with an auto-generated invoice.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-2 border-t">
+                <button
+                  type="submit"
+                  disabled={subscribing}
+                  className="flex-1 py-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-md cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {subscribing ? (
+                    <span>Activating Subscription...</span>
+                  ) : (
+                    <>
+                      <Crown className="w-4 h-4" />
+                      Confirm &amp; Activate Plan (पुष्टि करें और प्लान शुरू करें)
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowBuyPlanModal(false)}
+                  disabled={subscribing}
+                  className="px-4 py-3 border border-slate-300 rounded-xl font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
                 </button>
               </div>
             </form>

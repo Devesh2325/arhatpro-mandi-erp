@@ -335,6 +335,39 @@ async function initSchema() {
     );
   `);
 
+  // 13. Varieties / Grades Configuration
+  await run(`
+    CREATE TABLE IF NOT EXISTS varieties (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      commodity_id TEXT,
+      commodity_name TEXT,
+      name TEXT NOT NULL,
+      name_hi TEXT,
+      grade TEXT,
+      default_rate REAL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    );
+  `);
+
+  // 14. Mandi Expense Heads (Farmer & Buyer)
+  await run(`
+    CREATE TABLE IF NOT EXISTS expense_heads (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      hindi_name TEXT,
+      target TEXT NOT NULL DEFAULT 'farmer', -- farmer, buyer, both
+      type TEXT NOT NULL DEFAULT 'per_unit', -- per_unit, percentage, fixed
+      default_amount REAL DEFAULT 0,
+      is_mandatory INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    );
+  `);
+
   // Safe migrations for table extensions
   const safeAlter = async (table, columnDef) => {
     try {
@@ -367,8 +400,15 @@ async function initSchema() {
   await safeAlter('parties', "balance_type TEXT DEFAULT 'Dr'");
   await safeAlter('arrivals', 'arrival_rate REAL DEFAULT 0');
   await safeAlter('arrivals', 'total_arrival_amount REAL DEFAULT 0');
+  await safeAlter('arrivals', 'manual_lot_no TEXT');
+  await safeAlter('arrivals', 'custom_expenses TEXT');
   await safeAlter('sales_lots', 'arrival_rate REAL DEFAULT 0');
+  await safeAlter('sales_lots', 'custom_expenses TEXT');
   await safeAlter('split_sales', 'arrival_rate REAL DEFAULT 0');
+  await safeAlter('split_sales', 'custom_expenses TEXT');
+  await safeAlter('subscriptions', "billing_cycle TEXT DEFAULT 'monthly'");
+  await safeAlter('subscriptions', 'amount_paid REAL DEFAULT 0');
+  await safeAlter('subscriptions', "payment_method TEXT DEFAULT 'UPI'");
 
   await seedInitialData();
 }

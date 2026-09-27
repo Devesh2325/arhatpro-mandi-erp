@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useLanguage } from '../context/LanguageContext';
-import { Truck, Plus, Search, Filter, Printer, CheckCircle, Clock, AlertTriangle, X } from 'lucide-react';
+import { Truck, Plus, Search, Filter, Printer, CheckCircle, Clock, AlertTriangle, X, Receipt, Tag } from 'lucide-react';
 
 export default function Arrivals() {
   const { t, isHindi } = useLanguage();
   const [arrivals, setArrivals] = useState([]);
   const [commodities, setCommodities] = useState([]);
+  const [varieties, setVarieties] = useState([]);
+  const [farmerExpenses, setFarmerExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -16,12 +18,14 @@ export default function Arrivals() {
   const [message, setMessage] = useState(null);
 
   const [formData, setFormData] = useState({
+    manual_lot_no: '',
     truck_no: '',
     driver_name: '',
     driver_mobile: '',
     farmer_name: '',
     source_location: '',
     commodity_id: '',
+    variety: '',
     bags: '',
     gross_weight: '',
     arrival_rate: '',
@@ -36,12 +40,28 @@ export default function Arrivals() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [arrivalsRes, commsRes] = await Promise.all([
+      const [arrivalsRes, commsRes, varRes, expRes] = await Promise.all([
         api.getArrivals(),
-        api.getCommodities()
+        api.getCommodities(),
+        api.getVarieties().catch(() => []),
+        api.getExpenses().catch(() => [])
       ]);
       setArrivals(arrivalsRes.arrivals || []);
       setCommodities(commsRes.commodities || []);
+      setVarieties(Array.isArray(varRes) ? varRes : []);
+
+      const fExps = (Array.isArray(expRes) ? expRes : [])
+        .filter(e => e.target === 'farmer' || e.target === 'both')
+        .map(e => ({
+          id: e.id,
+          name: e.name,
+          hindi_name: e.hindi_name,
+          type: e.type,
+          amount: e.default_amount || 0,
+          enabled: true
+        }));
+      setFarmerExpenses(fExps);
+
       if (commsRes.commodities?.length > 0 && !formData.commodity_id) {
         setFormData(prev => ({ ...prev, commodity_id: commsRes.commodities[0].id }));
       }
@@ -52,28 +72,54 @@ export default function Arrivals() {
     }
   };
 
+  const handleExpenseToggle = (idx, checked) => {
+    setFarmerExpenses(prev => {
+      const updated = [...prev];
+      updated[idx].enabled = checked;
+      return updated;
+    });
+  };
+
+  const handleExpenseRateChange = (idx, val) => {
+    setFarmerExpenses(prev => {
+      const updated = [...prev];
+      updated[idx].amount = parseFloat(val) || 0;
+      return updated;
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     setMessage(null);
     try {
+      const selectedComm = commodities.find(c => c.id === formData.commodity_id);
+      const activeExpenses = farmerExpenses.filter(e => e.enabled);
+
       const res = await api.createArrival({
         ...formData,
+        commodity_name: selectedComm?.name || selectedComm?.name_en || 'Produce',
         bags: parseInt(formData.bags, 10),
         gross_weight: parseFloat(formData.gross_weight) || 0,
         arrival_rate: parseFloat(formData.arrival_rate) || 0,
         freight_amount: parseFloat(formData.freight_amount) || 0,
-        advance_paid: parseFloat(formData.advance_paid) || 0
+        advance_paid: parseFloat(formData.advance_paid) || 0,
+        manualLotNo: formData.manual_lot_no ? formData.manual_lot_no.trim() : null,
+        variety: formData.variety ? formData.variety.trim() : '',
+        customExpenses: activeExpenses
       });
-      setMessage({ type: 'success', text: `Consignment registered successfully! Lot: ${res.lotId || res.lot?.lot_number || 'Generated'}` });
+
+      setMessage({ type: 'success', text: `Consignment registered successfully! Lot: ${res.lotId || res.manualLotNo || 'Generated'}` });
       setShowAddModal(false);
       setFormData({
+        manual_lot_no: '',
         truck_no: '',
         driver_name: '',
         driver_mobile: '',
         farmer_name: '',
         source_location: '',
         commodity_id: commodities[0]?.id || '',
+        variety: '',
         bags: '',
         gross_weight: '',
         arrival_rate: '',
@@ -334,6 +380,28 @@ export default function Arrivals() {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4">
+              {/* Row 0: Manual Lot No & Consignment Settings */}
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">
+                      {t('Lot Number (लॉट नंबर - Manual/Auto)', 'लॉट नंबर (वैकल्पिक / खाली छोड़ें तो स्वतः बनेगा)')}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. LOT-A101 (or leave blank for auto LOT-xxxx)"
+                      value={formData.manual_lot_no}
+                      onChange={(e) => setFormData({ ...formData, manual_lot_no: e.target.value.toUpperCase() })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono uppercase font-black text-indigo-900 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    <span className="font-bold text-slate-700 block">💡 Manual Lot Number:</span>
+                    Enter your custom yard mark/lot code, or leave blank to automatically assign <code className="bg-slate-200 px-1 py-0.5 rounded font-mono">LOT-xxxx</code>.
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Truck Number *', 'गाड़ी नंबर *')}</label>
@@ -392,8 +460,8 @@ export default function Arrivals() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Commodity *', 'फसल / जिंस *')}</label>
                   <select
                     value={formData.commodity_id}
@@ -405,6 +473,28 @@ export default function Arrivals() {
                     ))}
                   </select>
                 </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    {t('Variety / Grade (किस्म व ग्रेड)', 'किस्म व ग्रेड')}
+                  </label>
+                  <input
+                    type="text"
+                    list="arrival-varieties-list"
+                    placeholder="Select or type variety (e.g. Royal Medium)"
+                    value={formData.variety}
+                    onChange={(e) => setFormData({ ...formData, variety: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white font-medium"
+                  />
+                  <datalist id="arrival-varieties-list">
+                    {varieties.map(v => (
+                      <option key={v.id} value={v.name}>{v.commodity_name ? `${v.commodity_name} - ` : ''}{v.name} {v.grade ? `(${v.grade})` : ''}</option>
+                    ))}
+                  </datalist>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">{t('Total Bags / Crates *', 'कुल नग / बोरी *')}</label>
                   <input
@@ -461,6 +551,48 @@ export default function Arrivals() {
                   </div>
                 </div>
               </div>
+
+              {/* Dynamic Farmer Mandi Expenses & Deductions Checklist */}
+              {farmerExpenses.length > 0 && (
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <Receipt className="w-3.5 h-3.5 text-indigo-600" />
+                      {t('Farmer Expenses & Deductions (किसान खर्चे व कटौतियां)', 'किसान खर्चे व कटौतियां')}
+                    </label>
+                    <span className="text-[11px] text-slate-500">
+                      Settings द्वारा निर्धारित खर्चे (Modify if required)
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {farmerExpenses.map((exp, idx) => (
+                      <div key={exp.id || idx} className="bg-white p-2.5 rounded-lg border border-slate-200 flex items-center justify-between gap-2 text-xs">
+                        <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800">
+                          <input
+                            type="checkbox"
+                            checked={exp.enabled}
+                            onChange={(e) => handleExpenseToggle(idx, e.target.checked)}
+                            className="rounded text-indigo-600 cursor-pointer"
+                          />
+                          <span>{exp.name} {exp.hindi_name ? `(${exp.hindi_name})` : ''}</span>
+                        </label>
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-400 font-mono text-[10px]">
+                            {exp.type === 'per_unit' ? '₹/नग' : exp.type === 'percentage' ? '%' : '₹'}
+                          </span>
+                          <input
+                            type="number"
+                            step="any"
+                            value={exp.amount}
+                            onChange={(e) => handleExpenseRateChange(idx, e.target.value)}
+                            className="w-16 px-1.5 py-1 border border-slate-300 rounded font-mono text-right text-xs"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
                 <div>

@@ -1,17 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useLanguage } from '../context/LanguageContext';
-import { BookOpen, DollarSign, ArrowUpRight, ArrowDownLeft, ShieldCheck, Clock, Plus, Search, Filter, AlertTriangle, CheckCircle, RefreshCw, X, Receipt } from 'lucide-react';
+import { 
+  BookOpen, 
+  DollarSign, 
+  ArrowUpRight, 
+  ArrowDownLeft, 
+  ShieldCheck, 
+  Clock, 
+  Plus, 
+  Search, 
+  Filter, 
+  AlertTriangle, 
+  CheckCircle, 
+  RefreshCw, 
+  X, 
+  Receipt,
+  Scale,
+  FileText,
+  Printer,
+  Download,
+  Sparkles,
+  ChevronDown,
+  ChevronUp
+} from 'lucide-react';
 
 export default function BahiKhata() {
   const { t, isHindi } = useLanguage();
-  const [activeTab, setActiveTab] = useState('ACCOUNTS'); // ACCOUNTS, CASHBOOK, JOURNAL, AGING
+  const [activeTab, setActiveTab] = useState('ACCOUNTS'); // ACCOUNTS, CASHBOOK, JOURNAL, TRIAL_BALANCE, BALANCE_SHEET, AGING
   const [accounts, setAccounts] = useState([]);
   const [cashEntries, setCashEntries] = useState([]);
+  const [journalEntries, setJournalEntries] = useState([]);
+  const [trialBalance, setTrialBalance] = useState(null);
+  const [balanceSheet, setBalanceSheet] = useState(null);
   const [agingData, setAgingData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [message, setMessage] = useState(null);
+  const [expandedRows, setExpandedRows] = useState({});
 
   // Cashbook form state
   const [showCashModal, setShowCashModal] = useState(false);
@@ -54,8 +80,18 @@ export default function BahiKhata() {
         const res = await api.getDebtorAging();
         setAgingData(res.debtors || []);
       } else if (activeTab === 'JOURNAL') {
-        const accRes = await api.getAccounts();
+        const [accRes, jvRes] = await Promise.all([
+          api.getAccounts(),
+          api.getJournal()
+        ]);
         setAccounts(accRes.accounts || []);
+        setJournalEntries(Array.isArray(jvRes) ? jvRes : []);
+      } else if (activeTab === 'TRIAL_BALANCE') {
+        const tbRes = await api.getTrialBalance();
+        setTrialBalance(tbRes);
+      } else if (activeTab === 'BALANCE_SHEET') {
+        const bsRes = await api.getBalanceSheet();
+        setBalanceSheet(bsRes);
       }
     } catch (err) {
       console.error('Failed to load ledger data:', err);
@@ -173,6 +209,16 @@ export default function BahiKhata() {
               <Receipt className="w-4 h-4" /> {t('New Journal Voucher (Dr = Cr)', 'नया जर्नल वाउचर')}
             </button>
           )}
+          {(activeTab === 'TRIAL_BALANCE' || activeTab === 'BALANCE_SHEET') && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => window.print()}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-lg text-xs cursor-pointer border border-slate-300"
+              >
+                <Printer className="w-3.5 h-3.5" /> {t('Print Statement', 'प्रिंट करें')}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -186,19 +232,21 @@ export default function BahiKhata() {
       )}
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 gap-6">
+      <div className="flex border-b border-gray-200 gap-2 sm:gap-4 overflow-x-auto pb-1 text-xs sm:text-sm font-bold select-none">
         {[
-          { id: 'ACCOUNTS', label: t('Khata Accounts', 'खाता बही'), icon: BookOpen },
-          { id: 'CASHBOOK', label: t('Rokad / Cashbook', 'रोकड़ बही'), icon: DollarSign },
-          { id: 'JOURNAL', label: t('Double-Entry Journal', 'जर्नल वाउचर'), icon: ShieldCheck },
-          { id: 'AGING', label: t('15-Day Aging & Interest', 'ब्याज गणना व अवधि'), icon: Clock }
+          { id: 'ACCOUNTS', label: t('Khata Accounts', 'खाता बही (पार्टी)'), icon: BookOpen },
+          { id: 'CASHBOOK', label: t('Rokad / Cashbook', 'रोकड़ बही (नकद)'), icon: DollarSign },
+          { id: 'JOURNAL', label: t('Double-Entry Journal', 'रोजनामचा (जर्नल)'), icon: ShieldCheck },
+          { id: 'TRIAL_BALANCE', label: t('Trial Balance', 'तलपट (ट्रायल बैलेंस)'), icon: Scale },
+          { id: 'BALANCE_SHEET', label: t('Balance Sheet', 'आर्थिक चिट्ठा (बैलेंस शीट)'), icon: FileText },
+          { id: 'AGING', label: t('15-Day Aging & Interest', 'ब्याज व उधारी अवधि'), icon: Clock }
         ].map(tab => {
           const Icon = tab.icon;
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`pb-3.5 text-sm font-bold flex items-center gap-2 border-b-2 transition-all ${
+              onClick={() => { setActiveTab(tab.id); setSearchTerm(''); }}
+              className={`pb-3 text-xs sm:text-sm font-bold flex items-center gap-1.5 border-b-2 transition-all shrink-0 cursor-pointer ${
                 activeTab === tab.id
                   ? 'border-indigo-600 text-indigo-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -346,32 +394,474 @@ export default function BahiKhata() {
         </div>
       )}
 
-      {/* TAB 3: JOURNAL (DR = CR) */}
+      {/* TAB 3: JOURNAL REGISTER (DR = CR AUTO & MANUAL VOUCHERS) */}
       {activeTab === 'JOURNAL' && (
         <div className="space-y-6">
-          <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-5 flex items-start justify-between">
+          <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h3 className="text-base font-bold text-indigo-950 flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-indigo-600" /> Double-Entry General Journal Guarantee
+                <ShieldCheck className="w-5 h-5 text-indigo-600" /> {t('Double-Entry General Journal (रोजनामचा)', 'द्वि-प्रविष्टि रोजनामचा (General Journal)')}
               </h3>
               <p className="text-xs text-indigo-800 mt-1 max-w-2xl leading-relaxed">
-                Every transaction posted in Azadpur Mandi ERP requires exact equilibrium between Debit and Credit (Dr = Cr). Unbalanced entries are mathematically intercepted and rejected at the database level.
+                {t(
+                  'Every trade consignment (Quick Trade, Split Sales) and manual entry automatically records balanced double-entry vouchers (Dr = Cr). Audit-proof and APMC compliant.',
+                  'प्रत्येक व्यापार (क्विक ट्रेड, लॉट बिक्री) और हस्त प्रविष्टि स्वतः संतुलित वाउचर (Dr = Cr) दर्ज करती है।'
+                )}
               </p>
             </div>
-            <button
-              onClick={() => setShowJournalModal(true)}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm"
-            >
-              <Plus className="w-4 h-4" /> Create Journal Voucher
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowJournalModal(true)}
+                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
+              >
+                <Plus className="w-4 h-4" /> {t('New Manual JV', 'नया वाउचर (JV)')}
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-xs text-slate-500 font-medium block">Total Vouchers Logged</span>
+              <span className="text-xl font-black text-slate-900 font-mono mt-1 block">{journalEntries.length}</span>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-xs text-slate-500 font-medium block">Total Journal Debit (₹ Dr)</span>
+              <span className="text-xl font-black text-emerald-700 font-mono mt-1 block">
+                ₹{journalEntries.reduce((s, j) => s + (parseFloat(j.amount) || 0), 0).toLocaleString()}
+              </span>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-xs text-slate-500 font-medium block">Total Journal Credit (₹ Cr)</span>
+              <span className="text-xl font-black text-blue-700 font-mono mt-1 block">
+                ₹{journalEntries.reduce((s, j) => s + (parseFloat(j.amount) || 0), 0).toLocaleString()}
+              </span>
+            </div>
+          </div>
+
+          {/* Search bar */}
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search voucher no, account name, narration..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+            </div>
+            <button onClick={loadData} className="p-2 text-gray-500 hover:text-indigo-600 rounded-lg hover:bg-gray-100 cursor-pointer">
+              <RefreshCw className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500">
-            <Receipt className="w-12 h-12 text-indigo-300 mx-auto mb-3" />
-            <div className="text-base font-bold text-gray-900">Audit-Compliant Voucher Recording</div>
-            <p className="text-xs text-gray-400 max-w-md mx-auto mt-1">
-              Click the button above to record bank settlements, supplier contra entries, freight disbursements or bad-debt provisions.
-            </p>
+          {/* Journal Entries Table */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <table className="w-full text-left text-sm text-gray-600">
+              <thead className="bg-gray-50 text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">
+                <tr>
+                  <th className="py-3.5 px-4">Voucher No</th>
+                  <th className="py-3.5 px-4">Date</th>
+                  <th className="py-3.5 px-4">Debit Account (नाम / Dr)</th>
+                  <th className="py-3.5 px-4">Credit Account (जमा / Cr)</th>
+                  <th className="py-3.5 px-4">Narration / Trade Ref</th>
+                  <th className="py-3.5 px-4 text-right">Amount (₹)</th>
+                  <th className="py-3.5 px-4 text-center">Type</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 font-sans">
+                {loading ? (
+                  <tr><td colSpan="7" className="text-center py-10 text-gray-400">Loading journal vouchers...</td></tr>
+                ) : journalEntries.length === 0 ? (
+                  <tr><td colSpan="7" className="text-center py-10 text-gray-400">No journal vouchers found. Make trade entries or create one!</td></tr>
+                ) : (
+                  journalEntries
+                    .filter(j => {
+                      const q = searchTerm.toLowerCase();
+                      return (
+                        j.voucher_no?.toLowerCase().includes(q) ||
+                        j.debit_account?.toLowerCase().includes(q) ||
+                        j.credit_account?.toLowerCase().includes(q) ||
+                        j.narration?.toLowerCase().includes(q)
+                      );
+                    })
+                    .map((j, i) => {
+                      const isAuto = j.voucher_no?.includes('-SL-') || j.voucher_no?.includes('-QT-') || j.created_by?.includes('Auto');
+                      return (
+                        <tr key={j.id || i} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-3 px-4 font-mono font-bold text-slate-900 text-xs">{j.voucher_no}</td>
+                          <td className="py-3 px-4 text-xs text-slate-500 whitespace-nowrap">{j.date}</td>
+                          <td className="py-3 px-4 font-bold text-emerald-800 text-xs">{j.debit_account}</td>
+                          <td className="py-3 px-4 font-bold text-blue-800 text-xs">{j.credit_account}</td>
+                          <td className="py-3 px-4 text-xs text-slate-600 max-w-xs truncate" title={j.narration}>{j.narration || '—'}</td>
+                          <td className="py-3 px-4 text-right font-mono font-black text-slate-900 text-sm">₹{parseFloat(j.amount).toLocaleString()}</td>
+                          <td className="py-3 px-4 text-center">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                              isAuto ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-purple-100 text-purple-800 border border-purple-300'
+                            }`}>
+                              {isAuto ? '⚡ Auto Trade' : 'Manual JV'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: TRIAL BALANCE (तलपट - Dr = Cr Equilibrium) */}
+      {activeTab === 'TRIAL_BALANCE' && (
+        <div className="space-y-6">
+          {/* Header Card */}
+          <div className="bg-emerald-900 text-white rounded-2xl p-6 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Scale className="w-6 h-6 text-emerald-300" />
+                <h3 className="text-xl font-bold tracking-tight">
+                  {t('Mandi Trial Balance (तलपट)', 'मंडी तलपट (Trial Balance - Dr = Cr)')}
+                </h3>
+              </div>
+              <p className="text-emerald-200 text-xs mt-1">
+                {t(
+                  'Summarized ledger balances of Cash in Hand, Sundry Debtors, Farmer Creditors, Stock and Revenue.',
+                  'रोकड़, देनदार व्यापारी, लेनदार किसान, अंतिम स्टॉक एवं आढ़त आय का संपूर्ण सारांश।'
+                )}
+              </p>
+              <div className="text-[11px] text-emerald-300 font-mono mt-2">
+                As on Date: {trialBalance?.asOnDate || new Date().toISOString().split('T')[0]} • Agency Books
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <div className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 ${
+                trialBalance?.isBalanced ? 'bg-emerald-500/30 text-emerald-100 border border-emerald-400' : 'bg-rose-500/40 text-rose-100 border border-rose-400'
+              }`}>
+                <CheckCircle className="w-4 h-4" />
+                {trialBalance?.isBalanced ? 'Dr = Cr Equilibrium Balanced (संतुलित)' : 'Unbalanced Difference'}
+              </div>
+              <button
+                onClick={() => {
+                  if (!trialBalance?.rows) return;
+                  const headers = ['Code', 'Account Particulars', 'Group', 'Debit (INR)', 'Credit (INR)'];
+                  const rows = trialBalance.rows.map(r => [
+                    r.code,
+                    `"${r.name.replace(/"/g, '""')}"`,
+                    r.group,
+                    r.debit || 0,
+                    r.credit || 0
+                  ]);
+                  rows.push(['TOTAL', 'Grand Total', '', trialBalance.totalDebit, trialBalance.totalCredit]);
+                  const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+                  const encodedUri = encodeURI(csvContent);
+                  const link = document.createElement('a');
+                  link.setAttribute('href', encodedUri);
+                  link.setAttribute('download', `Trial_Balance_${trialBalance.asOnDate || 'report'}.csv`);
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
+                className="px-3 py-2 bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 border border-emerald-600 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" /> CSV Export
+              </button>
+            </div>
+          </div>
+
+          {/* Trial Balance Table */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden" id="trial-balance-sheet">
+            <table className="w-full text-left text-xs sm:text-sm text-slate-700">
+              <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider text-[11px] border-b border-slate-200">
+                <tr>
+                  <th className="py-3 px-4 w-20">Code</th>
+                  <th className="py-3 px-4">Account Particulars (खाता विवरण)</th>
+                  <th className="py-3 px-4">Account Group (समूह)</th>
+                  <th className="py-3 px-4 text-right">Debit (नाम / Dr ₹)</th>
+                  <th className="py-3 px-4 text-right">Credit (जमा / Cr ₹)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-sans">
+                {loading ? (
+                  <tr><td colSpan="5" className="text-center py-12 text-slate-400 font-medium">Generating Trial Balance from live ledgers...</td></tr>
+                ) : !trialBalance?.rows || trialBalance.rows.length === 0 ? (
+                  <tr><td colSpan="5" className="text-center py-12 text-slate-400 font-medium">No ledger data available to compute trial balance.</td></tr>
+                ) : (
+                  trialBalance.rows.map((row) => {
+                    const hasSub = row.subItems && row.subItems.length > 0;
+                    const isExpanded = expandedRows[row.code];
+                    return (
+                      <React.Fragment key={row.code}>
+                        <tr className="hover:bg-slate-50 transition-colors">
+                          <td className="py-3 px-4 font-mono font-bold text-slate-400 text-xs">{row.code}</td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900">{isHindi ? (row.hindi_name || row.name) : row.name}</span>
+                              {hasSub && (
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedRows(prev => ({ ...prev, [row.code]: !prev[row.code] }))}
+                                  className="text-[10px] text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-md font-bold flex items-center gap-0.5 cursor-pointer"
+                                >
+                                  {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                  {row.subItems.length} parties
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                              {row.group}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 text-sm">
+                            {row.debit > 0 ? `₹${row.debit.toLocaleString()}` : '—'}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 text-sm">
+                            {row.credit > 0 ? `₹${row.credit.toLocaleString()}` : '—'}
+                          </td>
+                        </tr>
+
+                        {/* Expandable Sub-items (Individual Buyers Breakdown) */}
+                        {hasSub && isExpanded && (
+                          <tr className="bg-slate-50/70">
+                            <td colSpan="5" className="p-3 pl-12">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                                {row.subItems.map((sub, sIdx) => (
+                                  <div key={sIdx} className="bg-white p-2.5 rounded-xl border border-slate-200 flex justify-between items-center text-xs">
+                                    <div>
+                                      <span className="font-bold text-slate-800 block truncate max-w-[150px]">{sub.name}</span>
+                                      <span className="text-[10px] font-mono text-slate-400">[{sub.code}]</span>
+                                    </div>
+                                    <span className="font-mono font-bold text-emerald-800">₹{sub.amount.toLocaleString()}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
+                )}
+              </tbody>
+              {trialBalance?.rows && (
+                <tfoot className="bg-slate-900 text-white font-black text-sm">
+                  <tr>
+                    <td className="py-4 px-4 font-mono text-slate-400">TOTAL</td>
+                    <td colSpan="2" className="py-4 px-4 uppercase tracking-wider">
+                      Grand Total (कुल योग - Dr = Cr Equilibrium)
+                    </td>
+                    <td className="py-4 px-4 text-right font-mono text-emerald-400 text-base">
+                      ₹{trialBalance.totalDebit?.toLocaleString()}
+                    </td>
+                    <td className="py-4 px-4 text-right font-mono text-emerald-400 text-base">
+                      ₹{trialBalance.totalCredit?.toLocaleString()}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: BALANCE SHEET (आर्थिक चिट्ठा / तुलन पत्र) */}
+      {activeTab === 'BALANCE_SHEET' && (
+        <div className="space-y-6">
+          {/* Header Card */}
+          <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <FileText className="w-6 h-6 text-blue-400" />
+                <h3 className="text-xl font-bold tracking-tight">
+                  {t('Balance Sheet / Financial Statement', 'आर्थिक चिट्ठा (बैलेंस शीट / तुलन पत्र)')}
+                </h3>
+              </div>
+              <p className="text-slate-300 text-xs mt-1">
+                {t(
+                  'Statement of Financial Position: Assets (Current & Fixed) vs Liabilities & Owner’s Equity.',
+                  'वित्तीय स्थिति विवरण: कुल परिसंपत्तियां (रोकड़, उधारी, स्टॉक) बनाम कुल देनदारियां एवं मालिक की पूंजी।'
+                )}
+              </p>
+              <div className="text-[11px] text-slate-400 font-mono mt-2">
+                As on Date: {balanceSheet?.asOnDate || new Date().toISOString().split('T')[0]} • Azadpur APMC Standard
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <div className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 ${
+                balanceSheet?.isBalanced ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+              }`}>
+                <CheckCircle className="w-4 h-4" />
+                {balanceSheet?.isBalanced ? 'Tally Balanced (संतुलित)' : 'Review Required'}
+              </div>
+              <button
+                onClick={() => {
+                  if (!balanceSheet) return;
+                  const rows = [
+                    ['CATEGORY', 'ITEM', 'AMOUNT (INR)'],
+                    ['ASSETS - Current', 'Cash in Hand', balanceSheet.assets?.currentAssets?.[0]?.amount || 0],
+                    ['ASSETS - Current', 'Sundry Debtors', balanceSheet.assets?.currentAssets?.[1]?.amount || 0],
+                    ['ASSETS - Current', 'Closing Stock', balanceSheet.assets?.currentAssets?.[2]?.amount || 0],
+                    ['ASSETS - Total', 'Total Assets', balanceSheet.totalAssets || 0],
+                    ['LIABILITIES - Current', 'Farmer Payables', balanceSheet.liabilities?.currentLiabilities?.[0]?.amount || 0],
+                    ['LIABILITIES - Current', 'Freight Payable', balanceSheet.liabilities?.currentLiabilities?.[1]?.amount || 0],
+                    ['EQUITY', "Proprietor's Capital", balanceSheet.equity?.capital?.[0]?.amount || 0],
+                    ['EQUITY', 'Retained Earnings', balanceSheet.equity?.capital?.[1]?.amount || 0],
+                    ['LIABILITIES & EQUITY - Total', 'Total Liabilities & Equity', balanceSheet.totalLiabilitiesAndEquity || 0]
+                  ];
+                  const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n');
+                  const encodedUri = encodeURI(csvContent);
+                  const link = document.createElement('a');
+                  link.setAttribute('href', encodedUri);
+                  link.setAttribute('download', `Balance_Sheet_${balanceSheet.asOnDate || 'report'}.csv`);
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
+                className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 border border-slate-700 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" /> CSV Export
+              </button>
+            </div>
+          </div>
+
+          {/* 2-Column Balance Sheet Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6" id="balance-sheet-print">
+            {/* COLUMN 1: LIABILITIES & EQUITY */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between overflow-hidden">
+              <div>
+                <div className="bg-rose-50/80 px-5 py-3.5 border-b border-rose-100 flex items-center justify-between">
+                  <span className="font-black text-rose-950 text-sm uppercase tracking-wider">
+                    {t('Liabilities & Capital', 'देनदारियां और पूंजी (Liabilities & Equity)')}
+                  </span>
+                  <span className="text-xs text-rose-800 font-bold">दायित्व पक्ष</span>
+                </div>
+
+                <div className="p-5 space-y-5">
+                  {/* Current Liabilities */}
+                  <div>
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">
+                      1. Current Liabilities (चालू देनदारियां)
+                    </h4>
+                    <div className="divide-y divide-slate-100">
+                      {(balanceSheet?.liabilities?.currentLiabilities || []).map((item, idx) => (
+                        <div key={idx} className="py-2.5 flex justify-between items-center text-xs">
+                          <div>
+                            <span className="font-bold text-slate-800 block">{item.name}</span>
+                            <span className="text-[10px] text-slate-400">{item.notes}</span>
+                          </div>
+                          <span className="font-mono font-bold text-slate-900">₹{item.amount.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="pt-2 flex justify-between text-xs font-bold text-slate-600 border-t border-slate-200">
+                      <span>Subtotal Current Liabilities</span>
+                      <span className="font-mono">₹{(balanceSheet?.totalCurrentLiabilities || 0).toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  {/* Owner's Capital & Equity */}
+                  <div>
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">
+                      2. Capital & Retained Earnings (मालिक की पूंजी व संचित लाभ)
+                    </h4>
+                    <div className="divide-y divide-slate-100">
+                      {(balanceSheet?.equity?.capital || []).map((item, idx) => (
+                        <div key={idx} className="py-2.5 flex justify-between items-center text-xs">
+                          <div>
+                            <span className="font-bold text-slate-800 block">{item.name}</span>
+                            <span className="text-[10px] text-slate-400">{item.notes}</span>
+                          </div>
+                          <span className="font-mono font-bold text-slate-900">₹{item.amount.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="pt-2 flex justify-between text-xs font-bold text-slate-600 border-t border-slate-200">
+                      <span>Subtotal Capital & Equity</span>
+                      <span className="font-mono">₹{(balanceSheet?.totalEquity || 0).toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Liabilities Total Footer */}
+              <div className="bg-slate-900 text-white p-4 flex justify-between items-center border-t border-slate-900">
+                <span className="font-black text-xs uppercase tracking-wider">Total Liabilities & Equity (कुल देनदारियां)</span>
+                <span className="font-mono font-black text-base text-rose-300">
+                  ₹{(balanceSheet?.totalLiabilitiesAndEquity || 0).toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            {/* COLUMN 2: ASSETS */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between overflow-hidden">
+              <div>
+                <div className="bg-emerald-50/80 px-5 py-3.5 border-b border-emerald-100 flex items-center justify-between">
+                  <span className="font-black text-emerald-950 text-sm uppercase tracking-wider">
+                    {t('Assets & Inventory', 'संपत्तियां व स्टॉक (Assets & Inventory)')}
+                  </span>
+                  <span className="text-xs text-emerald-800 font-bold">संपत्ति पक्ष</span>
+                </div>
+
+                <div className="p-5 space-y-5">
+                  {/* Current Assets */}
+                  <div>
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">
+                      1. Current Assets (चालू परिसंपत्तियां)
+                    </h4>
+                    <div className="divide-y divide-slate-100">
+                      {(balanceSheet?.assets?.currentAssets || []).map((item, idx) => (
+                        <div key={idx} className="py-2.5 flex justify-between items-center text-xs">
+                          <div>
+                            <span className="font-bold text-slate-800 block">{item.name}</span>
+                            <span className="text-[10px] text-slate-400">{item.notes}</span>
+                          </div>
+                          <span className="font-mono font-bold text-slate-900">₹{item.amount.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="pt-2 flex justify-between text-xs font-bold text-slate-600 border-t border-slate-200">
+                      <span>Subtotal Current Assets</span>
+                      <span className="font-mono">₹{(balanceSheet?.totalCurrentAssets || 0).toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  {/* Fixed Assets */}
+                  <div>
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">
+                      2. Fixed / Mandi Assets (स्थाई परिसंपत्तियां)
+                    </h4>
+                    <div className="divide-y divide-slate-100">
+                      {(balanceSheet?.assets?.fixedAssets || []).map((item, idx) => (
+                        <div key={idx} className="py-2.5 flex justify-between items-center text-xs">
+                          <div>
+                            <span className="font-bold text-slate-800 block">{item.name}</span>
+                            <span className="text-[10px] text-slate-400">{item.notes}</span>
+                          </div>
+                          <span className="font-mono font-bold text-slate-900">₹{item.amount.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="pt-2 flex justify-between text-xs font-bold text-slate-600 border-t border-slate-200">
+                      <span>Subtotal Fixed Assets</span>
+                      <span className="font-mono">₹{(balanceSheet?.totalFixedAssets || 0).toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Assets Total Footer */}
+              <div className="bg-slate-900 text-white p-4 flex justify-between items-center border-t border-slate-900">
+                <span className="font-black text-xs uppercase tracking-wider">Total Assets (कुल संपत्तियां)</span>
+                <span className="font-mono font-black text-base text-emerald-400">
+                  ₹{(balanceSheet?.totalAssets || 0).toLocaleString()}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -189,4 +189,66 @@ router.delete('/:id/team/:userId', authenticate, async (req, res) => {
   }
 });
 
+// 7. Subscribe / Upgrade Plan (Free, Starter, Pro, Enterprise)
+router.post('/:id/subscribe', authenticate, async (req, res) => {
+  try {
+    const tenantId = req.params.id;
+    const { plan, billingCycle, paymentMethod } = req.body;
+
+    const validPlans = {
+      'Free': { monthly: 0, yearly: 0, label: 'Free / Trial Tier' },
+      'Starter': { monthly: 999, yearly: 9999, label: 'Arhat Starter Tier' },
+      'Pro': { monthly: 2499, yearly: 24999, label: 'Arhat Pro Professional Tier' },
+      'Enterprise': { monthly: 5999, yearly: 59999, label: 'Mandi Enterprise Multi-Shop Tier' }
+    };
+
+    const targetPlan = validPlans[plan] ? plan : 'Pro';
+    const cycle = billingCycle === 'yearly' ? 'yearly' : 'monthly';
+    const price = validPlans[targetPlan][cycle];
+    const taxAmount = Math.round(price * 0.18); // 18% GST
+    const totalAmount = price + taxAmount;
+
+    // Calculate expiry date: 30 days for monthly, 365 days for yearly
+    const durationDays = cycle === 'yearly' ? 365 : 30;
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + durationDays);
+    const validUntilStr = expiryDate.toISOString().split('T')[0];
+    const invoiceNo = `INV-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    // Upsert subscription
+    const existing = await queryOne(`SELECT id FROM subscriptions WHERE tenant_id = ?`, [tenantId]);
+    if (existing) {
+      await run(`
+        UPDATE subscriptions SET
+          plan = ?,
+          status = 'Active',
+          valid_until = ?,
+          price = ?,
+          billing_cycle = ?,
+          amount_paid = ?,
+          payment_method = ?
+        WHERE tenant_id = ?
+      `, [targetPlan, validUntilStr, totalAmount, cycle, totalAmount, paymentMethod || 'UPI', tenantId]);
+    } else {
+      await run(`
+        INSERT INTO subscriptions (id, tenant_id, plan, status, valid_until, price, billing_cycle, amount_paid, payment_method)
+        VALUES (?, ?, ?, 'Active', ?, ?, ?, ?, ?)
+      `, ['SUB-' + Date.now(), tenantId, targetPlan, validUntilStr, totalAmount, cycle, totalAmount, paymentMethod || 'UPI']);
+    }
+
+    res.json({
+      message: `Congratulations! Plan successfully upgraded to ${targetPlan} (${cycle})!`,
+      plan: targetPlan,
+      billingCycle: cycle,
+      status: 'Active',
+      validUntil: validUntilStr,
+      amountPaid: totalAmount,
+      invoiceNo,
+      paymentMethod: paymentMethod || 'UPI'
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to process plan subscription: ' + err.message });
+  }
+});
+
 module.exports = router;
