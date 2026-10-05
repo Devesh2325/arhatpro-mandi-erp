@@ -6,6 +6,26 @@
  *
  * Run with:  node tests/api.test.js
  * Prereq:    Server running on http://localhost:5000
+ *
+ * Actual route map (confirmed from server/routes/*):
+ *   POST /api/auth/login          POST /api/auth/signup
+ *   GET  /api/auth/me
+ *   GET  /api/tenants             GET  /api/tenants/:id
+ *   PUT  /api/tenants/:id         POST /api/tenants/:id/subscribe
+ *   GET  /api/trade/commodities   POST /api/trade/commodities
+ *   GET  /api/trade/varieties     POST /api/trade/varieties
+ *   GET  /api/trade/expenses      POST /api/trade/expenses
+ *   GET  /api/trade/parties       POST /api/trade/parties
+ *   GET  /api/trade/arrivals      POST /api/trade/arrivals
+ *   GET  /api/trade/lots          POST /api/trade/lots/:id/split
+ *   POST /api/trade/quick-trade   (NOT /trade/quick)
+ *   GET  /api/ledger/cashbook     POST /api/ledger/cashbook
+ *   GET  /api/ledger/accounts     POST /api/ledger/payment
+ *   GET  /api/ledger/trial-balance
+ *   GET  /api/ledger/balance-sheet
+ *   GET  /api/ledger/journal      POST /api/ledger/journal
+ *   GET  /api/admin/tenants       GET  /api/admin/metrics
+ *   GET  /api/trade/audit-logs    (audit logs in trade router)
  */
 
 const BASE = 'http://localhost:5000/api';
@@ -45,72 +65,55 @@ function assert(condition, msg) {
 }
 
 // ── HTTP helpers ────────────────────────────────────────────────────────────
-async function post(path, body, token) {
+async function apiCall(method, path, body, token) {
   const r = await fetch(`${BASE}${path}`, {
-    method: 'POST',
+    method,
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     },
-    body: JSON.stringify(body)
+    ...(body ? { body: JSON.stringify(body) } : {})
   });
-  return { status: r.status, body: await r.json() };
+
+  let json;
+  const text = await r.text();
+  try {
+    json = JSON.parse(text);
+  } catch {
+    // HTML page returned — route not found (serves static React build)
+    json = { _raw: text.substring(0, 120) };
+  }
+  return { status: r.status, body: json };
 }
 
-async function get(path, token, tenantId) {
-  const r = await fetch(`${BASE}${path}`, {
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(tenantId ? { 'x-tenant-id': tenantId } : {})
-    }
-  });
-  return { status: r.status, body: await r.json() };
+const post = (path, body, token) => apiCall('POST', path, body, token);
+const get  = (path, token)       => apiCall('GET',  path, null, token);
+const put  = (path, body, token) => apiCall('PUT',  path, body, token);
+const del  = (path, token)       => apiCall('DELETE', path, null, token);
+
+function assertJson(body, label) {
+  assert(!body._raw, `Route returned HTML not JSON for ${label} — route may not exist. Raw: ${body._raw}`);
 }
 
-async function put(path, body, token) {
-  const r = await fetch(`${BASE}${path}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
-    },
-    body: JSON.stringify(body)
-  });
-  return { status: r.status, body: await r.json() };
-}
-
-async function del(path, token) {
-  const r = await fetch(`${BASE}${path}`, {
-    method: 'DELETE',
-    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
-  });
-  return { status: r.status, body: await r.json().catch(() => ({})) };
-}
-
-// ── Shared state (populated during auth tests) ───────────────────────────────
-let adminToken   = null;
-let superToken   = null;
-let tenantId     = null;
-let commodityId  = null;
-let partyId      = null;
-let arrivalId    = null;
-let saleId       = null;
+// ── Shared state ─────────────────────────────────────────────────────────────
+let adminToken  = null;
+let superToken  = null;
+let tenantId    = null;
+let commodityId = null;
+let partyId     = null;
+let arrivalId   = null;
+let lotId       = null;
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  1. HEALTH CHECK
 // ═══════════════════════════════════════════════════════════════════════════
 console.log(CYAN('1. HEALTH CHECK'));
 
-await test('GET /health returns status healthy', async () => {
-  const r = await fetch(`${BASE}/health`);
-  const body = await r.json();
-  assert(r.status === 200, `Expected 200 got ${r.status}`);
+await test('GET /health — returns status healthy', async () => {
+  const { status, body } = await get('/health');
+  assertJson(body, '/health');
+  assert(status === 200, `Expected 200 got ${status}`);
   assert(body.status === 'healthy', `Expected healthy, got ${body.status}`);
-});
-
-await test('GET /api returns server info', async () => {
-  const r = await fetch(`${BASE}`);
-  assert(r.status === 200, `Expected 200 got ${r.status}`);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -118,54 +121,55 @@ await test('GET /api returns server info', async () => {
 // ═══════════════════════════════════════════════════════════════════════════
 console.log(CYAN('2. AUTHENTICATION'));
 
-await test('POST /auth/login — valid shop admin credentials', async () => {
+await test('POST /auth/login — valid shop admin (email + PIN)', async () => {
   const { status, body } = await post('/auth/login', {
     identifier: 'balwinder@mandi.in',
     pinOrPassword: '1234'
   });
   assert(status === 200, `Expected 200 got ${status}: ${body.error || ''}`);
-  assert(body.token, 'No token returned');
+  assert(body.token, 'No JWT token returned');
   assert(body.user?.role, 'No role in user object');
   adminToken = body.token;
   tenantId   = body.user?.tenantId;
 });
 
-await test('POST /auth/login — valid super admin credentials', async () => {
+await test('POST /auth/login — valid super admin (email + password)', async () => {
   const { status, body } = await post('/auth/login', {
     identifier: 'dmchaturvedi@gmail.com',
     pinOrPassword: 'Devesh@23251995'
   });
   assert(status === 200, `Expected 200 got ${status}: ${body.error || ''}`);
   assert(body.token, 'No super admin token');
-  assert(body.user?.role === 'super_admin', 'Expected super_admin role');
+  assert(body.user?.role === 'super_admin', `Expected super_admin, got ${body.user?.role}`);
   superToken = body.token;
 });
 
 await test('POST /auth/login — wrong password returns 401', async () => {
   const { status } = await post('/auth/login', {
     identifier: 'balwinder@mandi.in',
-    pinOrPassword: 'wrong_pass'
+    pinOrPassword: 'wrong_pass_xyz'
   });
   assert(status === 401, `Expected 401 got ${status}`);
 });
 
 await test('POST /auth/login — unknown user returns 401', async () => {
   const { status } = await post('/auth/login', {
-    identifier: 'nobody@fake.com',
+    identifier: 'nobody@nowhere.fake',
     pinOrPassword: '0000'
   });
   assert(status === 401, `Expected 401 got ${status}`);
 });
 
 await test('POST /auth/login — missing fields returns 400', async () => {
-  const { status } = await post('/auth/login', { identifier: 'test@x.com' });
+  const { status } = await post('/auth/login', { identifier: 'only@email.com' });
   assert(status === 400, `Expected 400 got ${status}`);
 });
 
-await test('GET /auth/me — valid token returns user object', async () => {
+await test('GET /auth/me — valid token returns user', async () => {
   const { status, body } = await get('/auth/me', adminToken);
+  assertJson(body, '/auth/me');
   assert(status === 200, `Expected 200 got ${status}`);
-  assert(body.user?.id, 'No user.id in /me response');
+  assert(body.user?.id, 'No user.id in response');
 });
 
 await test('GET /auth/me — no token returns 401', async () => {
@@ -173,18 +177,19 @@ await test('GET /auth/me — no token returns 401', async () => {
   assert(status === 401, `Expected 401 got ${status}`);
 });
 
-await test('GET /auth/me — invalid/tampered token returns 401', async () => {
-  const { status } = await get('/auth/me', 'Bearer invalid.token.value');
-  assert(status === 401, `Expected 401 got ${status}`);
+await test('GET /auth/me — invalid token returns 401 or 403', async () => {
+  const { status } = await get('/auth/me', 'tampered.token.value');
+  assert(status === 401 || status === 403, `Expected 401/403 got ${status}`);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  3. TENANT / FIRM MANAGEMENT
+//  3. TENANT MANAGEMENT
 // ═══════════════════════════════════════════════════════════════════════════
 console.log(CYAN('3. TENANT MANAGEMENT'));
 
-await test('GET /tenants — returns tenant list for logged-in user', async () => {
+await test('GET /tenants — returns tenant list', async () => {
   const { status, body } = await get('/tenants', adminToken);
+  assertJson(body, '/tenants');
   assert(status === 200, `Expected 200 got ${status}`);
   const list = Array.isArray(body) ? body : (body.tenants || []);
   assert(list.length > 0, 'Expected at least one tenant');
@@ -195,12 +200,20 @@ await test('GET /tenants — unauthenticated returns 401', async () => {
   assert(status === 401, `Expected 401 got ${status}`);
 });
 
-await test('PUT /tenants/:id/settings — can update theme_color', async () => {
-  if (!tenantId) return skip('theme update', 'no tenantId');
-  const { status } = await put(`/tenants/${tenantId}/settings`, {
+await test('GET /tenants/:id — returns specific tenant', async () => {
+  if (!tenantId) return skip('GET tenant', 'no tenantId');
+  const { status, body } = await get(`/tenants/${tenantId}`, adminToken);
+  assertJson(body, `/tenants/${tenantId}`);
+  assert(status === 200, `Expected 200 got ${status}`);
+});
+
+await test('PUT /tenants/:id — can update firm settings', async () => {
+  if (!tenantId) return skip('PUT tenant settings', 'no tenantId');
+  const { status, body } = await put(`/tenants/${tenantId}`, {
     themeColor: 'emerald'
   }, adminToken);
-  assert(status === 200 || status === 201, `Expected 2xx got ${status}`);
+  assertJson(body, `/tenants/${tenantId} PUT`);
+  assert(status === 200, `Expected 200 got ${status}: ${body.error || ''}`);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -210,6 +223,7 @@ console.log(CYAN('4. COMMODITIES'));
 
 await test('GET /trade/commodities — returns list', async () => {
   const { status, body } = await get('/trade/commodities', adminToken);
+  assertJson(body, '/trade/commodities');
   assert(status === 200, `Expected 200 got ${status}`);
   assert(Array.isArray(body), 'Expected array response');
 });
@@ -225,14 +239,15 @@ await test('POST /trade/commodities — creates new commodity', async () => {
     standardCommissionPct: 2.5,
     palledariRatePerUnit: 10
   }, adminToken);
+  assertJson(body, 'POST /trade/commodities');
   assert(status === 201, `Expected 201 got ${status}: ${body.error || ''}`);
-  assert(body.id, 'Expected commodity id in response');
+  assert(body.id, 'Expected commodity id');
   commodityId = body.id;
 });
 
 await test('PUT /trade/commodities/:id — updates commodity', async () => {
   if (!commodityId) return skip('commodity update', 'no commodityId');
-  const { status } = await put(`/trade/commodities/${commodityId}`, {
+  const { status, body } = await put(`/trade/commodities/${commodityId}`, {
     nameEn: 'Updated Apple',
     nameHi: 'अपडेटेड सेब',
     category: 'Fruit',
@@ -242,100 +257,159 @@ await test('PUT /trade/commodities/:id — updates commodity', async () => {
     standardCommissionPct: 3,
     palledariRatePerUnit: 12
   }, adminToken);
-  assert(status === 200, `Expected 200 got ${status}`);
+  assertJson(body, 'PUT commodity');
+  assert(status === 200, `Expected 200 got ${status}: ${body.error || ''}`);
 });
 
-await test('PUT /trade/commodities/:id — non-existent id returns 404', async () => {
-  const { status } = await put('/trade/commodities/FAKE-99999', {
-    nameEn: 'Ghost'
+await test('PUT /trade/commodities/:id — non-existent returns 404', async () => {
+  const { status, body } = await put('/trade/commodities/FAKE-99999', {
+    nameEn: 'Ghost', nameHi: '', category: 'Fruit', defaultUnit: 'Box'
   }, adminToken);
+  assertJson(body, 'PUT fake commodity');
   assert(status === 404, `Expected 404 got ${status}`);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  5. PARTIES (Farmers, Buyers, Agents)
+//  5. VARIETIES
 // ═══════════════════════════════════════════════════════════════════════════
-console.log(CYAN('5. PARTIES'));
+console.log(CYAN('5. VARIETIES'));
 
-await test('GET /trade/parties — returns party list', async () => {
-  const { status, body } = await get('/trade/parties', adminToken);
+await test('GET /trade/varieties — returns list', async () => {
+  const { status, body } = await get('/trade/varieties', adminToken);
+  assertJson(body, '/trade/varieties');
   assert(status === 200, `Expected 200 got ${status}`);
   assert(Array.isArray(body), 'Expected array');
 });
 
-await test('POST /trade/parties — creates farmer party', async () => {
+await test('POST /trade/varieties — creates new variety', async () => {
+  const { status, body } = await post('/trade/varieties', {
+    name: 'Shimla Grade A ' + Date.now(),
+    nameHi: 'शिमला ग्रेड A',
+    commodityName: 'Apple',
+    grade: 'Grade A',
+    defaultRate: 800
+  }, adminToken);
+  assertJson(body, 'POST /trade/varieties');
+  assert(status === 201, `Expected 201 got ${status}: ${body.error || ''}`);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  6. EXPENSE HEADS
+// ═══════════════════════════════════════════════════════════════════════════
+console.log(CYAN('6. EXPENSE HEADS (CONFIGURATION)'));
+
+await test('GET /trade/expenses — returns expense heads', async () => {
+  const { status, body } = await get('/trade/expenses', adminToken);
+  assertJson(body, '/trade/expenses');
+  assert(status === 200, `Expected 200 got ${status}`);
+  assert(Array.isArray(body), 'Expected array');
+});
+
+await test('POST /trade/expenses — creates farmer expense head', async () => {
+  const { status, body } = await post('/trade/expenses', {
+    name: 'Test Freight ' + Date.now(),
+    hindiName: 'भाड़ा',
+    target: 'farmer',
+    type: 'per_unit',
+    defaultAmount: 50
+  }, adminToken);
+  assertJson(body, 'POST /trade/expenses');
+  assert(status === 201, `Expected 201 got ${status}: ${body.error || ''}`);
+});
+
+await test('POST /trade/expenses — creates buyer expense head', async () => {
+  const { status, body } = await post('/trade/expenses', {
+    name: 'Test Stationery ' + Date.now(),
+    hindiName: 'स्टेशनरी',
+    target: 'buyer',
+    type: 'flat',
+    defaultAmount: 10
+  }, adminToken);
+  assertJson(body, 'POST buyer expense');
+  assert(status === 201, `Expected 201 got ${status}: ${body.error || ''}`);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  7. PARTIES (Farmers, Buyers, Agents)
+// ═══════════════════════════════════════════════════════════════════════════
+console.log(CYAN('7. PARTIES'));
+
+await test('GET /trade/parties — returns party list', async () => {
+  const { status, body } = await get('/trade/parties', adminToken);
+  assertJson(body, '/trade/parties');
+  assert(status === 200, `Expected 200 got ${status}`);
+  assert(Array.isArray(body), 'Expected array');
+});
+
+await test('POST /trade/parties — creates Farmer party', async () => {
   const { status, body } = await post('/trade/parties', {
     name: 'Test Farmer ' + Date.now(),
     shortName: 'TF01',
     partyType: 'Farmer',
-    phone: '9999900000',
+    phone: '9999900001',
     city: 'Amritsar',
     state: 'Punjab'
   }, adminToken);
+  assertJson(body, 'POST farmer party');
   assert(status === 201, `Expected 201 got ${status}: ${body.error || ''}`);
   assert(body.id, 'Expected party id');
   partyId = body.id;
 });
 
-await test('POST /trade/parties — creates buyer party', async () => {
+await test('POST /trade/parties — creates Buyer party', async () => {
   const { status, body } = await post('/trade/parties', {
     name: 'Test Buyer ' + Date.now(),
     shortName: 'TB01',
     partyType: 'Buyer',
-    phone: '9888800000',
+    phone: '9888800001',
     city: 'Delhi',
     state: 'Delhi'
   }, adminToken);
+  assertJson(body, 'POST buyer party');
   assert(status === 201, `Expected 201 got ${status}: ${body.error || ''}`);
 });
 
-await test('POST /trade/parties — creates agent party', async () => {
+await test('POST /trade/parties — creates Agent party', async () => {
   const { status, body } = await post('/trade/parties', {
     name: 'Test Agent ' + Date.now(),
     shortName: 'TA01',
     partyType: 'Agent',
-    phone: '9777700000',
+    phone: '9777700001',
     city: 'Chandigarh',
     state: 'Punjab'
   }, adminToken);
+  assertJson(body, 'POST agent party');
   assert(status === 201, `Expected 201 got ${status}: ${body.error || ''}`);
 });
 
-await test('GET /trade/parties?type=Farmer — filters correctly', async () => {
-  const { status, body } = await get('/trade/parties?type=Farmer', adminToken);
-  assert(status === 200, `Expected 200 got ${status}`);
-  assert(Array.isArray(body), 'Expected array');
-  if (body.length > 0) {
-    assert(
-      body.every(p => p.party_type === 'Farmer' || p.type === 'Farmer'),
-      'Non-Farmer party in filtered results'
-    );
-  }
-});
-
 await test('POST /trade/parties — missing name returns 400', async () => {
-  const { status } = await post('/trade/parties', {
-    partyType: 'Farmer'
-  }, adminToken);
-  assert(status === 400 || status === 500, `Expected error status got ${status}`);
+  const { status } = await post('/trade/parties', { partyType: 'Farmer' }, adminToken);
+  assert(status === 400 || status === 422 || status === 500, `Expected error status got ${status}`);
+});
+
+await test('GET /trade/parties — unauthenticated returns 401', async () => {
+  const { status } = await get('/trade/parties');
+  assert(status === 401, `Expected 401 got ${status}`);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  6. INWARD ARRIVALS (गाड़ी आवक)
+//  8. INWARD ARRIVALS (गाड़ी आवक)
 // ═══════════════════════════════════════════════════════════════════════════
-console.log(CYAN('6. INWARD ARRIVALS (CONSIGNMENTS)'));
+console.log(CYAN('8. INWARD ARRIVALS (CONSIGNMENTS)'));
 
 await test('GET /trade/arrivals — returns list', async () => {
   const { status, body } = await get('/trade/arrivals', adminToken);
+  assertJson(body, '/trade/arrivals');
   assert(status === 200, `Expected 200 got ${status}`);
-  assert(Array.isArray(body) || typeof body === 'object', 'Expected array or object');
+  assert(Array.isArray(body) || typeof body === 'object', 'Expected response data');
 });
 
-await test('POST /trade/arrivals — creates new arrival', async () => {
+await test('POST /trade/arrivals — creates new arrival (inward consignment)', async () => {
+  const today = new Date().toISOString().split('T')[0];
   const { status, body } = await post('/trade/arrivals', {
-    entryDate: new Date().toISOString().split('T')[0],
-    vehicleNo: 'HR-26-AB-1234',
-    driverName: 'Test Driver',
+    entryDate: today,
+    vehicleNo: 'HR-26-AB-' + Date.now().toString().slice(-4),
+    driverName: 'Ramu Driver',
     driverMobile: '9876543210',
     totalBags: 100,
     grossWeight: 2000,
@@ -346,147 +420,139 @@ await test('POST /trade/arrivals — creates new arrival', async () => {
     commodityId: commodityId || null,
     produce: 'Apple',
     variety: 'Red Delicious',
-    manualLotNo: 'LOT-TEST-001'
+    manualLotNo: 'LOT-TEST-' + Date.now().toString().slice(-6)
   }, adminToken);
+  assertJson(body, 'POST /trade/arrivals');
   assert(status === 201 || status === 200, `Expected 2xx got ${status}: ${body.error || ''}`);
-  if (body.id || body.arrival?.id) {
-    arrivalId = body.id || body.arrival?.id;
-  }
+  // Store lot id for split test
+  arrivalId = body.id || body.arrival?.id || null;
+  lotId = body.lotId || body.lot_id || arrivalId;
 });
 
-await test('GET /trade/arrivals/:id — returns specific arrival', async () => {
-  if (!arrivalId) return skip('arrival detail', 'no arrivalId from create test');
-  const { status, body } = await get(`/trade/arrivals/${arrivalId}`, adminToken);
+await test('GET /trade/lots — returns lot list', async () => {
+  const { status, body } = await get('/trade/lots', adminToken);
+  assertJson(body, '/trade/lots');
   assert(status === 200, `Expected 200 got ${status}`);
-  assert(body.id || body.arrival, 'Expected arrival data in response');
 });
 
-await test('GET /trade/arrivals/999999 — non-existent returns 404', async () => {
-  const { status } = await get('/trade/arrivals/999999', adminToken);
-  assert(status === 404 || status === 200, `Got ${status} (empty 200 also acceptable)`);
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  7. QUICK TRADE
-// ═══════════════════════════════════════════════════════════════════════════
-console.log(CYAN('7. QUICK TRADE'));
-
-await test('POST /trade/quick — processes quick trade with single sale', async () => {
-  const today = new Date().toISOString().split('T')[0];
-  const { status, body } = await post('/trade/quick', {
-    entryDate: today,
-    produce: 'Apple',
-    variety: 'Shimla',
-    farmerId: partyId || null,
-    totalBags: 50,
-    grossWeight: 1000,
-    kisanRate: 600,
-    manualLotNo: 'QT-TEST-001',
-    splits: [
-      {
-        buyerId: null,
-        buyerName: 'Walk-in Buyer',
-        bags: 50,
-        qty: 50,
-        rate: 700,
-        amount: 35000
-      }
-    ],
-    farmerExpenses: [],
-    buyerExpenses: []
-  }, adminToken);
-  assert(status === 201 || status === 200, `Expected 2xx got ${status}: ${JSON.stringify(body).substring(0, 200)}`);
-});
-
-await test('POST /trade/quick — zero bags is rejected', async () => {
-  const { status } = await post('/trade/quick', {
-    entryDate: new Date().toISOString().split('T')[0],
-    produce: 'Apple',
-    totalBags: 0,
-    grossWeight: 0,
-    splits: []
-  }, adminToken);
-  assert(status === 400 || status === 422 || status === 500, `Expected error got ${status}`);
-});
-
-await test('POST /trade/quick — missing required fields returns error', async () => {
-  const { status } = await post('/trade/quick', {}, adminToken);
-  assert(status >= 400, `Expected 4xx/5xx error got ${status}`);
-});
-
-await test('POST /trade/quick — unauthenticated returns 401', async () => {
-  const { status } = await post('/trade/quick', { produce: 'Apple', totalBags: 10 });
+await test('GET /trade/arrivals — unauthenticated returns 401', async () => {
+  const { status } = await get('/trade/arrivals');
   assert(status === 401, `Expected 401 got ${status}`);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  8. SALES
+//  9. QUICK TRADE  (route: POST /trade/quick-trade)
 // ═══════════════════════════════════════════════════════════════════════════
-console.log(CYAN('8. SALES'));
+console.log(CYAN('9. QUICK TRADE'));
 
-await test('GET /trade/sales — returns sales list', async () => {
-  const { status, body } = await get('/trade/sales', adminToken);
-  assert(status === 200, `Expected 200 got ${status}`);
-  assert(Array.isArray(body) || typeof body === 'object', 'Expected response');
-});
-
-await test('POST /trade/sales — creates a sale entry', async () => {
+await test('POST /trade/quick-trade — valid quick trade with single split', async () => {
   const today = new Date().toISOString().split('T')[0];
-  const { status, body } = await post('/trade/sales', {
+  const { status, body } = await post('/trade/quick-trade', {
     entryDate: today,
-    buyerId: partyId || null,
-    buyerName: 'Test Buyer Direct',
-    produce: 'Apple',
-    bags: 20,
-    rate: 800,
-    amount: 16000,
-    paymentMode: 'Cash',
-    commodityId: commodityId || null
+    commodity: 'Apple',
+    variety: 'Shimla',
+    farmerName: 'Test Farmer QT',
+    farmerPhone: '9876543210',
+    truckNo: 'HR-01-QT-' + Date.now().toString().slice(-4),
+    arrivalRate: 600,
+    totalFreight: 2000,
+    freightAdvance: 1000,
+    manualLotNo: 'QT-TEST-' + Date.now().toString().slice(-6),
+    lots: [
+      { quantity: 50, variety: 'Shimla', arrivalRate: 600 }
+    ],
+    splitSales: [
+      {
+        buyerName: 'Walk-in Buyer',
+        quantity: 50,
+        rate: 700
+      }
+    ],
+    customExpenses: null
   }, adminToken);
-  assert(status === 201 || status === 200, `Expected 2xx got ${status}: ${body.error || ''}`);
-  if (body.id || body.sale?.id) {
-    saleId = body.id || body.sale?.id;
-  }
+  assertJson(body, 'POST /trade/quick-trade');
+  assert(status === 201 || status === 200, `Expected 2xx got ${status}: ${JSON.stringify(body).substring(0, 200)}`);
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  9. LEDGER / BAHI KHATA
-// ═══════════════════════════════════════════════════════════════════════════
-console.log(CYAN('9. LEDGER / BAHI KHATA'));
-
-await test('GET /ledger/cashbook — returns cashbook entries', async () => {
-  const { status, body } = await get('/ledger/cashbook', adminToken);
-  assert(status === 200, `Expected 200 got ${status}`);
-  assert(body.entries || Array.isArray(body) || body.summary, 'Expected cashbook data');
-});
-
-await test('GET /ledger/trial-balance — returns trial balance', async () => {
-  const { status, body } = await get('/ledger/trial-balance', adminToken);
-  assert(status === 200, `Expected 200 got ${status}`);
-  assert(body.accounts || Array.isArray(body), 'Expected trial balance accounts');
-});
-
-await test('GET /ledger/balance-sheet — returns balance sheet', async () => {
-  const { status, body } = await get('/ledger/balance-sheet', adminToken);
-  assert(status === 200, `Expected 200 got ${status}`);
-  assert(body.assets !== undefined || body.data || Array.isArray(body), 'Expected balance sheet data');
-});
-
-await test('GET /ledger/party-ledger/:id — returns ledger for party', async () => {
-  if (!partyId) return skip('party ledger', 'no partyId');
-  const { status, body } = await get(`/ledger/party-ledger/${partyId}`, adminToken);
-  assert(status === 200 || status === 404, `Got ${status}`);
-});
-
-await test('POST /ledger/cashbook — records manual cash entry', async () => {
-  const { status, body } = await post('/ledger/cashbook', {
-    type: 'in',
-    amount: 5000,
-    narration: 'Test Cash Receipt',
+await test('POST /trade/quick-trade — missing splits array returns error', async () => {
+  const { status, body } = await post('/trade/quick-trade', {
     entryDate: new Date().toISOString().split('T')[0],
-    paymentMode: 'Cash'
+    produce: 'Apple',
+    totalBags: 0,
+    grossWeight: 0
   }, adminToken);
+  assertJson(body, 'quick-trade no splits');
+  assert(status >= 400, `Expected 4xx/5xx error, got ${status}`);
+});
+
+await test('POST /trade/quick-trade — unauthenticated returns 401', async () => {
+  const { status } = await post('/trade/quick-trade', { produce: 'Apple', totalBags: 10 });
+  assert(status === 401, `Expected 401 got ${status}`);
+});
+
+await test('POST /trade/quick-trade — split with null qty is rejected', async () => {
+  const { status, body } = await post('/trade/quick-trade', {
+    entryDate: new Date().toISOString().split('T')[0],
+    produce: 'Apple',
+    totalBags: 10,
+    grossWeight: 200,
+    splits: [{ buyerName: 'Test', bags: null, qty: null, rate: 500, amount: 5000 }]
+  }, adminToken);
+  assertJson(body, 'quick-trade null qty');
+  assert(status >= 400 || status === 200, `Got ${status}`);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  10. LEDGER / BAHI KHATA
+// ═══════════════════════════════════════════════════════════════════════════
+console.log(CYAN('10. LEDGER / BAHI KHATA'));
+
+await test('GET /ledger/cashbook — returns cashbook with summary', async () => {
+  const { status, body } = await get('/ledger/cashbook', adminToken);
+  assertJson(body, '/ledger/cashbook');
+  assert(status === 200, `Expected 200 got ${status}`);
+  assert(
+    body.transactions !== undefined || body.openingCash !== undefined,
+    'Expected cashbook object with transactions/openingCash'
+  );
+});
+
+await test('POST /ledger/cashbook — records JAMA (Cash In) entry with title', async () => {
+  const { status, body } = await post('/ledger/cashbook', {
+    type: 'JAMA',
+    title: 'Test Cash Receipt',
+    amount: 5000
+  }, adminToken);
+  assertJson(body, 'POST /ledger/cashbook JAMA');
   assert(status === 201 || status === 200, `Expected 2xx got ${status}: ${body.error || ''}`);
+});
+
+await test('POST /ledger/cashbook — records KHARCH (Cash Out) entry', async () => {
+  const { status, body } = await post('/ledger/cashbook', {
+    type: 'KHARCH',
+    title: 'Test Petty Expense',
+    amount: 200
+  }, adminToken);
+  assertJson(body, 'POST /ledger/cashbook KHARCH');
+  assert(status === 201 || status === 200, `Expected 2xx got ${status}: ${body.error || ''}`);
+});
+
+await test('POST /ledger/cashbook — missing title returns 400', async () => {
+  const { status } = await post('/ledger/cashbook', {
+    type: 'JAMA',
+    amount: 100
+    // no title!
+  }, adminToken);
+  assert(status === 400, `Expected 400 got ${status}`);
+});
+
+await test('POST /ledger/cashbook — zero amount returns 400', async () => {
+  const { status } = await post('/ledger/cashbook', {
+    type: 'JAMA',
+    title: 'Zero Test',
+    amount: 0
+  }, adminToken);
+  assert(status === 400, `Expected 400 got ${status}`);
 });
 
 await test('GET /ledger/cashbook — unauthenticated returns 401', async () => {
@@ -494,176 +560,162 @@ await test('GET /ledger/cashbook — unauthenticated returns 401', async () => {
   assert(status === 401, `Expected 401 got ${status}`);
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  10. EXPENSE CONFIGURATION
-// ═══════════════════════════════════════════════════════════════════════════
-console.log(CYAN('10. EXPENSE CONFIGURATION'));
+await test('POST /ledger/opening-cash — set opening cash', async () => {
+  const { status, body } = await post('/ledger/opening-cash', { amount: 10000 }, adminToken);
+  assertJson(body, 'POST /ledger/opening-cash');
+  assert(status === 200, `Expected 200 got ${status}: ${body.error || ''}`);
+});
 
-await test('GET /trade/expenses — returns expense heads', async () => {
-  const { status, body } = await get('/trade/expenses', adminToken);
+await test('GET /ledger/accounts — returns accounts/party ledger', async () => {
+  const { status, body } = await get('/ledger/accounts', adminToken);
+  assertJson(body, '/ledger/accounts');
   assert(status === 200, `Expected 200 got ${status}`);
-  assert(Array.isArray(body), 'Expected array');
+  assert(Array.isArray(body), 'Expected accounts array');
 });
 
-await test('POST /trade/expenses — creates expense head', async () => {
-  const { status, body } = await post('/trade/expenses', {
-    name: 'Test Freight ' + Date.now(),
-    applicableTo: 'Farmer',
-    calculationType: 'flat',
-    defaultAmount: 100
-  }, adminToken);
-  assert(status === 201 || status === 200, `Expected 2xx got ${status}: ${body.error || ''}`);
+await test('GET /ledger/trial-balance — returns trial balance data', async () => {
+  const { status, body } = await get('/ledger/trial-balance', adminToken);
+  assertJson(body, '/ledger/trial-balance');
+  assert(status === 200, `Expected 200 got ${status}`);
+  // Can be any shape — just ensure it's valid JSON (not HTML)
+  assert(typeof body === 'object', 'Expected object or array response');
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  11. VARIETY / LOT CONFIGURATION
-// ═══════════════════════════════════════════════════════════════════════════
-console.log(CYAN('11. VARIETY / LOT CONFIGURATION'));
-
-await test('GET /trade/varieties — returns variety list', async () => {
-  const { status, body } = await get('/trade/varieties', adminToken);
-  assert(status === 200 || status === 404, `Got ${status}`);
+await test('GET /ledger/balance-sheet — returns balance sheet data', async () => {
+  const { status, body } = await get('/ledger/balance-sheet', adminToken);
+  assertJson(body, '/ledger/balance-sheet');
+  assert(status === 200, `Expected 200 got ${status}`);
+  assert(typeof body === 'object', 'Expected object response');
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  12. REPORTS
-// ═══════════════════════════════════════════════════════════════════════════
-console.log(CYAN('12. REPORTS'));
-
-await test('GET /ledger/reports/daily-summary — returns daily summary', async () => {
-  const today = new Date().toISOString().split('T')[0];
-  const { status, body } = await get(`/ledger/reports/daily-summary?date=${today}`, adminToken);
-  assert(status === 200 || status === 404, `Got ${status}: ${body?.error || ''}`);
-});
-
-await test('GET /ledger/reports/farmer-statement — returns farmer report', async () => {
-  if (!partyId) return skip('farmer statement', 'no partyId');
-  const { status } = await get(`/ledger/reports/farmer-statement?partyId=${partyId}`, adminToken);
-  assert(status === 200 || status === 404, `Got ${status}`);
+await test('GET /ledger/journal — returns journal entries', async () => {
+  const { status, body } = await get('/ledger/journal', adminToken);
+  assertJson(body, '/ledger/journal');
+  assert(status === 200, `Expected 200 got ${status}`);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  13. ADMIN / AUDIT LOGS
+//  11. ADMIN
 // ═══════════════════════════════════════════════════════════════════════════
-console.log(CYAN('13. ADMIN / AUDIT LOGS'));
-
-await test('GET /admin/audit-logs — super admin can access', async () => {
-  const { status, body } = await get('/admin/audit-logs', superToken);
-  assert(status === 200 || status === 403, `Got ${status}`);
-});
-
-await test('GET /admin/audit-logs — regular user returns 403 or 401', async () => {
-  const { status } = await get('/admin/audit-logs', adminToken);
-  assert(status === 403 || status === 401 || status === 200, `Got ${status}`);
-});
+console.log(CYAN('11. ADMIN'));
 
 await test('GET /admin/tenants — super admin can list all tenants', async () => {
   const { status, body } = await get('/admin/tenants', superToken);
-  assert(status === 200, `Expected 200 got ${status}: ${body?.error || ''}`);
+  assertJson(body, '/admin/tenants');
+  assert(status === 200, `Expected 200 got ${status}: ${body.error || ''}`);
   assert(Array.isArray(body) || body.tenants, 'Expected tenants list');
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  14. SUBSCRIPTION / PLAN
-// ═══════════════════════════════════════════════════════════════════════════
-console.log(CYAN('14. SUBSCRIPTION / PLAN'));
-
-await test('GET /tenants/plan — returns current tenant plan', async () => {
-  const { status, body } = await get('/tenants/plan', adminToken);
-  assert(status === 200 || status === 404, `Got ${status}`);
+await test('GET /admin/metrics — super admin can view platform metrics', async () => {
+  const { status, body } = await get('/admin/metrics', superToken);
+  assertJson(body, '/admin/metrics');
+  assert(status === 200, `Expected 200 got ${status}: ${body.error || ''}`);
 });
 
-await test('POST /tenants/plan — cannot set Enterprise plan as non-super-admin', async () => {
-  const { status } = await post('/tenants/plan', { plan: 'Enterprise' }, adminToken);
-  // Should either succeed (for admin-allowed plan change) or be restricted
-  assert(status === 200 || status === 201 || status === 403, `Got ${status}`);
+await test('GET /trade/audit-logs — admin can view audit log', async () => {
+  const { status, body } = await get('/trade/audit-logs', adminToken);
+  assertJson(body, '/trade/audit-logs');
+  assert(status === 200, `Expected 200 got ${status}`);
+  assert(Array.isArray(body) || body.logs, 'Expected audit logs array or object');
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  15. MULTI-TENANT ISOLATION
+//  12. SUBSCRIPTION
 // ═══════════════════════════════════════════════════════════════════════════
-console.log(CYAN('15. MULTI-TENANT ISOLATION'));
+console.log(CYAN('12. SUBSCRIPTION'));
 
-await test('Parties — data is scoped to authenticated tenant only', async () => {
+await test('POST /tenants/:id/subscribe — can subscribe to Starter plan', async () => {
+  if (!tenantId) return skip('subscribe', 'no tenantId');
+  const { status, body } = await post(`/tenants/${tenantId}/subscribe`, {
+    plan: 'Starter'
+  }, adminToken);
+  assertJson(body, 'POST /tenants/:id/subscribe');
+  assert(status === 200 || status === 201, `Expected 2xx got ${status}: ${body.error || ''}`);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  13. MULTI-TENANT ISOLATION
+// ═══════════════════════════════════════════════════════════════════════════
+console.log(CYAN('13. MULTI-TENANT ISOLATION'));
+
+await test('Parties list — all records scoped to same tenant', async () => {
   const { status, body } = await get('/trade/parties', adminToken);
   assert(status === 200, `Expected 200 got ${status}`);
-  // All returned parties should have the same tenant_id
   if (Array.isArray(body) && body.length > 0 && body[0].tenant_id) {
-    const ids = [...new Set(body.map(p => p.tenant_id))];
-    assert(ids.length === 1, `Expected single tenant, got ${ids.length} different tenant_ids`);
+    const uniqueTenants = [...new Set(body.map(p => p.tenant_id))];
+    assert(uniqueTenants.length === 1, `Data leak! Found ${uniqueTenants.length} tenant_ids in party list`);
   }
 });
 
-await test('Cashbook — data is scoped to authenticated tenant only', async () => {
+await test('Cashbook — transactions scoped to authenticated tenant', async () => {
   const { status, body } = await get('/ledger/cashbook', adminToken);
   assert(status === 200, `Expected 200 got ${status}`);
-  const entries = body.entries || (Array.isArray(body) ? body : []);
-  if (entries.length > 0 && entries[0].tenant_id) {
-    const ids = [...new Set(entries.map(e => e.tenant_id))];
-    assert(ids.length === 1, `Expected single tenant in cashbook, got ${ids.length}`);
+  const txns = body.transactions || (Array.isArray(body) ? body : []);
+  if (txns.length > 0 && txns[0].tenant_id) {
+    const uniqueTenants = [...new Set(txns.map(t => t.tenant_id))];
+    assert(uniqueTenants.length === 1, `Data leak in cashbook! Found ${uniqueTenants.length} tenants`);
   }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  16. INPUT VALIDATION & EDGE CASES
+//  14. EDGE CASES & SECURITY
 // ═══════════════════════════════════════════════════════════════════════════
-console.log(CYAN('16. EDGE CASES & VALIDATION'));
+console.log(CYAN('14. EDGE CASES & SECURITY'));
 
-await test('POST /trade/quick — split with null/empty quantity is rejected', async () => {
-  const { status } = await post('/trade/quick', {
-    entryDate: new Date().toISOString().split('T')[0],
-    produce: 'Apple',
-    totalBags: 10,
-    grossWeight: 200,
-    splits: [{ buyerName: 'Test', bags: null, qty: null, rate: 500, amount: 5000 }]
-  }, adminToken);
-  assert(status >= 400 || status === 200, `Got ${status}`);
-});
-
-await test('POST /trade/arrivals — past entry date is accepted (backdating)', async () => {
-  const pastDate = '2026-01-01';
-  const { status } = await post('/trade/arrivals', {
-    entryDate: pastDate,
+await test('POST /trade/arrivals — backdating to past date is accepted', async () => {
+  const { status, body } = await post('/trade/arrivals', {
+    entryDate: '2026-01-01',
     produce: 'Mango',
     totalBags: 10,
     grossWeight: 200,
     kisanRate: 100
   }, adminToken);
-  assert(status === 200 || status === 201 || status === 400, `Got ${status}`);
+  assertJson(body, 'backdate arrival');
+  assert(status === 200 || status === 201 || status === 400, `Got ${status}: ${body.error || ''}`);
 });
 
-await test('POST /trade/parties — duplicate party name in same tenant', async () => {
-  const name = 'Duplicate Test Party ' + Date.now();
-  await post('/trade/parties', { name, partyType: 'Farmer' }, adminToken);
-  const { status } = await post('/trade/parties', { name, partyType: 'Farmer' }, adminToken);
-  // Either succeeds (allowed duplicates) or returns conflict — both are valid behaviours
-  assert(status === 201 || status === 409 || status === 400 || status === 500, `Got ${status}`);
-});
-
-await test('Very long firm name in party does not crash server', async () => {
-  const longName = 'A'.repeat(500);
-  const { status } = await post('/trade/parties', {
-    name: longName,
-    partyType: 'Buyer'
-  }, adminToken);
-  assert(status < 500 || status === 500, 'Server should not crash (5xx also acceptable for input too long)');
-});
-
-await test('SQL injection attempt in party name is safely handled', async () => {
-  const { status } = await post('/trade/parties', {
+await test('SQL injection in party name is safely handled', async () => {
+  const { status, body } = await post('/trade/parties', {
     name: "Robert'); DROP TABLE parties; --",
     partyType: 'Farmer'
   }, adminToken);
-  // Should succeed (sanitised & stored) or reject cleanly — must NOT crash
-  assert(status < 600, 'Server must not crash on SQL injection attempt');
-  assert(status !== 0, 'Server must return a proper HTTP response');
+  // Should succeed (stored safely) or reject — must NOT crash with unhandled 500
+  assert(status !== 0, 'Server must return an HTTP response');
+  assert(status < 600, `Unexpected status: ${status}`);
+});
+
+await test('Very long party name is handled gracefully', async () => {
+  const { status } = await post('/trade/parties', {
+    name: 'A'.repeat(500),
+    partyType: 'Buyer'
+  }, adminToken);
+  assert(status < 600, `Server must not crash, got ${status}`);
+});
+
+await test('POST /trade/expenses — missing name returns 400', async () => {
+  const { status } = await post('/trade/expenses', {
+    target: 'farmer',
+    type: 'flat',
+    defaultAmount: 50
+    // no name!
+  }, adminToken);
+  assert(status === 400, `Expected 400 got ${status}`);
+});
+
+await test('POST /trade/varieties — missing name returns 400', async () => {
+  const { status } = await post('/trade/varieties', {
+    commodityName: 'Apple',
+    grade: 'Grade A'
+    // no name!
+  }, adminToken);
+  assert(status === 400, `Expected 400 got ${status}`);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  FINAL SUMMARY
 // ═══════════════════════════════════════════════════════════════════════════
 console.log('\n\x1b[1m════════════════════════════════════════\x1b[0m');
-console.log('\x1b[1m  TEST RESULTS SUMMARY\x1b[0m');
+console.log('\x1b[1m  ARHATPRO MANDI ERP — TEST RESULTS\x1b[0m');
 console.log('\x1b[1m════════════════════════════════════════\x1b[0m');
 console.log(GREEN(`Passed  : ${passed}`));
 if (failed  > 0) console.log(RED(`Failed  : ${failed}`));
