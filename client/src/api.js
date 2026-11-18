@@ -35,6 +35,7 @@ export const API = {
   login: (identifier, pinOrPassword) => apiRequest('/auth/login', 'POST', { identifier, pinOrPassword }),
   signup: (formData) => apiRequest('/auth/signup', 'POST', formData),
   getMe: () => apiRequest('/auth/me'),
+  getDemoMandis: () => apiRequest('/auth/demo-mandis'),
   startImpersonation: (targetTenantId) => apiRequest('/auth/impersonate/start', 'POST', { targetTenantId }),
   stopImpersonation: () => apiRequest('/auth/impersonate/stop', 'POST'),
 
@@ -141,7 +142,12 @@ export const API = {
       lot_number: a.lot_id,
       manual_lot_no: a.manual_lot_no,
       custom_expenses: a.custom_expenses,
-      arrival_date: a.date
+      arrival_date: a.date,
+      inward_type: a.inward_type || 'direct',
+      storage_location: a.storage_location || '',
+      driver_crates_in: a.driver_crates_in || 0,
+      driver_crates_out: a.driver_crates_out || 0,
+      driver_crates_balance: a.driver_crates_balance || 0
     }));
     mapped.arrivals = mapped;
     return mapped;
@@ -164,7 +170,11 @@ export const API = {
       freightAdvance: data.advance_paid,
       manualLotNo: data.manual_lot_no || data.manualLotNo || data.lot_number,
       customExpenses: data.custom_expenses || data.customExpenses,
-      entryDate: data.entry_date || data.entryDate || data.arrival_date || data.date
+      entryDate: data.entry_date || data.entryDate || data.arrival_date || data.date,
+      inwardType: data.inward_type || data.inwardType || 'direct',
+      storageLocation: data.storage_location || data.storageLocation || '',
+      driverCratesIn: data.driver_crates_in || data.driverCratesIn || 0,
+      driverCratesOut: data.driver_crates_out || data.driverCratesOut || 0
     });
   },
   addArrival: (data) => apiRequest('/trade/arrivals', 'POST', data),
@@ -189,12 +199,18 @@ export const API = {
       remaining_bags: l.remaining_quantity,
       arrival_rate: l.arrival_rate || 0,
       truck_no: l.truck_no,
+      inward_type: l.inward_type || 'direct',
+      storage_location: l.storage_location || '',
+      crates_balance: l.crates_balance !== undefined ? l.crates_balance : l.remaining_quantity,
       splits: (l.splitSales || []).map(s => ({
         buyer_name: s.buyer_name,
         bags_sold: s.quantity,
         sale_rate: s.rate,
         arrival_rate: s.arrival_rate || l.arrival_rate || 0,
-        payment_terms: s.payment_mode
+        payment_terms: s.payment_mode,
+        buyer_crates_issued: s.buyer_crates_issued || 0,
+        buyer_crates_returned: s.buyer_crates_returned || 0,
+        storage_location: s.storage_location || ''
       }))
     }));
     mapped.lots = mapped;
@@ -207,7 +223,10 @@ export const API = {
     rate: data.sale_rate || data.rate,
     paymentMode: data.payment_terms || data.paymentMode,
     customExpenses: data.customExpenses || data.custom_expenses,
-    entryDate: data.entry_date || data.entryDate || data.date
+    entryDate: data.entry_date || data.entryDate || data.date,
+    buyerCratesIssued: data.buyer_crates_issued || data.buyerCratesIssued || 0,
+    buyerCratesReturned: data.buyer_crates_returned || data.buyerCratesReturned || 0,
+    storageLocation: data.storage_location || data.storageLocation || ''
   }),
   quickTrade: (data) => apiRequest('/trade/quick-trade', 'POST', data),
 

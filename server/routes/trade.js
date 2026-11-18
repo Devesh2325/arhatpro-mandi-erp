@@ -547,23 +547,31 @@ router.post('/arrivals', authenticate, async (req, res) => {
     const entryDate = req.body.entryDate || req.body.date || new Date().toISOString().split('T')[0];
     const currentTime = new Date().toTimeString().split(' ')[0];
 
+    const inwardType = (req.body.inwardType || req.body.inward_type || 'direct').trim();
+    const storageLocation = (req.body.storageLocation || req.body.storage_location || '').trim();
+    const driverCratesIn = parseInt(req.body.driverCratesIn || req.body.driver_crates_in, 10) || 0;
+    const driverCratesOut = parseInt(req.body.driverCratesOut || req.body.driver_crates_out, 10) || 0;
+    const driverCratesBal = driverCratesIn - driverCratesOut;
+
     await run(`
-      INSERT INTO arrivals (id, tenant_id, date, time, truck_no, driver_name, driver_phone, farmer_name, farmer_phone, farmer_location, commodity, variety, quantity, unit, total_freight, freight_advance_paid, freight_balance, arrival_rate, total_arrival_amount, status, transferred_to_lot, lot_id, manual_lot_no, custom_expenses, agent_name, agent_phone)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Ready for Sale', 1, ?, ?, ?, ?, ?)
+      INSERT INTO arrivals (id, tenant_id, date, time, truck_no, driver_name, driver_phone, farmer_name, farmer_phone, farmer_location, commodity, variety, quantity, unit, total_freight, freight_advance_paid, freight_balance, arrival_rate, total_arrival_amount, status, transferred_to_lot, lot_id, manual_lot_no, custom_expenses, agent_name, agent_phone, inward_type, storage_location, driver_crates_in, driver_crates_out, driver_crates_balance)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Ready for Sale', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       id, tenantId, entryDate, currentTime, truck, dName, dPhone,
       fName, fPhone, fLoc, comm, varName,
       qty, u, totalF, advF, balF, arrRate, totalArrAmount, lotId,
-      manualLotNo || null, customExpStr, agentName || null, agentPhone || null
+      manualLotNo || null, customExpStr, agentName || null, agentPhone || null,
+      inwardType, storageLocation || null, driverCratesIn, driverCratesOut, driverCratesBal
     ]);
 
     // Create corresponding sales lot
     await run(`
-      INSERT INTO sales_lots (id, tenant_id, arrival_id, commodity_name, variety, farmer_name, farmer_location, farmer_phone, total_quantity, remaining_quantity, unit, arrival_rate, truck_no, freight_advance_paid, custom_expenses, status, agent_name)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'live', ?)
+      INSERT INTO sales_lots (id, tenant_id, arrival_id, commodity_name, variety, farmer_name, farmer_location, farmer_phone, total_quantity, remaining_quantity, unit, arrival_rate, truck_no, freight_advance_paid, custom_expenses, status, agent_name, inward_type, storage_location, crates_balance)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'live', ?, ?, ?, ?)
     `, [
       lotId, tenantId, id, comm, varName, fName, fLoc,
-      fPhone, qty, qty, u, arrRate, truck, advF, customExpStr, agentName || null
+      fPhone, qty, qty, u, arrRate, truck, advF, customExpStr, agentName || null,
+      inwardType, storageLocation || null, driverCratesIn || qty
     ]);
 
     // If freight advance paid in cash, record in cashbook
@@ -632,19 +640,27 @@ router.post('/lots/:id/split', authenticate, async (req, res) => {
     const entryDate = req.body.entryDate || req.body.date || new Date().toISOString().split('T')[0];
     const currentTime = new Date().toTimeString().split(' ')[0];
 
-    // Insert split sale with date
-    await run(`
-      INSERT INTO split_sales (id, lot_id, tenant_id, sale_code, buyer_name, buyer_contact, quantity, rate, arrival_rate, gross_amount, time, payment_mode, custom_expenses, date)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [saleId, lotId, tenantId, saleId, buyerName, buyerContact || '', qty, r, lotArrRate, saleAmount, currentTime, paymentMode || 'Credit (7 Days)', customExpStr, entryDate]);
+    const buyerCratesIssued = parseInt(req.body.buyerCratesIssued || req.body.buyer_crates_issued || req.body.cratesIssued, 10) || 0;
+    const buyerCratesReturned = parseInt(req.body.buyerCratesReturned || req.body.buyer_crates_returned || req.body.cratesReturned, 10) || 0;
+    const storageLoc = (req.body.storageLocation || req.body.storage_location || lot.storage_location || '').trim();
 
-    // Update remaining lot quantity
+    // Insert split sale with date and crate tracking
+    await run(`
+      INSERT INTO split_sales (id, lot_id, tenant_id, sale_code, buyer_name, buyer_contact, quantity, rate, arrival_rate, gross_amount, time, payment_mode, custom_expenses, date, buyer_crates_issued, buyer_crates_returned, storage_location)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [saleId, lotId, tenantId, saleId, buyerName, buyerContact || '', qty, r, lotArrRate, saleAmount, currentTime, paymentMode || 'Credit (7 Days)', customExpStr, entryDate, buyerCratesIssued, buyerCratesReturned, storageLoc || null]);
+
+    // Update remaining lot quantity and crates balance
     const newRemaining = lot.remaining_quantity - qty;
     const newStatus = newRemaining === 0 ? 'sold' : 'live';
 
     await run(`
-      UPDATE sales_lots SET remaining_quantity = ?, status = ? WHERE id = ?
-    `, [newRemaining, newStatus, lotId]);
+      UPDATE sales_lots SET 
+        remaining_quantity = ?, 
+        status = ?, 
+        crates_balance = GREATEST(0, COALESCE(crates_balance, 0) - ?)
+      WHERE id = ?
+    `, [newRemaining, newStatus, buyerCratesIssued, lotId]);
 
     // Update Buyer Ledger debt
     await run(`
@@ -744,17 +760,23 @@ router.post('/quick-trade', authenticate, async (req, res) => {
 
     const currentTime = new Date().toTimeString().split(' ')[0];
 
-    // 1. Inward Arrival with agent and custom entryDate
-    await run(`
-      INSERT INTO arrivals (id, tenant_id, date, time, truck_no, farmer_name, farmer_phone, commodity, variety, quantity, total_freight, freight_advance_paid, freight_balance, arrival_rate, total_arrival_amount, status, transferred_to_lot, lot_id, manual_lot_no, custom_expenses, agent_name, agent_phone)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Sold Out', 1, ?, ?, ?, ?, ?)
-    `, [consignmentId, tenantId, entryDate, currentTime, (truckNo || 'LOCAL-TRUCK').toUpperCase(), farmerName || 'Produce Consignor', farmerPhone || '', commodity || 'Produce', selectedVariety, totalArrived, totalF, advF, Math.max(0, totalF - advF), arrRate, totalArrAmount, lotId, customLot || null, customExpStr, agentName || null, agentPhone || null]);
+    const inwardType = (req.body.inwardType || req.body.inward_type || 'direct').trim();
+    const storageLocation = (req.body.storageLocation || req.body.storage_location || '').trim();
+    const driverCratesIn = parseInt(req.body.driverCratesIn || req.body.driver_crates_in, 10) || 0;
+    const driverCratesOut = parseInt(req.body.driverCratesOut || req.body.driver_crates_out, 10) || 0;
+    const driverCratesBal = driverCratesIn - driverCratesOut;
 
-    // 2. Sales Lot
+    // 1. Inward Arrival with agent, custom entryDate, and Crate/Storage fields
     await run(`
-      INSERT INTO sales_lots (id, tenant_id, arrival_id, commodity_name, variety, farmer_name, total_quantity, remaining_quantity, arrival_rate, status, truck_no, freight_advance_paid, custom_expenses, agent_name)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 'sold', ?, ?, ?, ?)
-    `, [lotId, tenantId, consignmentId, commodity || 'Produce', selectedVariety, farmerName || 'Produce Consignor', totalArrived, arrRate, (truckNo || 'LOCAL-TRUCK').toUpperCase(), advF, customExpStr, agentName || null]);
+      INSERT INTO arrivals (id, tenant_id, date, time, truck_no, farmer_name, farmer_phone, commodity, variety, quantity, total_freight, freight_advance_paid, freight_balance, arrival_rate, total_arrival_amount, status, transferred_to_lot, lot_id, manual_lot_no, custom_expenses, agent_name, agent_phone, inward_type, storage_location, driver_crates_in, driver_crates_out, driver_crates_balance)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Sold Out', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [consignmentId, tenantId, entryDate, currentTime, (truckNo || 'LOCAL-TRUCK').toUpperCase(), farmerName || 'Produce Consignor', farmerPhone || '', commodity || 'Produce', selectedVariety, totalArrived, totalF, advF, Math.max(0, totalF - advF), arrRate, totalArrAmount, lotId, customLot || null, customExpStr, agentName || null, agentPhone || null, inwardType, storageLocation || null, driverCratesIn, driverCratesOut, driverCratesBal]);
+
+    // 2. Sales Lot with Storage and Crate fields
+    await run(`
+      INSERT INTO sales_lots (id, tenant_id, arrival_id, commodity_name, variety, farmer_name, total_quantity, remaining_quantity, arrival_rate, status, truck_no, freight_advance_paid, custom_expenses, agent_name, inward_type, storage_location, crates_balance)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 'sold', ?, ?, ?, ?, ?, ?, 0)
+    `, [lotId, tenantId, consignmentId, commodity || 'Produce', selectedVariety, farmerName || 'Produce Consignor', totalArrived, arrRate, (truckNo || 'LOCAL-TRUCK').toUpperCase(), advF, customExpStr, agentName || null, inwardType, storageLocation || null]);
 
     // 3. Buyer Split Sales, Ledgers & Auto Double-Entry Journal Vouchers
     const postedVouchers = [];

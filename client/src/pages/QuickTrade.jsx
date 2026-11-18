@@ -24,6 +24,10 @@ export default function QuickTrade() {
 
   // Fresh initial states - completely clean for new users
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
+  const [inwardType, setInwardType] = useState('direct'); // 'direct' or 'storage'
+  const [storageLocation, setStorageLocation] = useState('');
+  const [driverCratesIn, setDriverCratesIn] = useState('');
+  const [driverCratesOut, setDriverCratesOut] = useState('');
   const [manualLotNo, setManualLotNo] = useState('');
   const [truckNo, setTruckNo] = useState('');
   const [farmerName, setFarmerName] = useState('');
@@ -102,6 +106,10 @@ export default function QuickTrade() {
 
   const resetToFresh = () => {
     setEntryDate(new Date().toISOString().split('T')[0]);
+    setInwardType('direct');
+    setStorageLocation('');
+    setDriverCratesIn('');
+    setDriverCratesOut('');
     setManualLotNo('');
     setTruckNo('');
     setFarmerName('');
@@ -115,7 +123,7 @@ export default function QuickTrade() {
       { id: 'LOT-1', label: 'Lot 1 (Mark-1)', mark: '', variety: '', qty: '' }
     ]);
     setBuyerRows([
-      { id: Date.now(), targetLot: 'LOT-1', buyerName: '', buyerContact: '', qty: '', rate: '' }
+      { id: Date.now(), targetLot: 'LOT-1', buyerName: '', buyerContact: '', qty: '', rate: '', cratesIssued: '', cratesReturned: '' }
     ]);
     setMessage('✓ Form cleared. Ready for fresh consignment entry.');
     setError('');
@@ -124,26 +132,30 @@ export default function QuickTrade() {
 
   const loadSampleDemo = () => {
     setEntryDate(new Date().toISOString().split('T')[0]);
-    setTruckNo('HP-10-B-9812');
-    setFarmerName('Harish Negi');
-    setFarmerPhone('+91 98160 44321');
-    setAgentName('Ramesh Broker');
-    setAgentPhone('+91 98765 43210');
-    setTotalFreight(36000);
-    setFreightAdvance(15000);
-    setArrivalRate(1800);
+    setInwardType('storage');
+    setStorageLocation('Chamber-4 (Banana Ripening)');
+    setDriverCratesIn('300');
+    setDriverCratesOut('50');
+    setTruckNo('MH-19-J-2244');
+    setFarmerName('Patil Banana Farms');
+    setFarmerPhone('+91 98220 12345');
+    setAgentName('Khandesh Transport');
+    setAgentPhone('+91 98220 99887');
+    setTotalFreight(24000);
+    setFreightAdvance(10000);
+    setArrivalRate(600);
     if (commoditiesList.length > 0) {
       setCommodity(commoditiesList[0].name_en || commoditiesList[0].name);
     }
     setLots([
-      { id: 'LOT-1', label: 'Lot 1 (Grade A / Mark-1)', mark: 'Mark HN-1', variety: 'Medium Size 24mm', qty: 150 },
-      { id: 'LOT-2', label: 'Lot 2 (Grade B / Mark-2)', mark: 'Mark HN-2', variety: 'Small Size 20mm', qty: 150 }
+      { id: 'LOT-1', label: 'Lot 1 (G9 Ripened Yellow)', mark: 'Mark PBF-1', variety: 'G9 Super Yellow', qty: 150 },
+      { id: 'LOT-2', label: 'Lot 2 (G9 Semi-Ripe Chamber)', mark: 'Mark PBF-2', variety: 'G9 Semi-Ripe', qty: 150 }
     ]);
     setBuyerRows([
-      { id: 1, targetLot: 'LOT-1', buyerName: 'Aggarwal Wholesale Mart', buyerContact: '+91 98110 55432', qty: 150, rate: 2150 },
-      { id: 2, targetLot: 'LOT-2', buyerName: 'Rajdhani Hotel Supplies', buyerContact: '+91 99100 88776', qty: 150, rate: 1950 }
+      { id: 1, targetLot: 'LOT-1', buyerName: 'Daily Fresh Fruit Mart', buyerContact: '+91 98220 54321', qty: 150, rate: 750, cratesIssued: '150', cratesReturned: '30' },
+      { id: 2, targetLot: 'LOT-2', buyerName: 'City Supermarket Co.', buyerContact: '+91 98220 77889', qty: 150, rate: 720, cratesIssued: '150', cratesReturned: '20' }
     ]);
-    setMessage('Sample demo trade loaded. You can edit any field or submit to test.');
+    setMessage('Sample demo Banana Store consignment with Ripening Chamber & Crates loaded.');
     setError('');
   };
 
@@ -232,6 +244,10 @@ export default function QuickTrade() {
     try {
       const res = await API.quickTrade({
         entryDate,
+        inwardType,
+        storageLocation,
+        driverCratesIn: parseInt(driverCratesIn, 10) || 0,
+        driverCratesOut: parseInt(driverCratesOut, 10) || 0,
         manualLotNo: manualLotNo ? manualLotNo.trim() : null,
         truckNo,
         farmerName,
@@ -248,7 +264,10 @@ export default function QuickTrade() {
           buyerName: r.buyerName.trim(),
           qty: parseInt(r.qty, 10) || 0,
           quantity: parseInt(r.qty, 10) || 0,
-          rate: parseFloat(r.rate) || 0
+          rate: parseFloat(r.rate) || 0,
+          buyerCratesIssued: parseInt(r.cratesIssued, 10) || 0,
+          buyerCratesReturned: parseInt(r.cratesReturned, 10) || 0,
+          storageLocation
         })),
         customExpenses: {
           farmer: farmerExpenses.filter(e => e.enabled),
@@ -433,6 +452,108 @@ export default function QuickTrade() {
                   placeholder="e.g. LOT-QT101 (or leave blank for auto)"
                   className="w-full p-2 border border-slate-300 rounded-xl font-mono uppercase font-black text-indigo-900 bg-white placeholder:font-normal placeholder:normal-case placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none text-xs"
                 />
+              </div>
+            </div>
+
+            {/* Inward Destination & Storage Flow */}
+            <div className="pt-3 border-t border-slate-200 mt-3 space-y-2">
+              <label className="font-bold text-slate-800 text-xs block">
+                {t('Inward Flow & Storage Mode *', 'आवक प्रकार व स्टोरेज मोड *')}
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setInwardType('direct')}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                    inwardType === 'direct'
+                      ? 'border-emerald-600 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/20'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <div>
+                    <span className="font-black">⚡ Direct Yard Auction / Phad</span>
+                    <span className="text-[10px] text-slate-500 block">सीधी मंडी नीलामी व बिक्री</span>
+                  </div>
+                  {inwardType === 'direct' && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setInwardType('storage')}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                    inwardType === 'storage'
+                      ? 'border-indigo-600 bg-indigo-50 text-indigo-950 ring-2 ring-indigo-500/20'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <div>
+                    <span className="font-black">❄️ Storage / Ripening Chamber</span>
+                    <span className="text-[10px] text-slate-500 block">स्टोरेज / राइपनिंग चैंबर (Banana/Cold Store)</span>
+                  </div>
+                  {inwardType === 'storage' && <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0" />}
+                </button>
+              </div>
+
+              {inwardType === 'storage' && (
+                <div className="p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl mt-2">
+                  <label className="block text-xs font-bold text-indigo-950 mb-1">
+                    {t('Chamber / Storage Location *', 'चैंबर / कोल्ड रूम / गोदाम नं. *')}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Chamber-4 (Banana Ripening) or Cold Room A-1"
+                    value={storageLocation}
+                    onChange={(e) => setStorageLocation(e.target.value)}
+                    className="w-full p-2 border border-indigo-300 rounded-lg text-xs font-bold text-indigo-950 bg-white focus:ring-1 focus:ring-indigo-600 outline-none"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Crate & Driver Accounting Box */}
+          <div className="bg-amber-50/70 p-3.5 rounded-2xl border border-amber-200 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                <span>📦 Crate & Driver Logistics (चालक क्रेट हिसाब - केला/फल स्टोर)</span>
+              </span>
+              <span className="text-[10px] text-amber-700 font-mono">
+                {t('In / Out / Balance', 'आवक क्रेट / वापसी / शेष')}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  {t('Driver Crates In', 'चालक से प्राप्त क्रेट')}
+                </label>
+                <input
+                  type="number"
+                  placeholder="e.g. 300"
+                  value={driverCratesIn}
+                  onChange={(e) => setDriverCratesIn(e.target.value)}
+                  className="w-full p-2 border border-slate-300 rounded-xl font-mono font-bold focus:ring-1 focus:ring-amber-500 outline-none bg-white"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  {t('Empty Crates Returned', 'चालक को लौटाई खाली क्रेट')}
+                </label>
+                <input
+                  type="number"
+                  placeholder="e.g. 50"
+                  value={driverCratesOut}
+                  onChange={(e) => setDriverCratesOut(e.target.value)}
+                  className="w-full p-2 border border-slate-300 rounded-xl font-mono font-bold focus:ring-1 focus:ring-amber-500 outline-none bg-white text-emerald-800"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  {t('Net Balance Crates', 'चालक पर बाकी क्रेट')}
+                </label>
+                <div className="w-full p-2 bg-white border border-amber-300 rounded-xl font-mono font-black text-amber-900 flex items-center justify-between">
+                  <span>{(parseInt(driverCratesIn, 10) || 0) - (parseInt(driverCratesOut, 10) || 0)} Crates</span>
+                  <span className="text-[10px] text-slate-400">Balance</span>
+                </div>
               </div>
             </div>
           </div>

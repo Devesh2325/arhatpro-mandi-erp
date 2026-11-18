@@ -81,7 +81,7 @@ router.post('/login', async (req, res) => {
 // 2. Self-Serve Tenant Admin Sign-Up (नया आढ़त खाता)
 router.post('/signup', async (req, res) => {
   try {
-    const { firmName, proprietor, phone, pin, shopNo, mandiName, apmcLicenseNo, theme } = req.body;
+    const { firmName, proprietor, phone, pin, shopNo, mandiName, apmcLicenseNo, theme, businessType, logoIcon } = req.body;
 
     if (!firmName || !proprietor || !phone) {
       return res.status(400).json({ error: 'Firm Name, Proprietor Name, and Mobile are required.' });
@@ -89,6 +89,8 @@ router.post('/signup', async (req, res) => {
 
     const cleanPhone = phone.trim().replace(/[^0-9]/g, '');
     const cleanPin = (pin || '1234').trim();
+    const bType = businessType || 'fruit_vegetable';
+    const icon = logoIcon || (bType === 'banana_store' ? '🍌' : bType === 'cold_storage' ? '🥔' : bType === 'grain_mandi' ? '🌾' : '🍎');
 
     // Check if phone already registered
     const existing = await queryOne(`SELECT id FROM users WHERE phone = ?`, [cleanPhone]);
@@ -106,18 +108,20 @@ router.post('/signup', async (req, res) => {
 
     // Create Tenant
     await run(`
-      INSERT INTO tenants (id, firm_name, proprietor, shop_no, mandi_name, apmc_license_no, phone, theme_color, status, owner_user_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?)
+      INSERT INTO tenants (id, firm_name, proprietor, shop_no, mandi_name, apmc_license_no, phone, theme_color, status, owner_user_id, business_type, logo_icon)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?, ?)
     `, [
       tenantId,
       firmName.trim(),
       proprietor.trim(),
       shopNo ? shopNo.trim() : 'Shop No. 1, Mandi',
       mandiName ? mandiName.trim() : 'Azadpur Mandi, Delhi',
-      apmcLicenseNo ? apmcLicenseNo.trim() : `DL-APMC-${Math.floor(1000 + Math.random() * 9000)}`,
+      apmcLicenseNo ? apmcLicenseNo.trim() : `APMC-${Math.floor(1000 + Math.random() * 9000)}`,
       cleanPhone,
-      theme || 'emerald',
-      userId
+      theme || (bType === 'banana_store' ? 'amber' : bType === 'cold_storage' ? 'slate' : 'emerald'),
+      userId,
+      bType,
+      icon
     ]);
 
     // Create Subscription
@@ -140,18 +144,56 @@ router.post('/signup', async (req, res) => {
       cleanPin
     ]);
 
-    // Seed starter commodities
-    await run(`
-      INSERT INTO commodities (id, tenant_id, name_en, name_hi, category, default_unit, unit_weight_kg, tare_deduction_kg, standard_commission_pct, palledari_rate_per_unit, active)
-      VALUES 
-        (?, ?, 'Apple - Royal Delicious', 'सेब - रॉयल', 'Fruit', 'Box (20kg)', 20, 1.5, 2.5, 12, 1),
-        (?, ?, 'Pomegranate - Solapur Bhagwa', 'अनार - भगवा', 'Fruit', 'Crate (10kg)', 10, 0.8, 3.0, 8, 1),
-        (?, ?, 'Onion - Red Garwa', 'प्याज - लाल गरवा', 'Vegetable', 'Sack (50kg)', 50, 1.0, 2.0, 8, 1)
-    `, [
-      'COMM-' + Date.now() + '-1', tenantId,
-      'COMM-' + Date.now() + '-2', tenantId,
-      'COMM-' + Date.now() + '-3', tenantId
-    ]);
+    // Seed tailored commodities based on business type
+    if (bType === 'banana_store') {
+      await run(`
+        INSERT INTO commodities (id, tenant_id, name_en, name_hi, category, default_unit, unit_weight_kg, tare_deduction_kg, standard_commission_pct, palledari_rate_per_unit, active)
+        VALUES 
+          (?, ?, 'Banana - Grand Naine (G9)', 'केला - जी9 सुपर', 'Fruit', 'Crate (20kg)', 20, 1.5, 3.0, 8, 1),
+          (?, ?, 'Banana - Robusta Premium', 'केला - रोबस्टा', 'Fruit', 'Crate (15kg)', 15, 1.0, 3.0, 7, 1),
+          (?, ?, 'Banana - Elaichi / Yellaki', 'केला - इलायची', 'Fruit', 'Crate (12kg)', 12, 1.0, 3.5, 6, 1),
+          (?, ?, 'Banana Raw Green Bunches', 'कच्चा केला - लंगर/घहर', 'Fruit', 'Bunch (घहर)', 25, 0.0, 3.0, 10, 1)
+      `, [
+        'COMM-' + Date.now() + '-1', tenantId,
+        'COMM-' + Date.now() + '-2', tenantId,
+        'COMM-' + Date.now() + '-3', tenantId,
+        'COMM-' + Date.now() + '-4', tenantId
+      ]);
+    } else if (bType === 'cold_storage') {
+      await run(`
+        INSERT INTO commodities (id, tenant_id, name_en, name_hi, category, default_unit, unit_weight_kg, tare_deduction_kg, standard_commission_pct, palledari_rate_per_unit, active)
+        VALUES 
+          (?, ?, 'Potato - Kufri Pukhraj', 'आलू - पुखराज', 'Vegetable', 'Sack (50kg)', 50, 1.0, 2.0, 10, 1),
+          (?, ?, 'Potato - Kufri Jyoti 3797', 'आलू - 3797 ज्योति', 'Vegetable', 'Sack (50kg)', 50, 1.0, 2.0, 10, 1),
+          (?, ?, 'Potato - Chipsona Premium', 'आलू - चिप्सोना', 'Vegetable', 'Sack (50kg)', 50, 1.0, 2.5, 10, 1)
+      `, [
+        'COMM-' + Date.now() + '-1', tenantId,
+        'COMM-' + Date.now() + '-2', tenantId,
+        'COMM-' + Date.now() + '-3', tenantId
+      ]);
+    } else if (bType === 'grain_mandi') {
+      await run(`
+        INSERT INTO commodities (id, tenant_id, name_en, name_hi, category, default_unit, unit_weight_kg, tare_deduction_kg, standard_commission_pct, palledari_rate_per_unit, active)
+        VALUES 
+          (?, ?, 'Wheat - Sharbati Premium', 'गेहूं - शरबती उत्तम', 'Grain', 'Quintal (क्विंटल)', 100, 0.5, 2.5, 15, 1),
+          (?, ?, 'Paddy - Basmati 1121', 'धान - बासमती 1121', 'Grain', 'Quintal (क्विंटल)', 100, 0.5, 2.5, 15, 1)
+      `, [
+        'COMM-' + Date.now() + '-1', tenantId,
+        'COMM-' + Date.now() + '-2', tenantId
+      ]);
+    } else {
+      await run(`
+        INSERT INTO commodities (id, tenant_id, name_en, name_hi, category, default_unit, unit_weight_kg, tare_deduction_kg, standard_commission_pct, palledari_rate_per_unit, active)
+        VALUES 
+          (?, ?, 'Apple - Royal Delicious', 'सेब - रॉयल', 'Fruit', 'Box (20kg)', 20, 1.5, 2.5, 12, 1),
+          (?, ?, 'Pomegranate - Solapur Bhagwa', 'अनार - भगवा', 'Fruit', 'Crate (10kg)', 10, 0.8, 3.0, 8, 1),
+          (?, ?, 'Onion - Red Garwa', 'प्याज - लाल गरवा', 'Vegetable', 'Sack (50kg)', 50, 1.0, 2.0, 8, 1)
+      `, [
+        'COMM-' + Date.now() + '-1', tenantId,
+        'COMM-' + Date.now() + '-2', tenantId,
+        'COMM-' + Date.now() + '-3', tenantId
+      ]);
+    }
 
     // Seed starter parties
     await run(`
@@ -289,6 +331,58 @@ router.get('/me', authenticate, async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Could not fetch profile.' });
+  }
+});
+
+// 6. Get Public Demo & Testing Mandis
+router.get('/demo-mandis', async (req, res) => {
+  try {
+    const list = await query(`
+      SELECT 
+        t.id, t.firm_name, t.hindi_name, t.mandi_name, t.shop_no, t.logo_icon, 
+        t.business_type, t.theme_color,
+        u.phone as demo_phone, u.name as demo_user
+      FROM tenants t
+      LEFT JOIN users u ON u.tenant_id = t.id AND u.role = 'shop_admin'
+      WHERE t.id IN (
+        'tenant-banana-store', 
+        'tenant-cold-storage', 
+        'tenant-rat', 
+        'tenant-vashi-apmc', 
+        'tenant-kolar-yard', 
+        'tenant-punjab-grain'
+      )
+      ORDER BY t.created_at ASC
+    `);
+
+    // Add super admin demo card
+    const demoCards = [
+      {
+        id: 'super-admin',
+        firm_name: 'Platform Super Admin Console',
+        hindi_name: 'सुपर एडमिन कंसोल',
+        mandi_name: 'National APMC Network Overview',
+        shop_no: 'Headquarters',
+        logo_icon: '👑',
+        business_type: 'super_admin',
+        theme_color: 'purple',
+        demo_phone: 'dmchaturvedi@gmail.com',
+        demo_user: 'Devesh Chaturvedi',
+        pin: 'Devesh@23251995',
+        badge: 'Master Control'
+      },
+      ...list.map(m => ({
+        ...m,
+        pin: '1234',
+        badge: m.business_type === 'banana_store' ? '🍌 Banana & Crates' :
+               m.business_type === 'cold_storage' ? '❄️ Cold Storage' :
+               m.business_type === 'grain_mandi' ? '🌾 Grain Mandi' : '🍎 APMC Yard'
+      }))
+    ];
+
+    res.json(demoCards);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch demo mandis: ' + err.message });
   }
 });
 

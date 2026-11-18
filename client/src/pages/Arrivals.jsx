@@ -40,6 +40,11 @@ export default function Arrivals() {
 
   const initialFormData = {
     entry_date: new Date().toISOString().split('T')[0],
+    inward_type: 'direct', // 'direct' (Direct Sale / Mandi Phad) | 'storage' (Cold Storage / Ripening Chamber / Godown)
+    storage_location: '',
+    unit: 'Crate (20kg)',
+    driver_crates_in: '',
+    driver_crates_out: '',
     manual_lot_no: '',
     truck_no: '',
     driver_name: '',
@@ -133,6 +138,11 @@ export default function Arrivals() {
 
     setFormData({
       entry_date: new Date().toISOString().split('T')[0],
+      inward_type: 'storage',
+      storage_location: 'Chamber 4 (Ripening)',
+      unit: 'Crate (20kg)',
+      driver_crates_in: '350',
+      driver_crates_out: '50',
       manual_lot_no: 'LOT-' + Math.floor(100 + Math.random() * 900),
       truck_no: randomTruck,
       driver_name: randomDriver,
@@ -143,14 +153,14 @@ export default function Arrivals() {
       agent_name: 'Suresh Agent',
       agent_phone: '9833344455',
       commodity_id: commodities[0]?.id || '',
-      variety: 'Royal Delicious Medium',
+      variety: 'Grand Naine G9 Ripened',
       bags: '350',
       gross_weight: '70.5',
-      arrival_rate: '1400',
+      arrival_rate: '650',
       freight_amount: '28000',
       advance_paid: '15000'
     });
-    setMessage({ type: 'success', text: 'Loaded sample consignment data for rapid testing!' });
+    setMessage({ type: 'success', text: 'Loaded sample consignment with Ripening Chamber & Crate tracking data!' });
   };
 
   const handleSubmit = async (e) => {
@@ -164,6 +174,11 @@ export default function Arrivals() {
       const res = await api.createArrival({
         ...formData,
         entryDate: formData.entry_date,
+        inward_type: formData.inward_type || 'direct',
+        storage_location: formData.storage_location || '',
+        driver_crates_in: parseInt(formData.driver_crates_in, 10) || 0,
+        driver_crates_out: parseInt(formData.driver_crates_out, 10) || 0,
+        unit: formData.unit || 'Crate (20kg)',
         farmer_phone: formData.farmer_phone,
         agent_name: formData.agent_name,
         agent_phone: formData.agent_phone,
@@ -418,6 +433,70 @@ export default function Arrivals() {
                   <span className="text-[10px] text-slate-400 mt-1 block">खाली छोड़ें तो सिस्टम स्वतः LOT-xxxx बना देगा</span>
                 </div>
               </div>
+
+              {/* Inward Destination & Storage Flow (Direct Sale vs Storage / Chamber) */}
+              <div className="pt-3 border-t border-slate-100 space-y-2">
+                <label className="block text-xs font-bold text-slate-800">
+                  {t('Inward Flow & Destination (आवक प्रकार व स्थान) *', 'आवक प्रकार व स्थान *')}
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, inward_type: 'direct' })}
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                      formData.inward_type === 'direct'
+                        ? 'border-emerald-600 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/20'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div>
+                      <p className="font-black text-xs flex items-center gap-1.5">
+                        <span>⚡ Direct Sale / Yard Auction</span>
+                      </p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">तुरंत सीधी बिक्री / फड़ नीलामी (Same-Day Auction)</p>
+                    </div>
+                    {formData.inward_type === 'direct' && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, inward_type: 'storage' })}
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                      formData.inward_type === 'storage'
+                        ? 'border-indigo-600 bg-indigo-50 text-indigo-950 ring-2 ring-indigo-500/20'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div>
+                      <p className="font-black text-xs flex items-center gap-1.5">
+                        <span>❄️ Storage / Ripening Chamber / Godown</span>
+                      </p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">स्टोरेज / राइपनिंग चैंबर / माल गोदाम (Indirect / Future Sale)</p>
+                    </div>
+                    {formData.inward_type === 'storage' && <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0" />}
+                  </button>
+                </div>
+
+                {formData.inward_type === 'storage' && (
+                  <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-2xl grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                    <div>
+                      <label className="block text-xs font-bold text-indigo-950 mb-1">
+                        {t('Chamber / Storage Location *', 'चैंबर / गोदाम नं. व स्थान *')}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Chamber-4 (Ripening) or Cold Room A-2"
+                        value={formData.storage_location}
+                        onChange={(e) => setFormData({ ...formData, storage_location: e.target.value })}
+                        className="w-full px-3 py-2 border border-indigo-300 rounded-xl text-xs font-bold text-indigo-950 bg-white focus:ring-2 focus:ring-indigo-600 outline-none"
+                      />
+                    </div>
+                    <div className="flex items-center text-[11px] text-indigo-800 leading-tight">
+                      <span>💡 <strong>Banana & Cold Storage:</strong> Mal will be stored in this chamber with crate tracking and can be auctioned later from the Sales register.</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Card 2: Vehicle & Transport Logistics */}
@@ -487,6 +566,53 @@ export default function Arrivals() {
                   <label className="block font-bold text-slate-500 mb-1">{t('Balance Freight Due (₹)', 'शेष भाड़ा देय (₹)')}</label>
                   <div className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-black text-rose-700">
                     ₹{currentFreightDue.toLocaleString('en-IN')}
+                  </div>
+                </div>
+              </div>
+
+              {/* Crate & Driver Accounting Box */}
+              <div className="bg-amber-50/60 p-3.5 rounded-2xl border border-amber-200/80 space-y-2 mt-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                    <span>📦 Crate & Driver Accounting (चालक क्रेट हिसाब - केला/फल स्टोर)</span>
+                  </span>
+                  <span className="text-[10px] text-amber-700 font-mono">
+                    {t('Crate In / Out / Balance', 'आवक क्रेट / वापसी / शेष')}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      {t('Driver Crates In (प्राप्त क्रेट)', 'चालक से प्राप्त क्रेट')}
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 350"
+                      value={formData.driver_crates_in}
+                      onChange={(e) => setFormData({ ...formData, driver_crates_in: e.target.value })}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-amber-500 outline-none bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      {t('Empty Crates Returned (लौटाई क्रेट)', 'चालक को लौटाई खाली क्रेट')}
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 50"
+                      value={formData.driver_crates_out}
+                      onChange={(e) => setFormData({ ...formData, driver_crates_out: e.target.value })}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-amber-500 outline-none bg-white text-emerald-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      {t('Net Balance Crates (बाकी क्रेट)', 'चालक पर बाकी क्रेट')}
+                    </label>
+                    <div className="w-full px-3 py-1.5 bg-white border border-amber-300 rounded-xl text-xs font-mono font-black text-amber-900 flex items-center justify-between">
+                      <span>{(parseInt(formData.driver_crates_in, 10) || 0) - (parseInt(formData.driver_crates_out, 10) || 0)} Crates</span>
+                      <span className="text-[10px] text-slate-400">Balance</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -610,9 +736,9 @@ export default function Arrivals() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">{t('Total Bags / Crates *', 'कुल नग / बोरी *')}</label>
+                  <label className="block font-bold text-slate-700 mb-1">{t('Total Quantity *', 'कुल नग / क्रेट *')}</label>
                   <input
                     type="number"
                     min="1"
@@ -622,6 +748,21 @@ export default function Arrivals() {
                     onChange={(e) => setFormData({ ...formData, bags: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-600 outline-none"
                   />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">{t('Packaging Unit *', 'पैकिंग इकाई *')}</label>
+                  <select
+                    value={formData.unit}
+                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold focus:ring-2 focus:ring-emerald-600 outline-none bg-white"
+                  >
+                    <option value="Crate (20kg)">📦 Crate (क्रेट - 20kg)</option>
+                    <option value="Banana Crate (15kg)">🍌 Banana Crate (केला क्रेट - 15kg)</option>
+                    <option value="Box (20kg)">📦 Box (पेटी - 20kg)</option>
+                    <option value="Bunch (घहर)">🌴 Bunch (घहर / लंगर)</option>
+                    <option value="Sack (50kg)">🌾 Sack / Bag (बोरी - 50kg)</option>
+                    <option value="Quintal (क्विंटल)">⚖️ Quintal (क्विंटल)</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">{t('Gross Weight (Qntl)', 'कुल वजन (क्विंटल)')}</label>
@@ -875,12 +1016,26 @@ export default function Arrivals() {
                             <span className="text-[11px] font-normal text-gray-400 block mt-0.5">
                               {new Date(arr.arrival_date).toLocaleDateString('en-IN')}
                             </span>
+                            {arr.inward_type === 'storage' ? (
+                              <span className="inline-block mt-1 bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] px-1.5 py-0.5 rounded font-black font-sans">
+                                ❄️ {arr.storage_location || 'Storage Chamber'}
+                              </span>
+                            ) : (
+                              <span className="inline-block mt-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] px-1.5 py-0.5 rounded font-bold font-sans">
+                                ⚡ Direct Yard Sale
+                              </span>
+                            )}
                           </td>
                           <td className="py-3 px-4">
                             <span className="font-bold text-gray-800 uppercase font-mono">{arr.truck_no}</span>
                             {arr.driver_name && (
                               <span className="text-xs text-gray-500 block">
                                 {arr.driver_name} {arr.driver_mobile ? `(${arr.driver_mobile})` : ''}
+                              </span>
+                            )}
+                            {Number(arr.driver_crates_in) > 0 && (
+                              <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-mono font-bold block w-fit mt-0.5">
+                                📦 Crates: +{arr.driver_crates_in} / -{arr.driver_crates_out || 0} (Bal: {arr.driver_crates_balance || 0})
                               </span>
                             )}
                           </td>

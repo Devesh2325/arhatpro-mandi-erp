@@ -24,7 +24,9 @@ export default function Sales() {
     sale_rate: '',
     rate_unit: 'quintal',
     brokerage_rate: '2.0',
-    payment_terms: '15_days'
+    payment_terms: '15_days',
+    crates_issued: '',
+    crates_returned: ''
   });
 
   useEffect(() => {
@@ -57,7 +59,9 @@ export default function Sales() {
       sale_rate: '',
       rate_unit: lot.unit || 'quintal',
       brokerage_rate: '2.0',
-      payment_terms: '15_days'
+      payment_terms: '15_days',
+      crates_issued: lot.remaining_bags.toString(),
+      crates_returned: '0'
     });
     setMessage(null);
   };
@@ -83,7 +87,10 @@ export default function Sales() {
         rate_unit: saleForm.rate_unit,
         brokerage_rate: parseFloat(saleForm.brokerage_rate) || 0,
         payment_terms: saleForm.payment_terms,
-        entry_date: saleForm.entry_date
+        entry_date: saleForm.entry_date,
+        buyer_crates_issued: parseInt(saleForm.crates_issued, 10) || 0,
+        buyer_crates_returned: parseInt(saleForm.crates_returned, 10) || 0,
+        storage_location: selectedLotForSale.storage_location || ''
       });
       setMessage({ type: 'success', text: `Successfully auctioned & recorded ${bagsToSell} bags to ${saleForm.buyer_name}!` });
       setSelectedLotForSale(null);
@@ -222,15 +229,26 @@ export default function Sales() {
                       <span className="font-mono text-sm font-black text-gray-900">{lot.lot_number}</span>
                       <span className="text-xs text-gray-400 ml-2">Truck: {lot.truck_no}</span>
                     </div>
-                    {isSoldOut ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
-                        <CheckCircle className="w-3 h-3" /> Sold
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">
-                        <Clock className="w-3 h-3" /> Open Yard
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {lot.inward_type === 'storage' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-100 text-indigo-900 border border-indigo-200">
+                          ❄️ {lot.storage_location || 'Chamber'}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-200">
+                          ⚡ Direct Yard
+                        </span>
+                      )}
+                      {isSoldOut ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                          <CheckCircle className="w-3 h-3" /> Sold
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">
+                          <Clock className="w-3 h-3" /> Open
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Lot Details */}
@@ -444,6 +462,39 @@ export default function Sales() {
                     <option value="15_days">15 Days Standard</option>
                     <option value="30_days">30 Days Credit</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Buyer Crate Dispatch & Return Tracking */}
+              <div className="bg-amber-50/70 p-3 rounded-xl border border-amber-200 space-y-1.5">
+                <span className="text-[11px] font-bold text-amber-950 block">
+                  📦 Buyer Crate Dispatch & Return (खरीदार क्रेट निकासी व वापसी हिसाब)
+                </span>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-700 mb-0.5">
+                      Crates Issued to Buyer (निकासी क्रेट)
+                    </label>
+                    <input
+                      type="number"
+                      value={saleForm.crates_issued}
+                      onChange={(e) => setSaleForm({ ...saleForm, crates_issued: e.target.value })}
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold bg-white"
+                      placeholder="e.g. 50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-700 mb-0.5">
+                      Empty Crates Returned (वापस प्राप्त क्रेट)
+                    </label>
+                    <input
+                      type="number"
+                      value={saleForm.crates_returned}
+                      onChange={(e) => setSaleForm({ ...saleForm, crates_returned: e.target.value })}
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold bg-white text-emerald-700"
+                      placeholder="e.g. 0"
+                    />
+                  </div>
                 </div>
               </div>
 
