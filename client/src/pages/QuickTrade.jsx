@@ -26,8 +26,13 @@ export default function QuickTrade() {
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
   const [inwardType, setInwardType] = useState('direct'); // 'direct' or 'storage'
   const [storageLocation, setStorageLocation] = useState('');
+  const [driverName, setDriverName] = useState('');
+  const [driverPhone, setDriverPhone] = useState('');
+  const [freightPaymentMode, setFreightPaymentMode] = useState('cash');
   const [driverCratesIn, setDriverCratesIn] = useState('');
   const [driverCratesOut, setDriverCratesOut] = useState('');
+  const [farmerCratesIn, setFarmerCratesIn] = useState('');
+  const [farmerCratesReturned, setFarmerCratesReturned] = useState('');
   const [manualLotNo, setManualLotNo] = useState('');
   const [truckNo, setTruckNo] = useState('');
   const [farmerName, setFarmerName] = useState('');
@@ -108,8 +113,13 @@ export default function QuickTrade() {
     setEntryDate(new Date().toISOString().split('T')[0]);
     setInwardType('direct');
     setStorageLocation('');
+    setDriverName('');
+    setDriverPhone('');
+    setFreightPaymentMode('cash');
     setDriverCratesIn('');
     setDriverCratesOut('');
+    setFarmerCratesIn('');
+    setFarmerCratesReturned('');
     setManualLotNo('');
     setTruckNo('');
     setFarmerName('');
@@ -134,8 +144,13 @@ export default function QuickTrade() {
     setEntryDate(new Date().toISOString().split('T')[0]);
     setInwardType('storage');
     setStorageLocation('Chamber-4 (Banana Ripening)');
+    setDriverName('Gurmel Singh Transporter');
+    setDriverPhone('9812033445');
+    setFreightPaymentMode('cash');
     setDriverCratesIn('300');
     setDriverCratesOut('50');
+    setFarmerCratesIn('300');
+    setFarmerCratesReturned('0');
     setTruckNo('MH-19-J-2244');
     setFarmerName('Patil Banana Farms');
     setFarmerPhone('+91 98220 12345');
@@ -246,8 +261,13 @@ export default function QuickTrade() {
         entryDate,
         inwardType,
         storageLocation,
+        driverName,
+        driverPhone,
+        freightPaymentMode,
         driverCratesIn: parseInt(driverCratesIn, 10) || 0,
         driverCratesOut: parseInt(driverCratesOut, 10) || 0,
+        farmerCratesIn: parseInt(farmerCratesIn, 10) || 0,
+        farmerCratesReturned: parseInt(farmerCratesReturned, 10) || 0,
         manualLotNo: manualLotNo ? manualLotNo.trim() : null,
         truckNo,
         farmerName,
@@ -511,154 +531,273 @@ export default function QuickTrade() {
             </div>
           </div>
 
-          {/* Crate & Driver Accounting Box */}
-          <div className="bg-amber-50/70 p-3.5 rounded-2xl border border-amber-200 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                <span>📦 Crate & Driver Logistics (चालक क्रेट हिसाब - केला/फल स्टोर)</span>
-              </span>
-              <span className="text-[10px] text-amber-700 font-mono">
-                {t('In / Out / Balance', 'आवक क्रेट / वापसी / शेष')}
-              </span>
-            </div>
+          {/* Subcard A: Vehicle & Transporter Freight Logistics */}
+          <div className="p-4 bg-slate-50/70 rounded-2xl border border-slate-200 space-y-3">
+            <span className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+              <Truck className="w-4 h-4 text-emerald-700" />
+              <span>{t('Transporter & Driver Freight Head (चालक व गाड़ी भाड़ा)', 'चालक व गाड़ी भाड़ा')}</span>
+            </span>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  {t('Driver Crates In', 'चालक से प्राप्त क्रेट')}
-                </label>
+                <label className="font-bold text-slate-700 block mb-1">{t('Truck / Vehicle No. *', 'गाड़ी / वाहन संख्या *')}</label>
                 <input
-                  type="number"
-                  placeholder="e.g. 300"
-                  value={driverCratesIn}
-                  onChange={(e) => setDriverCratesIn(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-xl font-mono font-bold focus:ring-1 focus:ring-amber-500 outline-none bg-white"
+                  type="text"
+                  required
+                  value={truckNo}
+                  onChange={(e) => setTruckNo(e.target.value)}
+                  placeholder="e.g. DL-01-AB-1234"
+                  className="w-full p-2 border border-slate-300 rounded-xl font-mono font-bold uppercase focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none bg-white"
                 />
               </div>
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  {t('Empty Crates Returned', 'चालक को लौटाई खाली क्रेट')}
-                </label>
+                <label className="font-bold text-slate-700 block mb-1">{t('Driver Name', 'चालक का नाम')}</label>
                 <input
-                  type="number"
-                  placeholder="e.g. 50"
-                  value={driverCratesOut}
-                  onChange={(e) => setDriverCratesOut(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-xl font-mono font-bold focus:ring-1 focus:ring-amber-500 outline-none bg-white text-emerald-800"
+                  type="text"
+                  value={driverName}
+                  onChange={(e) => setDriverName(e.target.value)}
+                  placeholder="e.g. Gurmel Singh"
+                  className="w-full p-2 border border-slate-300 rounded-xl focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none bg-white"
                 />
               </div>
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  {t('Net Balance Crates', 'चालक पर बाकी क्रेट')}
-                </label>
-                <div className="w-full p-2 bg-white border border-amber-300 rounded-xl font-mono font-black text-amber-900 flex items-center justify-between">
-                  <span>{(parseInt(driverCratesIn, 10) || 0) - (parseInt(driverCratesOut, 10) || 0)} Crates</span>
-                  <span className="text-[10px] text-slate-400">Balance</span>
+                <label className="font-bold text-slate-700 block mb-1">{t('Driver Mobile', 'चालक मोबाइल')}</label>
+                <input
+                  type="text"
+                  value={driverPhone}
+                  onChange={(e) => setDriverPhone(e.target.value)}
+                  placeholder="10-digit mobile"
+                  className="w-full p-2 border border-slate-300 rounded-xl font-mono focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none bg-white"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs pt-1">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">{t('Total Freight (₹)', 'कुल गाड़ी भाड़ा (₹)')}</label>
+                <input
+                  type="number"
+                  value={totalFreight}
+                  onChange={(e) => setTotalFreight(e.target.value)}
+                  placeholder="0"
+                  className="w-full p-2 border border-slate-300 rounded-xl font-mono focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none bg-white"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">{t('Freight Advance (₹)', 'पेशगी भाड़ा (₹)')}</label>
+                <input
+                  type="number"
+                  value={freightAdvance}
+                  onChange={(e) => setFreightAdvance(e.target.value)}
+                  placeholder="0"
+                  className="w-full p-2 border border-slate-300 rounded-xl font-mono font-bold text-amber-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none bg-white"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-slate-500 block mb-1">{t('Balance Freight Due (₹)', 'शेष भाड़ा बाकी')}</label>
+                <div className="w-full p-2 bg-white border border-slate-200 rounded-xl font-mono font-black text-rose-700 text-xs">
+                  ₹{(Math.max(0, (parseFloat(totalFreight) || 0) - (parseFloat(freightAdvance) || 0))).toLocaleString('en-IN')}
+                </div>
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">{t('Freight Settlement Mode', 'भाड़ा भुगतान मद')}</label>
+                <select
+                  value={freightPaymentMode}
+                  onChange={(e) => setFreightPaymentMode(e.target.value)}
+                  className="w-full p-2 border border-slate-300 rounded-xl font-bold bg-white focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none text-xs"
+                >
+                  <option value="cash">💵 Cash / Rokad (रोकड़ से दिया)</option>
+                  <option value="driver_ledger">🚚 Driver Ledger (चालक खाता बाकी)</option>
+                  <option value="deduct_farmer">🌾 Deduct from Farmer (किसान से काटा)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Driver Crate Accounting Box */}
+            <div className="bg-amber-50/80 p-3 rounded-xl border border-amber-200/80 space-y-2 mt-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                  <span>📦 Driver Crate Tracking (चालक क्रेट हिसाब)</span>
+                </span>
+                <span className="text-[10px] text-amber-700 font-mono">
+                  {t('In / Out / Balance', 'आवक क्रेट / वापसी / शेष')}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {t('Driver Crates In', 'चालक से प्राप्त क्रेट')}
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 300"
+                    value={driverCratesIn}
+                    onChange={(e) => setDriverCratesIn(e.target.value)}
+                    className="w-full p-1.5 border border-slate-300 rounded-lg font-mono font-bold focus:ring-1 focus:ring-amber-500 outline-none bg-white text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {t('Empty Crates Returned', 'चालक को लौटाई खाली क्रेट')}
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 50"
+                    value={driverCratesOut}
+                    onChange={(e) => setDriverCratesOut(e.target.value)}
+                    className="w-full p-1.5 border border-slate-300 rounded-lg font-mono font-bold focus:ring-1 focus:ring-amber-500 outline-none bg-white text-emerald-800 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {t('Net Balance Crates', 'चालक पर बाकी क्रेट')}
+                  </label>
+                  <div className="w-full p-1.5 bg-white border border-amber-300 rounded-lg font-mono font-black text-amber-900 flex items-center justify-between text-xs">
+                    <span>{(parseInt(driverCratesIn, 10) || 0) - (parseInt(driverCratesOut, 10) || 0)} Crates</span>
+                    <span className="text-[10px] text-slate-400">Balance</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Vehicle & Truck */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-            <div>
-              <label className="font-bold text-slate-700 block mb-1">{t('Truck / Vehicle No. *', 'गाड़ी / वाहन संख्या *')}</label>
-              <input
-                type="text"
-                required
-                value={truckNo}
-                onChange={(e) => setTruckNo(e.target.value)}
-                placeholder="e.g. DL-01-AB-1234"
-                className="w-full p-2.5 border border-slate-300 rounded-xl font-mono font-bold uppercase placeholder:font-normal placeholder:normal-case placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none"
-              />
-            </div>
-            <div>
-              <PartySearchSelect
-                partyType="Farmer"
-                label={t('Farmer / Producer Name *', 'किसान / उत्पादक का नाम *')}
-                required
-                value={farmerName}
-                placeholder="किसान खोजें या नया जोड़ें..."
-                onChange={(name, party) => {
-                  setFarmerName(name);
-                  if (party?.mobile) setFarmerPhone(party.mobile);
-                }}
-              />
-            </div>
-            <div>
-              <label className="font-bold text-slate-700 block mb-1">{t('Farmer Phone', 'किसान मोबाइल')}</label>
-              <input
-                type="text"
-                value={farmerPhone}
-                onChange={(e) => setFarmerPhone(e.target.value)}
-                placeholder="e.g. 98160 44321"
-                className="w-full p-2.5 border border-slate-300 rounded-xl font-mono placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none"
-              />
-            </div>
-          </div>
+          {/* Subcard B: Farmer & Grower Inward Logistics */}
+          <div className="p-4 bg-emerald-50/40 rounded-2xl border border-emerald-200/80 space-y-3">
+            <span className="text-xs font-bold text-emerald-950 uppercase tracking-wide flex items-center gap-1.5">
+              <UserCheck className="w-4 h-4 text-emerald-700" />
+              <span>{t('Farmer & Produce Details (किसान व फसल विवरण)', 'किसान व फसल विवरण')}</span>
+            </span>
 
-          {/* Agent Section */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1 border-t border-slate-100">
-            <div>
-              <PartySearchSelect
-                partyType="Agent"
-                label={t('Agent / Broker (दलाल / एजेंट - यदि हो)', 'दलाल / एजेंट (वैकल्पिक)')}
-                value={agentName}
-                placeholder="दलाल खोजें या नया जोड़ें..."
-                onChange={(name, party) => {
-                  setAgentName(name);
-                  if (party?.mobile) setAgentPhone(party.mobile);
-                }}
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <PartySearchSelect
+                  partyType="Farmer"
+                  label={t('Farmer / Producer Name *', 'किसान / उत्पादक का नाम *')}
+                  required
+                  value={farmerName}
+                  placeholder="किसान खोजें या नया जोड़ें..."
+                  onChange={(name, party) => {
+                    setFarmerName(name);
+                    if (party?.mobile) setFarmerPhone(party.mobile);
+                  }}
+                />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">{t('Farmer Phone', 'किसान मोबाइल')}</label>
+                <input
+                  type="text"
+                  value={farmerPhone}
+                  onChange={(e) => setFarmerPhone(e.target.value)}
+                  placeholder="e.g. 98160 44321"
+                  className="w-full p-2 border border-slate-300 rounded-xl font-mono focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none bg-white"
+                />
+              </div>
             </div>
-            <div>
-              <label className="font-bold text-slate-700 block mb-1">{t('Agent Mobile', 'दलाल / एजेंट मोबाइल')}</label>
-              <input
-                type="text"
-                value={agentPhone}
-                onChange={(e) => setAgentPhone(e.target.value)}
-                placeholder="e.g. 98765..."
-                className="w-full p-2.5 border border-slate-300 rounded-xl font-mono placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none"
-              />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-            <div>
-              <label className="font-bold text-slate-700 block mb-1">{t('Commodity *', 'फसल / जिंस *')}</label>
-              <select
-                value={commodity}
-                onChange={(e) => setCommodity(e.target.value)}
-                className="w-full p-2.5 border border-slate-300 rounded-xl font-bold bg-white focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none"
-              >
-                {commoditiesList.map(c => (
-                  <option key={c.id} value={c.name_en || c.name}>
-                    {isHindi ? (c.name_hi || c.name_en || c.name) : (c.name_en || c.name)}
-                  </option>
-                ))}
-                {commoditiesList.length === 0 && (
-                  <option value="Apple - Royal Delicious">{isHindi ? 'सेब - रॉयल डिलीशियस' : 'Apple - Royal Delicious'}</option>
-                )}
-              </select>
+            {/* Agent Section */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1 border-t border-emerald-100">
+              <div>
+                <PartySearchSelect
+                  partyType="Agent"
+                  label={t('Agent / Broker (दलाल / एजेंट - यदि हो)', 'दलाल / एजेंट (वैकल्पिक)')}
+                  value={agentName}
+                  placeholder="दलाल खोजें या नया जोड़ें..."
+                  onChange={(name, party) => {
+                    setAgentName(name);
+                    if (party?.mobile) setAgentPhone(party.mobile);
+                  }}
+                />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">{t('Agent Mobile', 'दलाल / एजेंट मोबाइल')}</label>
+                <input
+                  type="text"
+                  value={agentPhone}
+                  onChange={(e) => setAgentPhone(e.target.value)}
+                  placeholder="e.g. 98765..."
+                  className="w-full p-2 border border-slate-300 rounded-xl font-mono focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none bg-white"
+                />
+              </div>
             </div>
-            <div>
-              <label className="font-bold text-slate-700 block mb-1">{t('Total Truck Freight (₹)', 'कुल गाड़ी भाड़ा (₹)')}</label>
-              <input
-                type="number"
-                value={totalFreight}
-                onChange={(e) => setTotalFreight(e.target.value)}
-                placeholder="0"
-                className="w-full p-2.5 border border-slate-300 rounded-xl font-mono focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none"
-              />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">{t('Commodity *', 'फसल / जिंस *')}</label>
+                <select
+                  value={commodity}
+                  onChange={(e) => setCommodity(e.target.value)}
+                  className="w-full p-2 border border-slate-300 rounded-xl font-bold bg-white focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none"
+                >
+                  {commoditiesList.map(c => (
+                    <option key={c.id} value={c.name_en || c.name}>
+                      {isHindi ? (c.name_hi || c.name_en || c.name) : (c.name_en || c.name)}
+                    </option>
+                  ))}
+                  {commoditiesList.length === 0 && (
+                    <option value="Banana - G9 Grand Naine">{isHindi ? 'केला - जी9' : 'Banana - G9 Grand Naine'}</option>
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  {t('Kisan Awak Rate (₹/Unit)', 'किसान आवक भाव / खरीद दर (₹)')}
+                </label>
+                <input
+                  type="number"
+                  value={arrivalRate}
+                  onChange={(e) => setArrivalRate(e.target.value)}
+                  placeholder="उदा. ₹550 प्रति क्रेट"
+                  className="w-full p-2 border border-slate-300 rounded-xl font-mono font-bold focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none bg-white text-emerald-900"
+                />
+              </div>
             </div>
-            <div>
-              <label className="font-bold text-slate-700 block mb-1">{t('Freight Advance Paid to Driver (₹)', 'चालक को पेशगी भाड़ा (₹)')}</label>
-              <input
-                type="number"
-                value={freightAdvance}
-                onChange={(e) => setFreightAdvance(e.target.value)}
-                placeholder="0"
-                className="w-full p-2.5 border border-slate-300 rounded-xl font-mono font-bold text-amber-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none"
-              />
+
+            {/* Farmer Crate Accounting Box */}
+            <div className="bg-emerald-100/60 p-3 rounded-xl border border-emerald-200 space-y-2 mt-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                  <span>🌾 Grower Crate Tracking (किसान क्रेट हिसाब)</span>
+                </span>
+                <span className="text-[10px] text-emerald-800 font-mono">
+                  {t('Farmer In / Out / Bal', 'किसान क्रेट आवक / वापसी / बाकी')}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {t('Crates from Farmer', 'किसान से प्राप्त भरी क्रेट')}
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 300"
+                    value={farmerCratesIn}
+                    onChange={(e) => setFarmerCratesIn(e.target.value)}
+                    className="w-full p-1.5 border border-slate-300 rounded-lg font-mono font-bold focus:ring-1 focus:ring-emerald-500 outline-none bg-white text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {t('Crates Returned to Farmer', 'किसान को लौटाई खाली क्रेट')}
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 50"
+                    value={farmerCratesReturned}
+                    onChange={(e) => setFarmerCratesReturned(e.target.value)}
+                    className="w-full p-1.5 border border-slate-300 rounded-lg font-mono font-bold focus:ring-1 focus:ring-emerald-500 outline-none bg-white text-emerald-800 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {t('Net Crates Due to Farmer', 'किसान के नाम बाकी क्रेट')}
+                  </label>
+                  <div className="w-full p-1.5 bg-white border border-emerald-300 rounded-lg font-mono font-black text-emerald-900 flex items-center justify-between text-xs">
+                    <span>{(parseInt(farmerCratesIn, 10) || 0) - (parseInt(farmerCratesReturned, 10) || 0)} Crates</span>
+                    <span className="text-[10px] text-slate-400">Balance</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 

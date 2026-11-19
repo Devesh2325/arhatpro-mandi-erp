@@ -594,6 +594,46 @@ await test('GET /ledger/journal — returns journal entries', async () => {
   assert(status === 200, `Expected 200 got ${status}`);
 });
 
+await test('GET /ledger/drivers — returns driver ledger summary and vehicle trips', async () => {
+  const { status, body } = await get('/ledger/drivers', adminToken);
+  assertJson(body, '/ledger/drivers');
+  assert(status === 200, `Expected 200 got ${status}`);
+  assert(body.summary && Array.isArray(body.drivers), 'Expected summary and drivers array');
+});
+
+await test('POST /ledger/drivers/payment — records freight payment to driver', async () => {
+  const { status, body } = await post('/ledger/drivers/payment', {
+    driverName: 'Test Driver Singh',
+    truckNo: 'DL-01-AB-1234',
+    amount: 500,
+    paymentMode: 'Cash',
+    narration: 'Test freight payment'
+  }, adminToken);
+  assertJson(body, 'POST /ledger/drivers/payment');
+  assert(status === 200, `Expected 200 got ${status}: ${body.error || ''}`);
+});
+
+await test('GET /ledger/crates — returns crate balances for parties and drivers', async () => {
+  const { status, body } = await get('/ledger/crates', adminToken);
+  assertJson(body, '/ledger/crates');
+  assert(status === 200, `Expected 200 got ${status}`);
+  assert(body.summary && Array.isArray(body.partyCrates), 'Expected crate summary and partyCrates array');
+});
+
+await test('POST /ledger/crates/movement — records crate issuance and return', async () => {
+  const { status, body } = await post('/ledger/crates/movement', {
+    entityType: 'party',
+    entityName: 'Test Buyer Store',
+    partyType: 'Buyer',
+    movementType: 'GIVEN',
+    cratesCount: 25,
+    referenceType: 'new_issue',
+    notes: 'Test 25 crates dispatched'
+  }, adminToken);
+  assertJson(body, 'POST /ledger/crates/movement');
+  assert(status === 201 || status === 200, `Expected 2xx got ${status}: ${body.error || ''}`);
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  11. ADMIN
 // ═══════════════════════════════════════════════════════════════════════════

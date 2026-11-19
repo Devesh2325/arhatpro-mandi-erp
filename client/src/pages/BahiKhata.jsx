@@ -22,12 +22,14 @@ import {
   Download,
   Sparkles,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Truck,
+  Package
 } from 'lucide-react';
 
 export default function BahiKhata() {
   const { t, isHindi } = useLanguage();
-  const [activeTab, setActiveTab] = useState('ACCOUNTS'); // ACCOUNTS, CASHBOOK, JOURNAL, TRIAL_BALANCE, BALANCE_SHEET, AGING
+  const [activeTab, setActiveTab] = useState('ACCOUNTS'); // ACCOUNTS, CRATES, DRIVERS, CASHBOOK, JOURNAL, TRIAL_BALANCE, BALANCE_SHEET, AGING
   const [accounts, setAccounts] = useState([]);
   const [cashEntries, setCashEntries] = useState([]);
   const [journalEntries, setJournalEntries] = useState([]);
@@ -38,6 +40,36 @@ export default function BahiKhata() {
   const [searchTerm, setSearchTerm] = useState('');
   const [message, setMessage] = useState(null);
   const [expandedRows, setExpandedRows] = useState({});
+
+  // Driver Ledger state
+  const [driversData, setDriversData] = useState({ summary: {}, drivers: [] });
+  const [showDriverPaymentModal, setShowDriverPaymentModal] = useState(false);
+  const [selectedDriver, setSelectedDriver] = useState(null);
+  const [driverPaymentForm, setDriverPaymentForm] = useState({
+    amount: '',
+    paymentMode: 'Cash',
+    narration: ''
+  });
+  const [expandedDriverTrips, setExpandedDriverTrips] = useState({});
+
+  // Crate Ledger state
+  const [cratesData, setCratesData] = useState({ summary: {}, partyCrates: [], driverCrates: [], recentTransactions: [] });
+  const [crateFilter, setCrateFilter] = useState('ALL'); // 'ALL', 'FARMER', 'BUYER', 'DRIVER'
+  const [showCrateModal, setShowCrateModal] = useState(false);
+  const [crateForm, setCrateForm] = useState({
+    entityType: 'party',
+    entityName: '',
+    entityPhone: '',
+    partyType: 'Buyer',
+    vehicleNo: '',
+    movementType: 'RECEIVED',
+    cratesCount: '',
+    referenceType: 'empty_return',
+    notes: ''
+  });
+
+  // Account Type Filter
+  const [accountTypeFilter, setAccountTypeFilter] = useState('ALL'); // 'ALL', 'Buyer', 'Farmer', 'Driver', 'Agent'
 
   // Cashbook form state
   const [cashSummary, setCashSummary] = useState({ openingCash: 0, totalJama: 0, totalKharch: 0, closingBalance: 0 });
@@ -70,8 +102,45 @@ export default function BahiKhata() {
     setMessage(null);
     try {
       if (activeTab === 'ACCOUNTS') {
-        const res = await api.getAccounts();
-        setAccounts(res.accounts || []);
+        const [accRes, partiesRes, crateRes] = await Promise.all([
+          api.getAccounts(),
+          api.getParties().catch(() => []),
+          api.getCratesLedger().catch(() => ({ partyCrates: [] }))
+        ]);
+        const crateMap = {};
+        (crateRes.partyCrates || []).forEach(cp => {
+          crateMap[cp.name] = cp.netBalance;
+        });
+
+        const rawParties = Array.isArray(partiesRes) ? partiesRes : (partiesRes?.parties || []);
+        const merged = (accRes.accounts || []).map(a => ({
+          ...a,
+          party_type: 'Buyer',
+          crates_balance: crateMap[a.party_name] || 0
+        }));
+
+        rawParties.forEach(p => {
+          if (p.type !== 'Buyer' && !merged.find(m => m.name === p.name)) {
+            merged.push({
+              id: p.id,
+              name: p.name,
+              party_name: p.name,
+              account_type: p.type || 'Farmer',
+              phone: p.mobile,
+              city: p.city || p.address,
+              balance: p.current_balance || 0,
+              crates_balance: crateMap[p.name] || 0
+            });
+          }
+        });
+
+        setAccounts(merged);
+      } else if (activeTab === 'DRIVERS') {
+        const res = await api.getDriversLedger();
+        setDriversData(res || { summary: {}, drivers: [] });
+      } else if (activeTab === 'CRATES') {
+        const res = await api.getCratesLedger();
+        setCratesData(res || { summary: {}, partyCrates: [], driverCrates: [], recentTransactions: [] });
       } else if (activeTab === 'CASHBOOK') {
         const [cashRes, accRes] = await Promise.all([
           api.getCashbook(),
@@ -203,6 +272,67 @@ export default function BahiKhata() {
     }
   };
 
+  // Driver Freight Payment Submit
+  const handleDriverPaymentSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setMessage(null);
+    try {
+      const amt = parseFloat(driverPaymentForm.amount);
+      if (!amt || amt <= 0) throw new Error('Please enter a valid amount.');
+      await api.payDriverFreight({
+        driverName: selectedDriver?.driverName || 'Driver',
+        truckNo: selectedDriver?.truckNo || '',
+        amount: amt,
+        paymentMode: driverPaymentForm.paymentMode,
+        narration: driverPaymentForm.narration
+      });
+      setMessage({ type: 'success', text: `Successfully paid ₹${amt.toLocaleString()} to driver ${selectedDriver?.driverName || ''} (${selectedDriver?.truckNo || ''})!` });
+      setShowDriverPaymentModal(false);
+      setDriverPaymentForm({ amount: '', paymentMode: 'Cash', narration: '' });
+      loadData();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Payment failed.' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Crate Movement Submit
+  const handleCrateMovementSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setMessage(null);
+    try {
+      const count = parseInt(crateForm.cratesCount, 10);
+      if (!count || count <= 0) throw new Error('Please enter valid crates count.');
+      if (!crateForm.entityName.trim()) throw new Error('Please enter party or driver name.');
+
+      await api.recordCrateMovement({
+        ...crateForm,
+        cratesCount: count
+      });
+      setMessage({ type: 'success', text: `Successfully recorded ${count} crates ${crateForm.movementType.toLowerCase()} for ${crateForm.entityName}!` });
+      setShowCrateModal(false);
+      setCrateForm({
+        entityType: 'party',
+        entityName: '',
+        entityPhone: '',
+        partyType: 'Buyer',
+        vehicleNo: '',
+        movementType: 'RECEIVED',
+        cratesCount: '',
+        referenceType: 'empty_return',
+        notes: ''
+      });
+      loadData();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Crate entry failed.' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -210,13 +340,32 @@ export default function BahiKhata() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
             <BookOpen className="w-7 h-7 text-indigo-600" />
-            {t('Bahi-Khata & Rokad Ledger', 'बही-खाता एवं रोकड़ बही')}
+            {t('Bahi-Khata, Crate & Driver Ledger', 'बही-खाता, क्रेट एवं चालक बही')}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            {t('Indian Mandi double-entry accounting system with 15-day APMC debtor interest calculator.', 'मंडी द्वि-प्रविष्टि बहीखाता एवं 15-दिवसीय एपीएमसी विलंब ब्याज कैलकुलेटर।')}
+            {t('Indian Mandi double-entry accounting with dedicated Banana Store & Cold Storage crate balances and driver freight ledger.', 'मंडी द्वि-प्रविष्टि बहीखाता, केला/कोल्ड स्टोर क्रेट खाता एवं चालक भाड़ा हिसाब।')}
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {activeTab === 'CRATES' && (
+            <button
+              onClick={() => setShowCrateModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg shadow-sm text-sm cursor-pointer"
+            >
+              <Package className="w-4 h-4" /> {t('Record Crate Movement', 'नया क्रेट वाउचर')}
+            </button>
+          )}
+          {activeTab === 'DRIVERS' && (
+            <button
+              onClick={() => {
+                setSelectedDriver(driversData.drivers[0] || null);
+                setShowDriverPaymentModal(true);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm text-sm cursor-pointer"
+            >
+              <Truck className="w-4 h-4" /> {t('Pay Driver Freight', 'भाड़ा भुगतान करें')}
+            </button>
+          )}
           {activeTab === 'CASHBOOK' && (
             <button
               onClick={() => setShowCashModal(true)}
@@ -258,7 +407,9 @@ export default function BahiKhata() {
       {/* Tabs */}
       <div className="flex border-b border-gray-200 gap-2 sm:gap-4 overflow-x-auto pb-1 text-xs sm:text-sm font-bold select-none">
         {[
-          { id: 'ACCOUNTS', label: t('Khata Accounts', 'खाता बही (पार्टी)'), icon: BookOpen },
+          { id: 'ACCOUNTS', label: t('Party Accounts', 'खाता बही (पार्टी)'), icon: BookOpen },
+          { id: 'CRATES', label: t('Crates Ledger', 'क्रेट खाता (पार्टी/स्टोर)'), icon: Package },
+          { id: 'DRIVERS', label: t('Driver Ledger', 'चालक/भाड़ा खाता'), icon: Truck },
           { id: 'CASHBOOK', label: t('Rokad / Cashbook', 'रोकड़ बही (नकद)'), icon: DollarSign },
           { id: 'JOURNAL', label: t('Double-Entry Journal', 'रोजनामचा (जर्नल)'), icon: ShieldCheck },
           { id: 'TRIAL_BALANCE', label: t('Trial Balance', 'तलपट (ट्रायल बैलेंस)'), icon: Scale },
@@ -286,46 +437,80 @@ export default function BahiKhata() {
       {/* TAB 1: ACCOUNTS */}
       {activeTab === 'ACCOUNTS' && (
         <div className="space-y-4">
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
-            <div className="relative flex-1 max-w-md">
-              <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search account name, type, phone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-              />
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
+              {[
+                { id: 'ALL', label: t('All Parties', 'सभी खाते') },
+                { id: 'Buyer', label: t('Buyers', 'खरीदार (व्यापारी)') },
+                { id: 'Farmer', label: t('Farmers', 'किसान (उत्पादक)') },
+                { id: 'Agent', label: t('Agents', 'दलाल / एजेंट') }
+              ].map(f => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setAccountTypeFilter(f.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    accountTypeFilter === f.id
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
             </div>
-            <button
-              onClick={loadData}
-              className="p-2 text-gray-500 hover:text-indigo-600 rounded-lg hover:bg-gray-100"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-64">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search account name, type, phone..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+              <button
+                onClick={loadData}
+                className="p-1.5 text-gray-500 hover:text-indigo-600 rounded-xl hover:bg-gray-100 border border-slate-200"
+                title="Refresh"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <table className="w-full text-left text-sm text-gray-600">
               <thead className="bg-gray-50 text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">
                 <tr>
-                  <th className="py-3.5 px-4">Account Name</th>
-                  <th className="py-3.5 px-4">Account Type</th>
-                  <th className="py-3.5 px-4">Contact Info</th>
-                  <th className="py-3.5 px-4 text-right">Balance</th>
-                  <th className="py-3.5 px-4 text-center">Status</th>
+                  <th className="py-3.5 px-4">{t('Account / Party Name', 'खाता / पार्टी नाम')}</th>
+                  <th className="py-3.5 px-4">{t('Account Type', 'पार्टी प्रकार')}</th>
+                  <th className="py-3.5 px-4">{t('Contact Info', 'संपर्क / शहर')}</th>
+                  <th className="py-3.5 px-4 text-right">{t('Financial Balance (₹)', 'खाता शेष (रुपये)')}</th>
+                  <th className="py-3.5 px-4 text-center">{t('Crates Balance (📦)', 'क्रेट्स शेष (📦)')}</th>
+                  <th className="py-3.5 px-4 text-center">{t('Status', 'स्थिति')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {loading ? (
-                  <tr><td colSpan="5" className="text-center py-10 text-gray-400">Loading ledger accounts...</td></tr>
+                  <tr><td colSpan="6" className="text-center py-10 text-gray-400">Loading ledger accounts...</td></tr>
                 ) : accounts.length === 0 ? (
-                  <tr><td colSpan="5" className="text-center py-10 text-gray-400">No accounts registered yet.</td></tr>
+                  <tr><td colSpan="6" className="text-center py-10 text-gray-400">No accounts registered yet.</td></tr>
                 ) : (
                   accounts
-                    .filter(a => a.name.toLowerCase().includes(searchTerm.toLowerCase()) || a.account_type.toLowerCase().includes(searchTerm.toLowerCase()))
+                    .filter(a => {
+                      if (accountTypeFilter !== 'ALL' && a.account_type?.toLowerCase() !== accountTypeFilter.toLowerCase()) {
+                        return false;
+                      }
+                      if (!searchTerm) return true;
+                      const s = searchTerm.toLowerCase();
+                      return a.name?.toLowerCase().includes(s) || a.account_type?.toLowerCase().includes(s) || a.phone?.includes(s);
+                    })
                     .map(acc => {
                       const isDr = (acc.balance || 0) >= 0;
+                      const cBal = acc.crates_balance || 0;
                       return (
                         <tr key={acc.id} className="hover:bg-gray-50 transition-colors">
                           <td className="py-3 px-4 font-bold text-gray-900">{acc.name}</td>
@@ -340,12 +525,514 @@ export default function BahiKhata() {
                               ₹{Math.abs(acc.balance || 0).toLocaleString()} {isDr ? 'Dr (Lena)' : 'Cr (Dena)'}
                             </span>
                           </td>
+                          <td className="py-3 px-4 text-center font-mono font-bold">
+                            <span className={`px-2 py-0.5 rounded text-xs ${
+                              cBal > 0 ? 'bg-amber-100 text-amber-900' : cBal < 0 ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-500'
+                            }`}>
+                              {cBal !== 0 ? `${Math.abs(cBal)} 📦 ${cBal > 0 ? (acc.account_type === 'Buyer' ? 'लेना' : 'देना') : ''}` : '0 Nil'}
+                            </span>
+                          </td>
                           <td className="py-3 px-4 text-center">
                             <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
                               Active
                             </span>
                           </td>
                         </tr>
+                      );
+                    })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB: CRATES (PARTY & DRIVER CRATE LEDGER) */}
+      {activeTab === 'CRATES' && (
+        <div className="space-y-4">
+          {/* Crate Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-xs text-slate-500 font-medium block">{t('Circulating Crates', 'कुल चलित क्रेट')}</span>
+                <span className="text-2xl font-black text-amber-700 font-mono mt-1 block">
+                  {(cratesData.summary?.totalCirculatingCrates || 0).toLocaleString()} 📦
+                </span>
+                <span className="text-[10px] text-slate-400 mt-1 block">{t('Market & Store Crates', 'बाजार व स्टोर की कुल क्रेट')}</span>
+              </div>
+              <span className="text-3xl p-2 bg-amber-50 rounded-2xl border border-amber-100">📦</span>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-xs text-slate-500 font-medium block">{t('Crates with Buyers', 'व्यापारियों पर बाकी क्रेट')}</span>
+                <span className="text-2xl font-black text-rose-600 font-mono mt-1 block">
+                  {(cratesData.summary?.totalCratesWithBuyers || 0).toLocaleString()} 📦
+                </span>
+                <span className="text-[10px] text-rose-500 mt-1 block font-bold">{t('To be recovered (लेना है)', 'वसूली योग्य (लेना है)')}</span>
+              </div>
+              <span className="text-3xl p-2 bg-rose-50 rounded-2xl border border-rose-100">🛒</span>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-xs text-slate-500 font-medium block">{t('Crates with Farmers', 'किसानों के पास क्रेट')}</span>
+                <span className="text-2xl font-black text-emerald-600 font-mono mt-1 block">
+                  {(cratesData.summary?.totalCratesWithFarmers || 0).toLocaleString()} 📦
+                </span>
+                <span className="text-[10px] text-emerald-600 mt-1 block font-bold">{t('Grower crates held (देना है)', 'किसान अमानत (देना है)')}</span>
+              </div>
+              <span className="text-3xl p-2 bg-emerald-50 rounded-2xl border border-emerald-100">🌾</span>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-xs text-slate-500 font-medium block">{t('Crates with Drivers', 'चालकों पर बाकी क्रेट')}</span>
+                <span className="text-2xl font-black text-indigo-700 font-mono mt-1 block">
+                  {(cratesData.summary?.totalCratesWithDrivers || 0).toLocaleString()} 📦
+                </span>
+                <span className="text-[10px] text-indigo-500 mt-1 block font-bold">{t('Vehicles in transit', 'ट्रांसपोर्ट गाड़ी में')}</span>
+              </div>
+              <span className="text-3xl p-2 bg-indigo-50 rounded-2xl border border-indigo-100">🚚</span>
+            </div>
+          </div>
+
+          {/* Controls: Search, Filter & Quick Action */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t('Filter', 'फिल्टर')}:</span>
+              {[
+                { id: 'ALL', label: t('All Parties & Drivers', 'सभी (पार्टी व चालक)') },
+                { id: 'BUYER', label: t('Buyers (खरीदार)', 'खरीदार (लेना है)') },
+                { id: 'FARMER', label: t('Farmers (किसान)', 'किसान (देना है)') },
+                { id: 'DRIVER', label: t('Drivers (चालक)', 'चालक') }
+              ].map(f => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setCrateFilter(f.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    crateFilter === f.id
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-64">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search party or driver..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 outline-none"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCrateModal(true)}
+                className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shrink-0 shadow-xs cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>{t('Record Crate Entry', 'क्रेट प्रविष्टि')}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Party Crates Register Table */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="p-3.5 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <span>📦 Mandi & Store Party Crate Ledger (पार्टी क्रेट हिसाब)</span>
+              </span>
+              <span className="text-[11px] text-slate-400 font-medium">
+                {t('Banana & Cold Storage Crate Tracking', 'केला व फल स्टोर क्रेट शेष')}
+              </span>
+            </div>
+
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-100/70 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200 text-[11px]">
+                <tr>
+                  <th className="py-3 px-4">{t('Party / Driver Name', 'नाम (पार्टी / चालक)')}</th>
+                  <th className="py-3 px-4">{t('Type', 'प्रकार')}</th>
+                  <th className="py-3 px-4">{t('Contact / Vehicle', 'संपर्क / गाड़ी नं.')}</th>
+                  <th className="py-3 px-4 text-right">{t('Crates In (आवक)', 'कुल प्राप्त (आवक)')}</th>
+                  <th className="py-3 px-4 text-right">{t('Crates Out (जावक)', 'कुल दी / लौटाई (जावक)')}</th>
+                  <th className="py-3 px-4 text-right">{t('Net Crate Balance', 'बाकी क्रेट (शेष)')}</th>
+                  <th className="py-3 px-4 text-center">{t('Status', 'स्थिति')}</th>
+                  <th className="py-3 px-4 text-center">{t('Action', 'कार्य')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr><td colSpan="8" className="text-center py-10 text-slate-400">Loading crate balances...</td></tr>
+                ) : (
+                  (() => {
+                    const displayed = [];
+                    (cratesData.partyCrates || []).forEach(p => {
+                      if (crateFilter === 'DRIVER') return;
+                      if (crateFilter === 'BUYER' && p.type !== 'Buyer') return;
+                      if (crateFilter === 'FARMER' && p.type !== 'Farmer') return;
+                      if (searchTerm) {
+                        const s = searchTerm.toLowerCase();
+                        if (!p.name?.toLowerCase().includes(s) && !p.mobile?.toLowerCase().includes(s)) return;
+                      }
+                      displayed.push({ ...p, isDriver: false });
+                    });
+                    if (crateFilter === 'ALL' || crateFilter === 'DRIVER') {
+                      (cratesData.driverCrates || []).forEach(d => {
+                        if (searchTerm) {
+                          const s = searchTerm.toLowerCase();
+                          if (!d.driverName?.toLowerCase().includes(s) && !d.vehicleNo?.toLowerCase().includes(s)) return;
+                        }
+                        displayed.push({
+                          id: 'D-' + (d.vehicleNo || d.driverName),
+                          name: `${d.driverName} (${d.vehicleNo})`,
+                          type: 'Driver / Transporter',
+                          mobile: d.phone || d.vehicleNo,
+                          cratesReceived: d.cratesIn,
+                          cratesGiven: d.cratesOut,
+                          netBalance: d.netBalance,
+                          isDriver: true,
+                          rawDriver: d
+                        });
+                      });
+                    }
+
+                    if (displayed.length === 0) {
+                      return <tr><td colSpan="8" className="text-center py-10 text-slate-400">{t('No crate records found matching filter.', 'कोई क्रेट रिकॉर्ड नहीं मिला।')}</td></tr>;
+                    }
+
+                    return displayed.map((row, idx) => {
+                      const net = row.netBalance || 0;
+                      return (
+                        <tr key={row.id || idx} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-3 px-4 font-bold text-slate-900">
+                            {row.name}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              row.type === 'Farmer'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : row.type === 'Buyer'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-amber-100 text-amber-900'
+                            }`}>
+                              {row.type}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 font-mono text-slate-500">{row.mobile || '—'}</td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-700">{row.cratesReceived || 0}</td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-700">{row.cratesGiven || 0}</td>
+                          <td className="py-3 px-4 text-right font-mono font-black text-sm">
+                            <span className={net > 0 ? 'text-amber-800' : net < 0 ? 'text-rose-600' : 'text-slate-400'}>
+                              {Math.abs(net)} Crates {net > 0 ? (row.type === 'Buyer' ? 'बाकी (लेना)' : 'बाकी (देना)') : ''}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            {net !== 0 ? (
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                row.type === 'Buyer' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-amber-50 text-amber-800 border border-amber-200'
+                              }`}>
+                                {row.type === 'Buyer' ? 'उधारी बाकी (लेना)' : 'जमा अमानत (देना)'}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                चुकता (Nil)
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCrateForm({
+                                  entityType: row.isDriver ? 'driver' : 'party',
+                                  entityName: row.isDriver ? (row.rawDriver?.driverName || row.name) : row.name,
+                                  entityPhone: row.mobile || '',
+                                  partyType: row.type === 'Farmer' ? 'Farmer' : row.type === 'Buyer' ? 'Buyer' : 'Driver',
+                                  vehicleNo: row.isDriver ? (row.rawDriver?.vehicleNo || '') : '',
+                                  movementType: row.type === 'Buyer' ? 'RECEIVED' : 'GIVEN',
+                                  cratesCount: Math.abs(net) || '',
+                                  referenceType: 'empty_return',
+                                  notes: `Crate return / settlement with ${row.name}`
+                                });
+                                setShowCrateModal(true);
+                              }}
+                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-[11px] font-bold cursor-pointer"
+                            >
+                              {row.type === 'Buyer' ? 'वापसी लें 📥' : 'वापस दें 📤'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Recent Crate Transactions Log */}
+          {(cratesData.recentTransactions || []).length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+              <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  📋 Recent Crate Movement Audit (हालिया क्रेट वाउचर लेनदेन)
+                </span>
+                <span className="text-[11px] text-slate-400">Latest 50 movements</span>
+              </div>
+              <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                {cratesData.recentTransactions.map(tx => (
+                  <div key={tx.id} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50">
+                    <div className="flex items-center gap-3">
+                      <span className={`w-7 h-7 rounded-full flex items-center justify-center font-black text-xs ${
+                        tx.movement_type === 'RECEIVED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'
+                      }`}>
+                        {tx.movement_type === 'RECEIVED' ? '📥' : '📤'}
+                      </span>
+                      <div>
+                        <div className="font-bold text-slate-900 flex items-center gap-2">
+                          <span>{tx.entity_name}</span>
+                          {tx.vehicle_no && (
+                            <span className="px-1.5 py-0.2 bg-slate-100 text-slate-700 rounded text-[10px] font-mono">
+                              {tx.vehicle_no}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-slate-400 font-mono">({tx.party_type || tx.entity_type})</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5">{tx.notes || tx.reference_type}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className={`font-mono font-black text-sm block ${
+                        tx.movement_type === 'RECEIVED' ? 'text-emerald-700' : 'text-amber-800'
+                      }`}>
+                        {tx.movement_type === 'RECEIVED' ? '+' : '-'}{tx.crates_count} Crates
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">{tx.date}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB: DRIVERS (DRIVER FREIGHT & LOGISTICS LEDGER) */}
+      {activeTab === 'DRIVERS' && (
+        <div className="space-y-4">
+          {/* Driver Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-xs text-slate-500 font-medium block">{t('Total Transporters / Trucks', 'पंजीकृत गाड़ियां / चालक')}</span>
+                <span className="text-2xl font-black text-slate-900 font-mono mt-1 block">
+                  {driversData.summary?.totalDrivers || (driversData.drivers || []).length}
+                </span>
+                <span className="text-[10px] text-slate-400 mt-1 block">{t('Active Vehicles', 'सक्रिय वाहन')}</span>
+              </div>
+              <span className="text-3xl p-2 bg-slate-50 rounded-2xl border border-slate-100">🚚</span>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-xs text-slate-500 font-medium block">{t('Total Freight Earned', 'कुल अर्जित भाड़ा')}</span>
+                <span className="text-2xl font-black text-slate-900 font-mono mt-1 block">
+                  ₹{(driversData.summary?.totalFreight || 0).toLocaleString('en-IN')}
+                </span>
+                <span className="text-[10px] text-slate-400 mt-1 block">{t('Gross freight amount', 'कुल गाड़ी भाड़ा')}</span>
+              </div>
+              <span className="text-3xl p-2 bg-slate-50 rounded-2xl border border-slate-100">📋</span>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-xs text-slate-500 font-medium block">{t('Total Freight Paid', 'कुल चुकाया गया भाड़ा')}</span>
+                <span className="text-2xl font-black text-emerald-600 font-mono mt-1 block">
+                  ₹{(driversData.summary?.totalPaid || 0).toLocaleString('en-IN')}
+                </span>
+                <span className="text-[10px] text-slate-400 mt-1 block">{t('Advance & settlements', 'अग्रिम व नकद भुगतान')}</span>
+              </div>
+              <span className="text-3xl p-2 bg-emerald-50 rounded-2xl border border-emerald-100">✅</span>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-xs text-slate-500 font-medium block">{t('Balance Freight Due', 'देय गाड़ी भाड़ा शेष')}</span>
+                <span className="text-2xl font-black text-rose-600 font-mono mt-1 block">
+                  ₹{(driversData.summary?.totalBalanceDue || 0).toLocaleString('en-IN')}
+                </span>
+                <span className="text-[10px] text-rose-600 mt-1 block font-bold">{t('Outstanding Payable (देना है)', 'चालक बाकी (देना है)')}</span>
+              </div>
+              <span className="text-3xl p-2 bg-rose-50 rounded-2xl border border-rose-100">⏳</span>
+            </div>
+          </div>
+
+          {/* Controls: Search & Pay Freight */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search driver name, truck number, mobile..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedDriver(driversData.drivers[0] || null);
+                setShowDriverPaymentModal(true);
+              }}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>{t('Pay Freight to Driver', 'भाड़ा भुगतान दर्ज करें')}</span>
+            </button>
+          </div>
+
+          {/* Driver Ledger Table */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-100/70 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200 text-[11px]">
+                <tr>
+                  <th className="py-3 px-4">{t('Vehicle & Driver', 'गाड़ी नं. व चालक')}</th>
+                  <th className="py-3 px-4">{t('Contact Phone', 'मोबाइल')}</th>
+                  <th className="py-3 px-4 text-center">{t('Trips', 'फेरे (Trips)')}</th>
+                  <th className="py-3 px-4 text-right">{t('Total Freight (₹)', 'कुल भाड़ा (₹)')}</th>
+                  <th className="py-3 px-4 text-right">{t('Paid Freight (₹)', 'चुकाया भाड़ा (₹)')}</th>
+                  <th className="py-3 px-4 text-right">{t('Balance Due (₹)', 'शेष भाड़ा बाकी (₹)')}</th>
+                  <th className="py-3 px-4 text-center">{t('Driver Crates (बाकी क्रेट)', 'चालक पास क्रेट')}</th>
+                  <th className="py-3 px-4 text-center">{t('Action', 'कार्य')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr><td colSpan="8" className="text-center py-10 text-slate-400">Loading driver accounts...</td></tr>
+                ) : (driversData.drivers || []).length === 0 ? (
+                  <tr><td colSpan="8" className="text-center py-10 text-slate-400">No driver trip records found.</td></tr>
+                ) : (
+                  (driversData.drivers || [])
+                    .filter(d => {
+                      if (!searchTerm) return true;
+                      const s = searchTerm.toLowerCase();
+                      return (
+                        d.driverName?.toLowerCase().includes(s) ||
+                        d.truckNo?.toLowerCase().includes(s) ||
+                        d.driverPhone?.toLowerCase().includes(s)
+                      );
+                    })
+                    .map(driver => {
+                      const isExpanded = expandedDriverTrips[driver.key];
+                      const isDue = driver.freightBalance > 0;
+                      return (
+                        <React.Fragment key={driver.key}>
+                          <tr className="hover:bg-slate-50 transition-colors">
+                            <td className="py-3 px-4">
+                              <span className="font-mono font-black text-slate-900 block text-xs">{driver.truckNo}</span>
+                              <span className="text-[11px] text-slate-500">{driver.driverName}</span>
+                            </td>
+                            <td className="py-3 px-4 font-mono text-slate-500">{driver.driverPhone || '—'}</td>
+                            <td className="py-3 px-4 text-center">
+                              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold text-[10px]">
+                                {driver.tripsCount} Trips
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono font-bold text-slate-700">
+                              ₹{(driver.totalFreight || 0).toLocaleString('en-IN')}
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
+                              ₹{(driver.freightPaid || 0).toLocaleString('en-IN')}
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono font-black text-sm">
+                              <span className={isDue ? 'text-rose-600' : 'text-slate-400'}>
+                                ₹{(driver.freightBalance || 0).toLocaleString('en-IN')} {isDue ? 'देय' : 'Nil'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono font-bold">
+                              <span className={`px-2 py-0.5 rounded text-[11px] ${
+                                driver.cratesBalance !== 0 ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-500'
+                              }`}>
+                                {driver.cratesBalance} Crates
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedDriver(driver);
+                                    setDriverPaymentForm({ amount: driver.freightBalance || '', paymentMode: 'Cash', narration: '' });
+                                    setShowDriverPaymentModal(true);
+                                  }}
+                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold cursor-pointer shadow-xs"
+                                >
+                                  भुगतान 💳
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedDriverTrips(prev => ({ ...prev, [driver.key]: !prev[driver.key] }))}
+                                  className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold cursor-pointer"
+                                  title="View delivery trips"
+                                >
+                                  {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+
+                          {/* Expanded Trip Rows */}
+                          {isExpanded && (
+                            <tr>
+                              <td colSpan="8" className="p-3 bg-slate-50 border-y border-slate-200">
+                                <div className="space-y-1.5">
+                                  <span className="font-bold text-[11px] text-slate-600 block uppercase tracking-wide">
+                                    🚚 Trip History for {driver.truckNo} ({driver.driverName})
+                                  </span>
+                                  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                                    <table className="w-full text-left text-[11px] text-slate-600">
+                                      <thead className="bg-slate-100 text-slate-700 font-bold uppercase text-[10px]">
+                                        <tr>
+                                          <th className="py-2 px-3">Date</th>
+                                          <th className="py-2 px-3">Consignment</th>
+                                          <th className="py-2 px-3">Farmer & Mal</th>
+                                          <th className="py-2 px-3 text-right">Freight (₹)</th>
+                                          <th className="py-2 px-3 text-right">Paid (₹)</th>
+                                          <th className="py-2 px-3 text-right">Balance (₹)</th>
+                                          <th className="py-2 px-3 text-center">Driver Crates</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-100 font-mono">
+                                        {(driver.trips || []).map((t, idx) => (
+                                          <tr key={idx} className="hover:bg-slate-50">
+                                            <td className="py-1.5 px-3">{t.date}</td>
+                                            <td className="py-1.5 px-3 font-bold text-slate-800">{t.arrivalId}</td>
+                                            <td className="py-1.5 px-3 font-sans font-medium">{t.farmerName} - {t.quantity} {t.unit} of {t.commodity}</td>
+                                            <td className="py-1.5 px-3 text-right font-bold">₹{t.totalFreight}</td>
+                                            <td className="py-1.5 px-3 text-right text-emerald-700">₹{t.advancePaid}</td>
+                                            <td className="py-1.5 px-3 text-right text-rose-600 font-bold">₹{t.balance}</td>
+                                            <td className="py-1.5 px-3 text-center font-bold text-amber-800">
+                                              +{t.cratesIn} / -{t.cratesOut} ({t.cratesBal})
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       );
                     })
                 )}
@@ -1248,6 +1935,252 @@ export default function BahiKhata() {
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm cursor-pointer"
                 >
                   Save (सुरक्षित करें)
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Driver Freight Payment Modal */}
+      {showDriverPaymentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-indigo-50">
+              <h2 className="text-sm font-bold text-indigo-950 flex items-center gap-2">
+                <Truck className="w-4 h-4 text-indigo-600" />
+                <span>{t('Pay Freight to Driver', 'चालक को गाड़ी भाड़ा भुगतान')}</span>
+              </h2>
+              <button onClick={() => setShowDriverPaymentModal(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleDriverPaymentSubmit} className="p-5 space-y-3.5">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-bold">{t('Vehicle / Truck', 'गाड़ी संख्या')}:</span>
+                  <span className="font-mono font-black text-slate-800 text-sm">{selectedDriver?.truckNo || '—'}</span>
+                </div>
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-slate-500 font-bold">{t('Driver Name', 'चालक नाम')}:</span>
+                  <span className="font-bold text-slate-700">{selectedDriver?.driverName || 'Driver'}</span>
+                </div>
+                <div className="flex justify-between items-center mt-1 border-t border-slate-200 pt-1">
+                  <span className="text-rose-600 font-bold">{t('Outstanding Freight', 'कुल बाकी भाड़ा')}:</span>
+                  <span className="font-mono font-black text-rose-700 text-sm">₹{(selectedDriver?.freightBalance || 0).toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {t('Payment Amount (₹) *', 'भुगतान राशि (₹) *')}
+                </label>
+                <input
+                  type="number"
+                  required
+                  step="any"
+                  min="1"
+                  placeholder="₹ 0"
+                  value={driverPaymentForm.amount}
+                  onChange={(e) => setDriverPaymentForm({ ...driverPaymentForm, amount: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-base font-mono font-black text-emerald-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {t('Payment Mode *', 'भुगतान माध्यम *')}
+                </label>
+                <select
+                  value={driverPaymentForm.paymentMode}
+                  onChange={(e) => setDriverPaymentForm({ ...driverPaymentForm, paymentMode: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                >
+                  <option value="Cash">💵 Cash in Hand / Rokad (रोकड़ बही से)</option>
+                  <option value="Bank / UPI">📱 Bank Transfer / UPI (बैंक खाता)</option>
+                  <option value="Cheque">📜 Cheque (चेक)</option>
+                </select>
+                <span className="text-[10px] text-slate-400 mt-1 block">नकद भुगतान स्वतः रोकड़ बही (Cashbook) में खर्च दर्ज करेगा।</span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {t('Narration / Voucher Remark', 'विवरण / नरेशन')}
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Cleared freight balance via UPI"
+                  value={driverPaymentForm.narration}
+                  onChange={(e) => setDriverPaymentForm({ ...driverPaymentForm, narration: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowDriverPaymentModal(false)}
+                  className="px-4 py-2 border border-slate-300 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer"
+                >
+                  {submitting ? 'Processing...' : 'Confirm Freight Payment (पुष्टि करें)'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Crate Movement / Voucher Modal */}
+      {showCrateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-amber-50">
+              <h2 className="text-sm font-bold text-amber-950 flex items-center gap-2">
+                <Package className="w-4 h-4 text-amber-700" />
+                <span>{t('Record Crate Movement Voucher', 'नया क्रेट वाउचर / जमा-निकासी')}</span>
+              </h2>
+              <button onClick={() => setShowCrateModal(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleCrateMovementSubmit} className="p-5 space-y-3.5 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">{t('Date (दिनांक) *', 'दिनांक *')}</label>
+                  <input
+                    type="date"
+                    required
+                    value={crateForm.date || new Date().toISOString().split('T')[0]}
+                    onChange={(e) => setCrateForm({ ...crateForm, date: e.target.value })}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-xl font-bold bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">{t('Entity Category *', 'प्रविष्टि श्रेणी *')}</label>
+                  <select
+                    value={crateForm.entityType}
+                    onChange={(e) => setCrateForm({ ...crateForm, entityType: e.target.value })}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-xl font-bold bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                  >
+                    <option value="party">👤 Party (Farmer / Buyer / Store)</option>
+                    <option value="driver">🚚 Driver / Vehicle Transporter</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  {crateForm.entityType === 'driver' ? t('Driver Name / Transporter *', 'चालक / ट्रांसपोर्टर नाम *') : t('Party Name (Farmer / Buyer) *', 'पार्टी नाम (किसान या व्यापारी) *')}
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder={crateForm.entityType === 'driver' ? "e.g. Gurmel Singh" : "e.g. Azad Fruits or Ramesh Grower"}
+                  value={crateForm.entityName}
+                  onChange={(e) => setCrateForm({ ...crateForm, entityName: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl font-bold focus:ring-2 focus:ring-amber-500 outline-none"
+                />
+              </div>
+
+              {crateForm.entityType === 'driver' ? (
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">{t('Vehicle / Truck No. *', 'गाड़ी / वाहन संख्या *')}</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. DL-01-AB-1234"
+                    value={crateForm.vehicleNo}
+                    onChange={(e) => setCrateForm({ ...crateForm, vehicleNo: e.target.value.toUpperCase() })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono uppercase font-bold focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">{t('Party Type', 'पार्टी प्रकार')}</label>
+                  <select
+                    value={crateForm.partyType}
+                    onChange={(e) => setCrateForm({ ...crateForm, partyType: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl font-bold bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                  >
+                    <option value="Buyer">🛒 Buyer / Wholesale Trader (खरीदार)</option>
+                    <option value="Farmer">🌾 Farmer / Grower Supplier (किसान)</option>
+                    <option value="Agent">🤝 Commission Agent (आढ़ती)</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">{t('Movement Direction *', 'आवक / जावक *')}</label>
+                  <select
+                    value={crateForm.movementType}
+                    onChange={(e) => setCrateForm({ ...crateForm, movementType: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl font-black bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                  >
+                    <option value="RECEIVED">📥 Received / Inward (प्राप्त क्रेट)</option>
+                    <option value="GIVEN">📤 Issued / Returned (दी गई क्रेट)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">{t('Number of Crates *', 'क्रेट्स संख्या *')}</label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    placeholder="e.g. 50"
+                    value={crateForm.cratesCount}
+                    onChange={(e) => setCrateForm({ ...crateForm, cratesCount: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono font-black text-amber-900 focus:ring-2 focus:ring-amber-500 outline-none text-base"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">{t('Movement Type / Reason', 'कारण / वाउचर प्रकार')}</label>
+                <select
+                  value={crateForm.referenceType}
+                  onChange={(e) => setCrateForm({ ...crateForm, referenceType: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl font-medium bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                >
+                  <option value="empty_return">🔄 Empty Crate Return (खाली क्रेट वापसी)</option>
+                  <option value="manual_adjustment">📝 Manual Crate Adjustment (समायोजन)</option>
+                  <option value="new_issue">📦 New Crates Dispatched (नई क्रेट निकासी)</option>
+                  <option value="damage_loss">⚠️ Damage / Breakage Loss (टूट-फूट)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">{t('Challan / Remarks', 'चालान नं. / टिप्पणी')}</label>
+                <input
+                  type="text"
+                  placeholder="उदा. Challan #104 - 50 empty crates returned"
+                  value={crateForm.notes}
+                  onChange={(e) => setCrateForm({ ...crateForm, notes: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowCrateModal(false)}
+                  className="px-4 py-2 border border-slate-300 rounded-xl font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold shadow-xs cursor-pointer"
+                >
+                  {submitting ? 'Saving...' : 'Save Crate Voucher (सुरक्षित करें)'}
                 </button>
               </div>
             </form>

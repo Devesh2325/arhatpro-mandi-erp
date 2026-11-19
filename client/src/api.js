@@ -174,7 +174,10 @@ export const API = {
       inwardType: data.inward_type || data.inwardType || 'direct',
       storageLocation: data.storage_location || data.storageLocation || '',
       driverCratesIn: data.driver_crates_in || data.driverCratesIn || 0,
-      driverCratesOut: data.driver_crates_out || data.driverCratesOut || 0
+      driverCratesOut: data.driver_crates_out || data.driverCratesOut || 0,
+      farmerCratesIn: data.farmer_crates_in || data.farmerCratesIn || 0,
+      farmerCratesReturned: data.farmer_crates_returned || data.farmerCratesReturned || 0,
+      freightPaymentMode: data.freight_payment_mode || data.freightPaymentMode || 'cash'
     });
   },
   addArrival: (data) => apiRequest('/trade/arrivals', 'POST', data),
@@ -245,6 +248,10 @@ export const API = {
     mapped.accounts = mapped;
     return mapped;
   },
+  getDriversLedger: () => apiRequest('/ledger/drivers'),
+  payDriverFreight: (data) => apiRequest('/ledger/drivers/payment', 'POST', data),
+  getCratesLedger: () => apiRequest('/ledger/crates'),
+  recordCrateMovement: (data) => apiRequest('/ledger/crates/movement', 'POST', data),
   recordPayment: (data) => apiRequest('/ledger/payment', 'POST', data),
   getCashbook: async () => {
     const data = await apiRequest('/ledger/cashbook');

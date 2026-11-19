@@ -552,16 +552,27 @@ router.post('/arrivals', authenticate, async (req, res) => {
     const driverCratesIn = parseInt(req.body.driverCratesIn || req.body.driver_crates_in, 10) || 0;
     const driverCratesOut = parseInt(req.body.driverCratesOut || req.body.driver_crates_out, 10) || 0;
     const driverCratesBal = driverCratesIn - driverCratesOut;
+    const farmerCratesIn = parseInt(req.body.farmerCratesIn || req.body.farmer_crates_in, 10) || 0;
+    const farmerCratesReturned = parseInt(req.body.farmerCratesReturned || req.body.farmer_crates_returned, 10) || 0;
+    const farmerCratesBal = farmerCratesIn - farmerCratesReturned;
+    const freightPaymentMode = (req.body.freightPaymentMode || req.body.freight_payment_mode || 'cash').trim();
 
     await run(`
-      INSERT INTO arrivals (id, tenant_id, date, time, truck_no, driver_name, driver_phone, farmer_name, farmer_phone, farmer_location, commodity, variety, quantity, unit, total_freight, freight_advance_paid, freight_balance, arrival_rate, total_arrival_amount, status, transferred_to_lot, lot_id, manual_lot_no, custom_expenses, agent_name, agent_phone, inward_type, storage_location, driver_crates_in, driver_crates_out, driver_crates_balance)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Ready for Sale', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO arrivals (
+        id, tenant_id, date, time, truck_no, driver_name, driver_phone, farmer_name, farmer_phone, farmer_location, 
+        commodity, variety, quantity, unit, total_freight, freight_advance_paid, freight_balance, arrival_rate, 
+        total_arrival_amount, status, transferred_to_lot, lot_id, manual_lot_no, custom_expenses, agent_name, agent_phone, 
+        inward_type, storage_location, driver_crates_in, driver_crates_out, driver_crates_balance,
+        farmer_crates_in, farmer_crates_returned, farmer_crates_balance, freight_payment_mode
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Ready for Sale', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       id, tenantId, entryDate, currentTime, truck, dName, dPhone,
       fName, fPhone, fLoc, comm, varName,
       qty, u, totalF, advF, balF, arrRate, totalArrAmount, lotId,
       manualLotNo || null, customExpStr, agentName || null, agentPhone || null,
-      inwardType, storageLocation || null, driverCratesIn, driverCratesOut, driverCratesBal
+      inwardType, storageLocation || null, driverCratesIn, driverCratesOut, driverCratesBal,
+      farmerCratesIn, farmerCratesReturned, farmerCratesBal, freightPaymentMode
     ]);
 
     // Create corresponding sales lot
@@ -574,8 +585,34 @@ router.post('/arrivals', authenticate, async (req, res) => {
       inwardType, storageLocation || null, driverCratesIn || qty
     ]);
 
+    // Log Driver & Farmer Crate Transactions for real-time crate ledger
+    if (driverCratesIn > 0) {
+      await run(`
+        INSERT INTO crate_transactions (id, tenant_id, date, entity_type, entity_name, entity_phone, party_type, vehicle_no, movement_type, crates_count, reference_type, reference_id, notes)
+        VALUES (?, ?, ?, 'driver', ?, ?, 'Driver', ?, 'RECEIVED', ?, 'arrival', ?, ?)
+      `, ['CTX-' + Date.now() + '-1', tenantId, entryDate, dName, dPhone, truck, driverCratesIn, id, `Loaded crates inward with vehicle ${truck}`]);
+    }
+    if (driverCratesOut > 0) {
+      await run(`
+        INSERT INTO crate_transactions (id, tenant_id, date, entity_type, entity_name, entity_phone, party_type, vehicle_no, movement_type, crates_count, reference_type, reference_id, notes)
+        VALUES (?, ?, ?, 'driver', ?, ?, 'Driver', ?, 'GIVEN', ?, 'empty_return', ?, ?)
+      `, ['CTX-' + Date.now() + '-2', tenantId, entryDate, dName, dPhone, truck, driverCratesOut, id, `Empty crates returned to driver ${dName} (${truck})`]);
+    }
+    if (farmerCratesIn > 0) {
+      await run(`
+        INSERT INTO crate_transactions (id, tenant_id, date, entity_type, entity_name, entity_phone, party_type, vehicle_no, movement_type, crates_count, reference_type, reference_id, notes)
+        VALUES (?, ?, ?, 'party', ?, ?, 'Farmer', NULL, 'RECEIVED', ?, 'arrival', ?, ?)
+      `, ['CTX-' + Date.now() + '-3', tenantId, entryDate, fName, fPhone, farmerCratesIn, id, `Produce received in ${farmerCratesIn} grower crates`]);
+    }
+    if (farmerCratesReturned > 0) {
+      await run(`
+        INSERT INTO crate_transactions (id, tenant_id, date, entity_type, entity_name, entity_phone, party_type, vehicle_no, movement_type, crates_count, reference_type, reference_id, notes)
+        VALUES (?, ?, ?, 'party', ?, ?, 'Farmer', NULL, 'GIVEN', ?, 'empty_return', ?, ?)
+      `, ['CTX-' + Date.now() + '-4', tenantId, entryDate, fName, fPhone, farmerCratesReturned, id, `Empty crates returned to grower ${fName}`]);
+    }
+
     // If freight advance paid in cash, record in cashbook
-    if (advF > 0) {
+    if (advF > 0 && freightPaymentMode === 'cash') {
       await run(`
         INSERT INTO cash_transactions (id, tenant_id, type, title, amount, time)
         VALUES (?, ?, 'KHARCH', ?, ?, ?)
@@ -670,6 +707,20 @@ router.post('/lots/:id/split', authenticate, async (req, res) => {
       WHERE tenant_id = ? AND party_name = ?
     `, [saleAmount, saleAmount, tenantId, buyerName]);
 
+    // Record Buyer Crate Transactions
+    if (buyerCratesIssued > 0) {
+      await run(`
+        INSERT INTO crate_transactions (id, tenant_id, date, entity_type, entity_name, entity_phone, party_type, vehicle_no, movement_type, crates_count, reference_type, reference_id, notes)
+        VALUES (?, ?, ?, 'party', ?, ?, 'Buyer', NULL, 'GIVEN', ?, 'sale', ?, ?)
+      `, ['CTX-' + Date.now() + '-b1', tenantId, entryDate, buyerName, buyerContact || '', buyerCratesIssued, saleId, `Dispatched with produce sale [Lot #${lotId}]`]);
+    }
+    if (buyerCratesReturned > 0) {
+      await run(`
+        INSERT INTO crate_transactions (id, tenant_id, date, entity_type, entity_name, entity_phone, party_type, vehicle_no, movement_type, crates_count, reference_type, reference_id, notes)
+        VALUES (?, ?, ?, 'party', ?, ?, 'Buyer', NULL, 'RECEIVED', ?, 'empty_return', ?, ?)
+      `, ['CTX-' + Date.now() + '-b2', tenantId, entryDate, buyerName, buyerContact || '', buyerCratesReturned, saleId, `Empty crates returned by buyer ${buyerName}`]);
+    }
+
     // Automatic Balanced Double-Entry Journal Voucher (Dr = Cr)
     const autoVoucherNo = `JV-SL-${Date.now().toString().slice(-6)}`;
     await run(`
@@ -762,15 +813,34 @@ router.post('/quick-trade', authenticate, async (req, res) => {
 
     const inwardType = (req.body.inwardType || req.body.inward_type || 'direct').trim();
     const storageLocation = (req.body.storageLocation || req.body.storage_location || '').trim();
+    const dName = (req.body.driverName || req.body.driver_name || '').trim();
+    const dPhone = (req.body.driverPhone || req.body.driver_phone || '').trim();
     const driverCratesIn = parseInt(req.body.driverCratesIn || req.body.driver_crates_in, 10) || 0;
     const driverCratesOut = parseInt(req.body.driverCratesOut || req.body.driver_crates_out, 10) || 0;
     const driverCratesBal = driverCratesIn - driverCratesOut;
+    const farmerCratesIn = parseInt(req.body.farmerCratesIn || req.body.farmer_crates_in, 10) || 0;
+    const farmerCratesReturned = parseInt(req.body.farmerCratesReturned || req.body.farmer_crates_returned, 10) || 0;
+    const farmerCratesBal = farmerCratesIn - farmerCratesReturned;
+    const freightPaymentMode = (req.body.freightPaymentMode || req.body.freight_payment_mode || 'cash').trim();
 
-    // 1. Inward Arrival with agent, custom entryDate, and Crate/Storage fields
+    // 1. Inward Arrival with agent, custom entryDate, driver, and Crate/Storage fields
     await run(`
-      INSERT INTO arrivals (id, tenant_id, date, time, truck_no, farmer_name, farmer_phone, commodity, variety, quantity, total_freight, freight_advance_paid, freight_balance, arrival_rate, total_arrival_amount, status, transferred_to_lot, lot_id, manual_lot_no, custom_expenses, agent_name, agent_phone, inward_type, storage_location, driver_crates_in, driver_crates_out, driver_crates_balance)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Sold Out', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [consignmentId, tenantId, entryDate, currentTime, (truckNo || 'LOCAL-TRUCK').toUpperCase(), farmerName || 'Produce Consignor', farmerPhone || '', commodity || 'Produce', selectedVariety, totalArrived, totalF, advF, Math.max(0, totalF - advF), arrRate, totalArrAmount, lotId, customLot || null, customExpStr, agentName || null, agentPhone || null, inwardType, storageLocation || null, driverCratesIn, driverCratesOut, driverCratesBal]);
+      INSERT INTO arrivals (
+        id, tenant_id, date, time, truck_no, driver_name, driver_phone, farmer_name, farmer_phone, 
+        commodity, variety, quantity, total_freight, freight_advance_paid, freight_balance, arrival_rate, 
+        total_arrival_amount, status, transferred_to_lot, lot_id, manual_lot_no, custom_expenses, agent_name, agent_phone, 
+        inward_type, storage_location, driver_crates_in, driver_crates_out, driver_crates_balance,
+        farmer_crates_in, farmer_crates_returned, farmer_crates_balance, freight_payment_mode
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Sold Out', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      consignmentId, tenantId, entryDate, currentTime, (truckNo || 'LOCAL-TRUCK').toUpperCase(),
+      dName || null, dPhone || null, farmerName || 'Produce Consignor', farmerPhone || '',
+      commodity || 'Produce', selectedVariety, totalArrived, totalF, advF, Math.max(0, totalF - advF),
+      arrRate, totalArrAmount, lotId, customLot || null, customExpStr, agentName || null, agentPhone || null,
+      inwardType, storageLocation || null, driverCratesIn, driverCratesOut, driverCratesBal,
+      farmerCratesIn, farmerCratesReturned, farmerCratesBal, freightPaymentMode
+    ]);
 
     // 2. Sales Lot with Storage and Crate fields
     await run(`
@@ -778,17 +848,59 @@ router.post('/quick-trade', authenticate, async (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 'sold', ?, ?, ?, ?, ?, ?, 0)
     `, [lotId, tenantId, consignmentId, commodity || 'Produce', selectedVariety, farmerName || 'Produce Consignor', totalArrived, arrRate, (truckNo || 'LOCAL-TRUCK').toUpperCase(), advF, customExpStr, agentName || null, inwardType, storageLocation || null]);
 
+    // Crate Transactions for Driver and Farmer
+    if (driverCratesIn > 0) {
+      await run(`
+        INSERT INTO crate_transactions (id, tenant_id, date, entity_type, entity_name, entity_phone, party_type, vehicle_no, movement_type, crates_count, reference_type, reference_id, notes)
+        VALUES (?, ?, ?, 'driver', ?, ?, 'Driver', ?, 'RECEIVED', ?, 'arrival', ?, ?)
+      `, ['CTX-' + Date.now() + '-qt1', tenantId, entryDate, dName || 'Driver', dPhone, truckNo, driverCratesIn, consignmentId, `Quick trade vehicle inward: ${driverCratesIn} crates`]);
+    }
+    if (driverCratesOut > 0) {
+      await run(`
+        INSERT INTO crate_transactions (id, tenant_id, date, entity_type, entity_name, entity_phone, party_type, vehicle_no, movement_type, crates_count, reference_type, reference_id, notes)
+        VALUES (?, ?, ?, 'driver', ?, ?, 'Driver', ?, 'GIVEN', ?, 'empty_return', ?, ?)
+      `, ['CTX-' + Date.now() + '-qt2', tenantId, entryDate, dName || 'Driver', dPhone, truckNo, driverCratesOut, consignmentId, `Empty crates returned to driver ${dName || truckNo}`]);
+    }
+    if (farmerCratesIn > 0) {
+      await run(`
+        INSERT INTO crate_transactions (id, tenant_id, date, entity_type, entity_name, entity_phone, party_type, vehicle_no, movement_type, crates_count, reference_type, reference_id, notes)
+        VALUES (?, ?, ?, 'party', ?, ?, 'Farmer', NULL, 'RECEIVED', ?, 'arrival', ?, ?)
+      `, ['CTX-' + Date.now() + '-qt3', tenantId, entryDate, farmerName, farmerPhone, farmerCratesIn, consignmentId, `Grower produce inward in ${farmerCratesIn} crates`]);
+    }
+    if (farmerCratesReturned > 0) {
+      await run(`
+        INSERT INTO crate_transactions (id, tenant_id, date, entity_type, entity_name, entity_phone, party_type, vehicle_no, movement_type, crates_count, reference_type, reference_id, notes)
+        VALUES (?, ?, ?, 'party', ?, ?, 'Farmer', NULL, 'GIVEN', ?, 'empty_return', ?, ?)
+      `, ['CTX-' + Date.now() + '-qt4', tenantId, entryDate, farmerName, farmerPhone, farmerCratesReturned, consignmentId, `Empty crates returned to grower ${farmerName}`]);
+    }
+
     // 3. Buyer Split Sales, Ledgers & Auto Double-Entry Journal Vouchers
     const postedVouchers = [];
     for (let s of validSales) {
       const sId = 'SL-' + Math.floor(1000 + Math.random() * 9000);
       const gross = s.gross;
       const sExpStr = s.customExpenses ? (typeof s.customExpenses === 'string' ? s.customExpenses : JSON.stringify(s.customExpenses)) : null;
+      const bCratesIn = parseInt(s.buyerCratesIssued || s.buyer_crates_issued, 10) || 0;
+      const bCratesOut = parseInt(s.buyerCratesReturned || s.buyer_crates_returned, 10) || 0;
 
       await run(`
-        INSERT INTO split_sales (id, lot_id, tenant_id, sale_code, buyer_name, buyer_contact, quantity, rate, arrival_rate, gross_amount, time, payment_mode, custom_expenses, date)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [sId, lotId, tenantId, sId, s.buyerName, s.buyerContact || '', s.quantity, s.rate, arrRate, gross, currentTime, s.paymentMode || 'Credit (7 Days)', sExpStr, entryDate]);
+        INSERT INTO split_sales (id, lot_id, tenant_id, sale_code, buyer_name, buyer_contact, quantity, rate, arrival_rate, gross_amount, time, payment_mode, custom_expenses, date, buyer_crates_issued, buyer_crates_returned)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [sId, lotId, tenantId, sId, s.buyerName, s.buyerContact || '', s.quantity, s.rate, arrRate, gross, currentTime, s.paymentMode || 'Credit (7 Days)', sExpStr, entryDate, bCratesIn, bCratesOut]);
+
+      // Record buyer crate transaction
+      if (bCratesIn > 0) {
+        await run(`
+          INSERT INTO crate_transactions (id, tenant_id, date, entity_type, entity_name, entity_phone, party_type, vehicle_no, movement_type, crates_count, reference_type, reference_id, notes)
+          VALUES (?, ?, ?, 'party', ?, ?, 'Buyer', NULL, 'GIVEN', ?, 'sale', ?, ?)
+        `, ['CTX-' + Date.now() + '-qtb' + Math.floor(Math.random() * 100), tenantId, entryDate, s.buyerName, s.buyerContact || '', bCratesIn, sId, `Crates dispatched to ${s.buyerName} [Quick Trade]`]);
+      }
+      if (bCratesOut > 0) {
+        await run(`
+          INSERT INTO crate_transactions (id, tenant_id, date, entity_type, entity_name, entity_phone, party_type, vehicle_no, movement_type, crates_count, reference_type, reference_id, notes)
+          VALUES (?, ?, ?, 'party', ?, ?, 'Buyer', NULL, 'RECEIVED', ?, 'empty_return', ?, ?)
+        `, ['CTX-' + Date.now() + '-qtb' + Math.floor(Math.random() * 100), tenantId, entryDate, s.buyerName, s.buyerContact || '', bCratesOut, sId, `Empty crates returned by ${s.buyerName}`]);
+      }
 
       // Update buyer ledger
       await run(`

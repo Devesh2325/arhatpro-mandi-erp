@@ -570,4 +570,398 @@ router.get('/balance-sheet', authenticate, async (req, res) => {
   }
 });
 
+// ================= 6. DRIVER & TRANSPORTER LEDGER =================
+router.get('/drivers', authenticate, async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+
+    // Fetch all arrivals with driver/truck info
+    const arrivals = await query(`
+      SELECT 
+        id, date, time, truck_no, driver_name, driver_phone, farmer_name,
+        commodity, variety, quantity, unit, total_freight, freight_advance_paid, freight_balance,
+        driver_crates_in, driver_crates_out, driver_crates_balance, freight_payment_mode
+      FROM arrivals 
+      WHERE tenant_id = ? 
+      ORDER BY date DESC, time DESC
+    `, [tenantId]);
+
+    // Fetch crate transactions for drivers
+    const crateTx = await query(`
+      SELECT * FROM crate_transactions 
+      WHERE tenant_id = ? AND entity_type = 'driver'
+      ORDER BY date DESC
+    `, [tenantId]);
+
+    // Group by driver & vehicle
+    const driverMap = {};
+
+    arrivals.forEach(a => {
+      const dName = (a.driver_name || '').trim() || 'Driver';
+      const truck = (a.truck_no || 'UNKNOWN').trim().toUpperCase();
+      const key = `${truck}_${dName}`;
+
+      if (!driverMap[key]) {
+        driverMap[key] = {
+          key,
+          driverName: dName,
+          driverPhone: a.driver_phone || '',
+          truckNo: truck,
+          tripsCount: 0,
+          totalFreight: 0,
+          freightPaid: 0,
+          freightBalance: 0,
+          cratesIn: 0,
+          cratesOut: 0,
+          cratesBalance: 0,
+          trips: []
+        };
+      }
+
+      const totalF = parseFloat(a.total_freight) || 0;
+      const advF = parseFloat(a.freight_advance_paid) || 0;
+      const balF = parseFloat(a.freight_balance) !== undefined ? parseFloat(a.freight_balance) : Math.max(0, totalF - advF);
+      const cIn = parseInt(a.driver_crates_in, 10) || 0;
+      const cOut = parseInt(a.driver_crates_out, 10) || 0;
+
+      driverMap[key].tripsCount += 1;
+      driverMap[key].totalFreight += totalF;
+      driverMap[key].freightPaid += advF;
+      driverMap[key].freightBalance += balF;
+      driverMap[key].cratesIn += cIn;
+      driverMap[key].cratesOut += cOut;
+      driverMap[key].cratesBalance += (cIn - cOut);
+
+      driverMap[key].trips.push({
+        arrivalId: a.id,
+        date: a.date,
+        farmerName: a.farmer_name,
+        commodity: a.commodity,
+        quantity: a.quantity,
+        unit: a.unit,
+        totalFreight: totalF,
+        advancePaid: advF,
+        balance: balF,
+        cratesIn: cIn,
+        cratesOut: cOut,
+        cratesBal: cIn - cOut,
+        paymentMode: a.freight_payment_mode || 'cash'
+      });
+    });
+
+    // Also factor in manual crate movements for drivers
+    crateTx.forEach(ctx => {
+      const truck = (ctx.vehicle_no || 'UNKNOWN').trim().toUpperCase();
+      const dName = (ctx.entity_name || '').trim();
+      const key = `${truck}_${dName}`;
+
+      if (driverMap[key]) {
+        if (ctx.reference_type !== 'arrival') {
+          if (ctx.movement_type === 'RECEIVED') {
+            driverMap[key].cratesIn += ctx.crates_count;
+            driverMap[key].cratesBalance += ctx.crates_count;
+          } else {
+            driverMap[key].cratesOut += ctx.crates_count;
+            driverMap[key].cratesBalance -= ctx.crates_count;
+          }
+        }
+      }
+    });
+
+    const driversList = Object.values(driverMap);
+
+    const summary = {
+      totalDrivers: driversList.length,
+      totalFreight: driversList.reduce((s, d) => s + d.totalFreight, 0),
+      totalPaid: driversList.reduce((s, d) => s + d.freightPaid, 0),
+      totalBalanceDue: driversList.reduce((s, d) => s + d.freightBalance, 0),
+      totalCratesWithDrivers: driversList.reduce((s, d) => s + d.cratesBalance, 0)
+    };
+
+    res.json({
+      summary,
+      drivers: driversList
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch driver ledger: ' + err.message });
+  }
+});
+
+router.post('/drivers/payment', authenticate, async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    const { driverName, truckNo, amount, paymentMode, narration, arrivalId } = req.body;
+
+    const amt = parseFloat(amount);
+    if (!amt || amt <= 0) {
+      return res.status(400).json({ error: 'Please enter a valid payment amount greater than 0.' });
+    }
+
+    const dName = (driverName || 'Driver').trim();
+    const truck = (truckNo || '').trim().toUpperCase();
+    const mode = paymentMode || 'Cash';
+    const currentTime = new Date().toTimeString().split(' ')[0];
+    const today = new Date().toISOString().split('T')[0];
+
+    // 1. If Cash, record in Rokad Cashbook as KHARCH
+    if (mode.toLowerCase().includes('cash')) {
+      await run(`
+        INSERT INTO cash_transactions (id, tenant_id, type, title, amount, time)
+        VALUES (?, ?, 'KHARCH', ?, ?, ?)
+      `, ['TX-' + Date.now(), tenantId, `Driver Freight Paid (${truck} - ${dName})`, amt, currentTime]);
+    }
+
+    // 2. Balanced Double-Entry Journal Voucher (Dr = Cr)
+    const autoVoucherNo = `JV-FRT-${Date.now().toString().slice(-6)}`;
+    await run(`
+      INSERT INTO journal_entries (id, tenant_id, voucher_no, date, debit_account, credit_account, amount, narration, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      'JV-' + Date.now(),
+      tenantId,
+      autoVoucherNo,
+      today,
+      `Transporter Freight Payable - ${dName} (${truck})`,
+      mode.toLowerCase().includes('cash') ? 'Cash in Hand (रोकड़ बही)' : 'Bank / Online Account',
+      amt,
+      narration || `Driver Freight Payment: ₹${amt} paid to ${dName} (${truck}) via ${mode}`,
+      req.user.name || 'System'
+    ]);
+
+    // 3. Deduct from freight_balance
+    if (arrivalId) {
+      await run(`
+        UPDATE arrivals 
+        SET freight_advance_paid = freight_advance_paid + ?,
+            freight_balance = GREATEST(0, freight_balance - ?)
+        WHERE id = ? AND tenant_id = ?
+      `, [amt, amt, arrivalId, tenantId]);
+    } else if (truck) {
+      const pending = await query(`
+        SELECT id, freight_balance FROM arrivals 
+        WHERE tenant_id = ? AND UPPER(truck_no) = ? AND freight_balance > 0 
+        ORDER BY date ASC, time ASC
+      `, [tenantId, truck]);
+
+      let remAmt = amt;
+      for (const arv of pending) {
+        if (remAmt <= 0) break;
+        const toDeduct = Math.min(remAmt, parseFloat(arv.freight_balance) || 0);
+        await run(`
+          UPDATE arrivals 
+          SET freight_advance_paid = freight_advance_paid + ?,
+              freight_balance = GREATEST(0, freight_balance - ?)
+          WHERE id = ? AND tenant_id = ?
+        `, [toDeduct, toDeduct, arv.id, tenantId]);
+        remAmt -= toDeduct;
+      }
+    }
+
+    await auditLog({
+      tenantId,
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'DRIVER_FREIGHT_PAYMENT',
+      entityType: 'driver',
+      entityId: truck || dName,
+      details: `Paid ₹${amt} freight to driver ${dName} (${truck}) via ${mode}`,
+      ipAddress: req.ip
+    });
+
+    res.json({ message: `Successfully paid ₹${amt} to driver ${dName}!`, voucherNo: autoVoucherNo });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to record driver payment: ' + err.message });
+  }
+});
+
+// ================= 7. PARTY CRATE LEDGER (BANANA & COLD STORAGE) =================
+router.get('/crates', authenticate, async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+
+    // 1. Fetch parties
+    const parties = await query(`
+      SELECT id, name, short_code, type, mobile, crates_balance 
+      FROM parties 
+      WHERE tenant_id = ? 
+      ORDER BY name ASC
+    `, [tenantId]);
+
+    // 2. Fetch all crate transactions
+    const transactions = await query(`
+      SELECT * FROM crate_transactions 
+      WHERE tenant_id = ? 
+      ORDER BY date DESC, created_at DESC 
+      LIMIT 100
+    `, [tenantId]);
+
+    // 3. Compute crate balance per party from transactions
+    const partyCrateMap = {};
+    parties.forEach(p => {
+      partyCrateMap[p.name] = {
+        id: p.id,
+        name: p.name,
+        shortCode: p.short_code,
+        type: p.type,
+        mobile: p.mobile,
+        cratesReceived: 0, // Crates received from them
+        cratesGiven: 0,    // Crates given/issued to them
+        netBalance: 0      // Net crates
+      };
+    });
+
+    transactions.forEach(tx => {
+      if (tx.entity_type === 'party') {
+        const pName = tx.entity_name;
+        if (!partyCrateMap[pName]) {
+          partyCrateMap[pName] = {
+            id: 'P-' + pName,
+            name: pName,
+            shortCode: '',
+            type: tx.party_type || 'Buyer',
+            mobile: tx.entity_phone || '',
+            cratesReceived: 0,
+            cratesGiven: 0,
+            netBalance: 0
+          };
+        }
+        if (tx.movement_type === 'RECEIVED') {
+          partyCrateMap[pName].cratesReceived += tx.crates_count;
+        } else {
+          partyCrateMap[pName].cratesGiven += tx.crates_count;
+        }
+      }
+    });
+
+    // For Farmers: Crates Received (mal in) - Crates Returned = Balance we owe them
+    // For Buyers: Crates Given (mal out) - Crates Returned back = Balance buyer owes us
+    const partyList = Object.values(partyCrateMap).map(p => {
+      let net = 0;
+      if (p.type === 'Farmer') {
+        net = p.cratesReceived - p.cratesGiven;
+      } else {
+        net = p.cratesGiven - p.cratesReceived;
+      }
+      return {
+        ...p,
+        netBalance: net
+      };
+    });
+
+    // 4. Compute driver crate summary
+    const driverCrateMap = {};
+    transactions.forEach(tx => {
+      if (tx.entity_type === 'driver') {
+        const dName = tx.entity_name;
+        const truck = tx.vehicle_no || 'UNKNOWN';
+        const key = `${truck}_${dName}`;
+        if (!driverCrateMap[key]) {
+          driverCrateMap[key] = {
+            driverName: dName,
+            vehicleNo: truck,
+            phone: tx.entity_phone || '',
+            cratesIn: 0,
+            cratesOut: 0,
+            netBalance: 0
+          };
+        }
+        if (tx.movement_type === 'RECEIVED') {
+          driverCrateMap[key].cratesIn += tx.crates_count;
+          driverCrateMap[key].netBalance += tx.crates_count;
+        } else {
+          driverCrateMap[key].cratesOut += tx.crates_count;
+          driverCrateMap[key].netBalance -= tx.crates_count;
+        }
+      }
+    });
+
+    const totalCratesWithBuyers = partyList.filter(p => p.type === 'Buyer').reduce((s, p) => s + Math.max(0, p.netBalance), 0);
+    const totalCratesWithFarmers = partyList.filter(p => p.type === 'Farmer').reduce((s, p) => s + Math.max(0, p.netBalance), 0);
+    const totalCratesWithDrivers = Object.values(driverCrateMap).reduce((s, d) => s + Math.max(0, d.netBalance), 0);
+
+    res.json({
+      summary: {
+        totalParties: partyList.length,
+        totalCratesWithBuyers,
+        totalCratesWithFarmers,
+        totalCratesWithDrivers,
+        totalCirculatingCrates: totalCratesWithBuyers + totalCratesWithFarmers + totalCratesWithDrivers
+      },
+      partyCrates: partyList,
+      driverCrates: Object.values(driverCrateMap),
+      recentTransactions: transactions
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch crate ledger: ' + err.message });
+  }
+});
+
+router.post('/crates/movement', authenticate, async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    const { 
+      entityType, // 'party' or 'driver'
+      entityName, 
+      entityPhone, 
+      partyType, // 'Farmer', 'Buyer', 'Agent', 'Driver'
+      vehicleNo,
+      movementType, // 'RECEIVED' or 'GIVEN'
+      cratesCount,
+      referenceType, // 'manual_adjustment', 'empty_return', 'deposit', etc.
+      notes,
+      date
+    } = req.body;
+
+    const count = parseInt(cratesCount, 10);
+    if (!count || count <= 0) {
+      return res.status(400).json({ error: 'Please enter a valid crates count greater than 0.' });
+    }
+    if (!entityName || !entityName.trim()) {
+      return res.status(400).json({ error: 'Party or Driver name is required.' });
+    }
+
+    const txId = 'CTX-' + Date.now() + '-' + Math.floor(100 + Math.random() * 900);
+    const entryDate = date || new Date().toISOString().split('T')[0];
+
+    await run(`
+      INSERT INTO crate_transactions (
+        id, tenant_id, date, entity_type, entity_name, entity_phone, 
+        party_type, vehicle_no, movement_type, crates_count, reference_type, notes
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      txId, tenantId, entryDate, entityType || 'party', entityName.trim(), entityPhone || '',
+      partyType || 'Buyer', vehicleNo ? vehicleNo.trim().toUpperCase() : null,
+      movementType || 'RECEIVED', count, referenceType || 'manual_adjustment', notes || ''
+    ]);
+
+    // Update parties table crates_balance if applicable
+    if (entityType === 'party') {
+      const delta = movementType === 'GIVEN' ? count : -count;
+      await run(`
+        UPDATE parties 
+        SET crates_balance = COALESCE(crates_balance, 0) + ? 
+        WHERE tenant_id = ? AND name = ?
+      `, [delta, tenantId, entityName.trim()]);
+    }
+
+    await auditLog({
+      tenantId,
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'RECORD_CRATE_MOVEMENT',
+      entityType: 'crate',
+      entityId: txId,
+      details: `Recorded ${count} crates ${movementType} for ${entityName.trim()} (${entityType}) [${notes || 'Crate Movement'}]`,
+      ipAddress: req.ip
+    });
+
+    res.status(201).json({ message: `Successfully recorded ${count} crates ${movementType.toLowerCase()} for ${entityName}!`, txId });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to record crate movement: ' + err.message });
+  }
+});
+
 module.exports = router;
