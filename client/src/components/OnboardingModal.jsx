@@ -75,10 +75,11 @@ export default function OnboardingModal({ isOpen, onClose }) {
               </p>
             </div>
           </div>
-          {activeTenant?.onboarding_completed === 1 && onClose && (
+          {onClose && (
             <button
               onClick={onClose}
-              className="absolute top-5 right-5 text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 text-xl font-bold"
+              className="absolute top-5 right-5 text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 text-xl font-bold cursor-pointer"
+              title="Close"
             >
               ✕
             </button>
@@ -324,11 +325,11 @@ export default function OnboardingModal({ isOpen, onClose }) {
           </div>
 
           <div className="flex items-center gap-3">
-            {activeTenant?.onboarding_completed === 1 && onClose && (
+            {onClose && (
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition"
+                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition cursor-pointer"
               >
                 Cancel
               </button>

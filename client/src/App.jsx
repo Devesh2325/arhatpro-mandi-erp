@@ -171,18 +171,28 @@ function MandiApp() {
               </div>
 
               {/* Business Mode Pill / Switcher */}
-              <button
-                type="button"
-                onClick={() => setIsOnboardingModalOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:border-emerald-300 text-slate-800 rounded-xl text-xs font-bold border border-slate-200 transition-all cursor-pointer"
-                title="Change Mandi Business Type & Personalize Screens / व्यापार श्रेणी बदलें"
-              >
-                <span>{workspaceConfig?.icon || '🏢'}</span>
-                <span className="hidden lg:inline text-slate-700">{workspaceConfig?.businessTitle || 'Mandi Mode'}</span>
-                <span className="text-[10px] text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded font-bold">
-                  ⚡ Mode
-                </span>
-              </button>
+              {user?.role === 'super_admin' ? (
+                <button
+                  type="button"
+                  onClick={() => setIsOnboardingModalOpen(true)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:border-emerald-300 text-slate-800 rounded-xl text-xs font-bold border border-slate-200 transition-all cursor-pointer"
+                  title="Super Admin: Change Mandi Business Type & Personalize Screens / व्यापार श्रेणी बदलें"
+                >
+                  <span>{workspaceConfig?.icon || '🏢'}</span>
+                  <span className="hidden lg:inline text-slate-700">{workspaceConfig?.businessTitle || 'Mandi Mode'}</span>
+                  <span className="text-[10px] text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded font-bold">
+                    ⚡ Mode
+                  </span>
+                </button>
+              ) : (
+                <div
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold border border-slate-200"
+                  title={workspaceConfig?.businessTitle || 'Mandi Mode'}
+                >
+                  <span>{workspaceConfig?.icon || '🏢'}</span>
+                  <span className="hidden lg:inline text-slate-700">{workspaceConfig?.businessTitle || 'Mandi Mode'}</span>
+                </div>
+              )}
 
               {/* Buy Plan / Upgrade Button — shows current plan, click to upgrade */}
               {user?.role !== 'super_admin' && (

@@ -107,29 +107,51 @@ export default function Sidebar({ activeTab, setActiveTab }) {
               ))}
             </select>
 
-            {/* Business Type Badge & Personalize Button */}
+            {/* Business Type Badge */}
             <div className="pt-2 border-t border-slate-200">
-              <button
-                type="button"
-                onClick={() => setIsOnboardingModalOpen(true)}
-                className="w-full flex items-center justify-between p-2 rounded-xl bg-emerald-50/80 hover:bg-emerald-100/80 border border-emerald-200 transition text-left cursor-pointer group"
-                title="Change Mandi Business Type & Simplify Screens / व्यापार श्रेणी बदलें"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-base">{workspaceConfig?.icon || '🏢'}</span>
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-bold text-slate-800 truncate leading-tight">
-                      {workspaceConfig?.businessTitle || 'Mandi Mode'}
-                    </div>
-                    <div className="text-[9px] text-emerald-700 font-semibold truncate">
-                      {workspaceConfig?.businessTitleHi || 'कार्यक्षेत्र सेटिंग्स'}
+              {user?.role === 'super_admin' ? (
+                <button
+                  type="button"
+                  onClick={() => setIsOnboardingModalOpen(true)}
+                  className="w-full flex items-center justify-between p-2 rounded-xl bg-emerald-50/80 hover:bg-emerald-100/80 border border-emerald-200 transition text-left cursor-pointer group"
+                  title="Super Admin: Change Mandi Business Type & Simplify Screens / व्यापार श्रेणी बदलें"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-base">{workspaceConfig?.icon || '🏢'}</span>
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-bold text-slate-800 truncate leading-tight">
+                        {workspaceConfig?.businessTitle || 'Mandi Mode'}
+                      </div>
+                      <div className="text-[9px] text-emerald-700 font-semibold truncate">
+                        {workspaceConfig?.businessTitleHi || 'कार्यक्षेत्र सेटिंग्स'}
+                      </div>
                     </div>
                   </div>
+                  <span className="text-[10px] text-emerald-700 font-bold bg-white px-1.5 py-0.5 rounded border border-emerald-300 shadow-2xs group-hover:scale-105 transition-transform">
+                    बदलें ⚙️
+                  </span>
+                </button>
+              ) : (
+                <div
+                  className="w-full flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-200 text-left"
+                  title={workspaceConfig?.businessTitle || 'Mandi Mode'}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-base">{workspaceConfig?.icon || '🏢'}</span>
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-bold text-slate-800 truncate leading-tight">
+                        {workspaceConfig?.businessTitle || 'Mandi Mode'}
+                      </div>
+                      <div className="text-[9px] text-slate-500 font-medium truncate">
+                        {workspaceConfig?.businessTitleHi || 'कार्यक्षेत्र सेटिंग्स'}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[9px] text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200 font-medium">
+                    ✓ सक्रिय
+                  </span>
                 </div>
-                <span className="text-[10px] text-emerald-700 font-bold bg-white px-1.5 py-0.5 rounded border border-emerald-300 shadow-2xs group-hover:scale-105 transition-transform">
-                  बदलें ⚙️
-                </span>
-              </button>
+              )}
             </div>
           </div>
         </div>

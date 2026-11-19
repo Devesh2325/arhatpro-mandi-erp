@@ -68,12 +68,27 @@ router.get('/:id', authenticate, async (req, res) => {
 router.put('/:id', authenticate, async (req, res) => {
   try {
     const tId = req.params.id;
+    const tenant = await queryOne(`SELECT * FROM tenants WHERE id = ?`, [tId]);
+    if (!tenant) return res.status(404).json({ error: 'Agency not found.' });
+
+    if (req.user.role !== 'super_admin' && tenant.owner_user_id !== req.user.id && req.user.tenantId !== tId) {
+      return res.status(403).json({ error: 'Access denied: You do not own this agency workspace.' });
+    }
+
     const {
       firm_name, hindi_name, tagline, proprietor, shop_no, mandi_name, apmc_license_no,
       gstin, phone, bank_name, account_no, ifsc, upi_id, standard_commission,
       palledari_rate_per_box, bill_format, bill_disclaimer, logo_icon, logo_url, theme_color,
       workspace_config, business_type, onboarding_completed
     } = req.body;
+
+    // Mandi Business Type can only be updated by super_admin or tenant owner
+    let targetBusinessType = business_type;
+    let targetWorkspaceConfig = workspace_config;
+    if (business_type && business_type !== tenant.business_type && req.user.role !== 'super_admin' && req.user.id !== tenant.owner_user_id) {
+      targetBusinessType = tenant.business_type;
+      targetWorkspaceConfig = tenant.workspace_config;
+    }
 
     await run(`
       UPDATE tenants SET
@@ -105,7 +120,7 @@ router.put('/:id', authenticate, async (req, res) => {
       firm_name, hindi_name, tagline, proprietor, shop_no, mandi_name, apmc_license_no,
       gstin, phone, bank_name, account_no, ifsc, upi_id, standard_commission,
       palledari_rate_per_box, bill_format, bill_disclaimer, logo_icon, logo_url, theme_color,
-      workspace_config, business_type, onboarding_completed,
+      targetWorkspaceConfig, targetBusinessType, onboarding_completed,
       tId
     ]);
 

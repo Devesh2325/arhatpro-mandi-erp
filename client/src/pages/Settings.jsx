@@ -2372,14 +2372,22 @@ export default function Settings() {
                 {t('Configure your mandi business type. The system automatically hides irrelevant fields and options to keep workflows clean and avoid confusion.', 'अपनी व्यापार श्रेणी के अनुसार स्क्रीन सेटिंग्स अनुकूलित करें ताकि अनावश्यक विकल्प हट जाएं।')}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsOnboardingModalOpen(true)}
-              className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer w-fit"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Change Business Type (बदलें)</span>
-            </button>
+            {user?.role === 'super_admin' ? (
+              <button
+                type="button"
+                onClick={() => setIsOnboardingModalOpen(true)}
+                className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer w-fit"
+                title="Super Admin: Update Mandi Business Model"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Change Business Type (बदलें)</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-xl border border-slate-200">
+                <span>🔒</span>
+                <span>{t('Managed by Super Admin', 'सुपर एडमिन द्वारा निर्धारित')}</span>
+              </div>
+            )}
           </div>
 
           {/* Current Active Mode Card */}

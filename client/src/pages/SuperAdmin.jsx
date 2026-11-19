@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
-import { useTenant } from '../context/TenantContext';
+import { useTenant, BUSINESS_PRESETS } from '../context/TenantContext';
 import { ShieldAlert, Users, CreditCard, Calendar, Eye, CheckCircle, AlertTriangle, RefreshCw, Clock, ArrowUpRight, Search, Zap, Lock } from 'lucide-react';
 
 export default function SuperAdmin() {
@@ -35,6 +35,25 @@ export default function SuperAdmin() {
       console.error('Failed to load super admin data:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateBusinessType = async (tenantId, newType) => {
+    setActionLoading(true);
+    setMessage(null);
+    try {
+      const preset = BUSINESS_PRESETS.find(p => p.id === newType);
+      await api.updateTenant(tenantId, {
+        business_type: newType,
+        workspace_config: preset ? JSON.stringify(preset.config) : undefined,
+        onboarding_completed: 1
+      });
+      setMessage({ type: 'success', text: `Updated Mandi Business Type to "${preset?.name || newType}"!` });
+      loadAll();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Failed to update business type.' });
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -210,6 +229,7 @@ export default function SuperAdmin() {
               <tr>
                 <th className="py-3 px-4">Agency / Firm Name</th>
                 <th className="py-3 px-4">APMC License</th>
+                <th className="py-3 px-4">Mandi Business Model</th>
                 <th className="py-3 px-4">Subscription Plan</th>
                 <th className="py-3 px-4">Validity Expiry</th>
                 <th className="py-3 px-4 text-center">Status</th>
@@ -218,9 +238,9 @@ export default function SuperAdmin() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
-                <tr><td colSpan="6" className="text-center py-8 text-gray-400">Loading tenants...</td></tr>
+                <tr><td colSpan="7" className="text-center py-8 text-gray-400">Loading tenants...</td></tr>
               ) : filteredTenants.length === 0 ? (
-                <tr><td colSpan="6" className="text-center py-8 text-gray-400">No tenants found.</td></tr>
+                <tr><td colSpan="7" className="text-center py-8 text-gray-400">No tenants found.</td></tr>
               ) : (
                 filteredTenants.map((t) => {
                   const isActive = t.status === 'active';
@@ -229,10 +249,25 @@ export default function SuperAdmin() {
                   return (
                     <tr key={t.id} className="hover:bg-gray-50 transition-colors">
                       <td className="py-3 px-4">
-                        <div className="font-bold text-gray-900">{t.name}</div>
+                        <div className="font-bold text-gray-900">{t.name || t.firm_name}</div>
                         <div className="text-xs text-gray-400">ID: {t.id} • subdomain: {t.subdomain}</div>
                       </td>
-                      <td className="py-3 px-4 font-mono text-xs">{t.apmc_license || '—'}</td>
+                      <td className="py-3 px-4 font-mono text-xs">{t.apmc_license || t.apmc_license_no || '—'}</td>
+                      <td className="py-3 px-4">
+                        <select
+                          value={t.business_type || 'fruit_vegetable'}
+                          onChange={(e) => handleUpdateBusinessType(t.id, e.target.value)}
+                          disabled={actionLoading}
+                          className="px-2 py-1 text-xs font-bold rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-950 outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                          title="Super Admin: Change Mandi Business Model"
+                        >
+                          {BUSINESS_PRESETS.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.icon} {p.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
                       <td className="py-3 px-4">
                         <select
                           value={t.plan || 'monthly'}

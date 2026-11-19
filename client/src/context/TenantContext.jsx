@@ -152,10 +152,7 @@ export function TenantProvider({ children }) {
         setActiveTenant(matched);
         applyTheme(matched.theme_color || 'emerald');
 
-        // Check if onboarding needs to be shown
-        if (matched.onboarding_completed === 0) {
-          setIsOnboardingModalOpen(true);
-        }
+        // Auto-popup removed: Mandi Business Type is configured by Super Admin
       } else {
         setActiveTenant(null);
       }
@@ -198,9 +195,6 @@ export function TenantProvider({ children }) {
     if (target) {
       setActiveTenant(target);
       applyTheme(target.theme_color || 'emerald');
-      if (target.onboarding_completed === 0) {
-        setIsOnboardingModalOpen(true);
-      }
     }
   };
 
