@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 
 export default function Settings() {
-  const { currentTenant, activeTenant, applyTheme, refreshTenant } = useTenant();
+  const { currentTenant, activeTenant, applyTheme, refreshTenant, workspaceConfig, setIsOnboardingModalOpen } = useTenant();
   const tenant = currentTenant || activeTenant;
   const { user } = useAuth();
   const { language, t } = useLanguage();
@@ -1024,7 +1024,8 @@ export default function Settings() {
           { id: 'VARIETIES', labelEn: '8. Varieties & Grades', labelHi: '8. किस्म व ग्रेड मास्टर', icon: Sparkles },
           { id: 'EXPENSES', labelEn: '9. Expense Heads', labelHi: '9. मंडी खर्चे (कटौतियां)', icon: Receipt },
           { id: 'PLANS', labelEn: '10. Subscription Plans', labelHi: '10. सब्सक्रिप्शन व प्लान', icon: Crown },
-          { id: 'AUDIT_LOGS', labelEn: '11. Audit Logs', labelHi: '11. ऑडिट लॉग्स', icon: History }
+          { id: 'AUDIT_LOGS', labelEn: '11. Audit Logs', labelHi: '11. ऑडिट लॉग्स', icon: History },
+          { id: 'WORKSPACE', labelEn: '12. Business Onboarding & Screens', labelHi: '12. व्यापार मॉडल व स्क्रीन सेटिंग्स', icon: Sparkles }
         ].map(tItem => {
           const Icon = tItem.icon;
           const isActive = activeTab === tItem.id;
@@ -2354,6 +2355,104 @@ export default function Settings() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ================= SUB-TAB 12: WORKSPACE & ONBOARDING ================= */}
+      {activeTab === 'WORKSPACE' && (
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6 text-xs">
+          <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <span>{workspaceConfig?.icon || '🏢'}</span>
+                <span>{t('Workspace Personalization & Business Flow', 'कार्यक्षेत्र निजीकरण एवं व्यापार मॉडल')}</span>
+              </h3>
+              <p className="text-slate-500 text-[11px] mt-0.5">
+                {t('Configure your mandi business type. The system automatically hides irrelevant fields and options to keep workflows clean and avoid confusion.', 'अपनी व्यापार श्रेणी के अनुसार स्क्रीन सेटिंग्स अनुकूलित करें ताकि अनावश्यक विकल्प हट जाएं।')}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsOnboardingModalOpen(true)}
+              className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer w-fit"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Change Business Type (बदलें)</span>
+            </button>
+          </div>
+
+          {/* Current Active Mode Card */}
+          <div className="p-5 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <span className="text-4xl p-2.5 bg-white rounded-2xl border border-emerald-200 shadow-xs">
+                {workspaceConfig?.icon || '🏢'}
+              </span>
+              <div>
+                <span className="text-[10px] font-black uppercase text-emerald-800 tracking-wider">Current Active Flow</span>
+                <h4 className="text-base font-black text-slate-900 leading-tight">
+                  {workspaceConfig?.businessTitle || 'APMC Mandi Commission Agent'}
+                </h4>
+                <span className="text-xs font-semibold text-emerald-800">
+                  {workspaceConfig?.businessTitleHi || 'एपीएमसी मंडी आढ़ती'}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 text-xs">
+              <div className="bg-white px-3 py-1.5 rounded-xl border border-emerald-200 shadow-2xs">
+                <span className="text-[10px] text-slate-400 block font-bold">DEFAULT UNIT</span>
+                <span className="font-bold text-slate-800">{workspaceConfig?.defaultUnit || 'Box (20kg)'}</span>
+              </div>
+              <div className="bg-white px-3 py-1.5 rounded-xl border border-emerald-200 shadow-2xs">
+                <span className="text-[10px] text-slate-400 block font-bold">PRIMARY SCREEN</span>
+                <span className="font-bold text-slate-800 capitalize">{workspaceConfig?.primaryFlow || 'quick-trade'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Feature Matrix / Active Toggles Display */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+              {t('Active Features in This Workspace:', 'इस कार्यक्षेत्र में सक्रिय विकल्प:')}
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+              <div className={`p-4 rounded-xl border ${workspaceConfig?.showCrates !== false ? 'border-emerald-300 bg-emerald-50/40 text-emerald-950' : 'border-slate-200 bg-slate-50 text-slate-400 opacity-60'}`}>
+                <div className="font-black text-sm flex items-center gap-1.5">
+                  <span>📦</span> Crate Ledger
+                </div>
+                <div className="text-[11px] mt-1 font-medium">
+                  {workspaceConfig?.showCrates !== false ? '✓ Enabled in Inward, QuickTrade & BahiKhata' : '✕ Hidden (Not applicable)'}
+                </div>
+              </div>
+
+              <div className={`p-4 rounded-xl border ${workspaceConfig?.showChambers ? 'border-emerald-300 bg-emerald-50/40 text-emerald-950' : 'border-slate-200 bg-slate-50 text-slate-400 opacity-60'}`}>
+                <div className="font-black text-sm flex items-center gap-1.5">
+                  <span>❄️</span> Ripening Chambers
+                </div>
+                <div className="text-[11px] mt-1 font-medium">
+                  {workspaceConfig?.showChambers ? '✓ Enabled (Cold storage lot allocation)' : '✕ Hidden (Direct trade only)'}
+                </div>
+              </div>
+
+              <div className={`p-4 rounded-xl border ${workspaceConfig?.showDriverFreight !== false ? 'border-emerald-300 bg-emerald-50/40 text-emerald-950' : 'border-slate-200 bg-slate-50 text-slate-400 opacity-60'}`}>
+                <div className="font-black text-sm flex items-center gap-1.5">
+                  <span>🚚</span> Driver Freight Head
+                </div>
+                <div className="text-[11px] mt-1 font-medium">
+                  {workspaceConfig?.showDriverFreight !== false ? '✓ Enabled (Transport & driver ledger)' : '✕ Hidden'}
+                </div>
+              </div>
+
+              <div className={`p-4 rounded-xl border ${workspaceConfig?.showAgent !== false ? 'border-emerald-300 bg-emerald-50/40 text-emerald-950' : 'border-slate-200 bg-slate-50 text-slate-400 opacity-60'}`}>
+                <div className="font-black text-sm flex items-center gap-1.5">
+                  <span>🤝</span> Broker / Agent
+                </div>
+                <div className="text-[11px] mt-1 font-medium">
+                  {workspaceConfig?.showAgent !== false ? '✓ Enabled (Agent brokerage)' : '✕ Hidden'}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

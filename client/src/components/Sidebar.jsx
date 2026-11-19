@@ -16,7 +16,7 @@ import {
 
 export default function Sidebar({ activeTab, setActiveTab }) {
   const { user, isImpersonating, logout } = useAuth();
-  const { tenants, activeTenant, currentTenant, switchTenant } = useTenant();
+  const { tenants, activeTenant, currentTenant, switchTenant, workspaceConfig, setIsOnboardingModalOpen } = useTenant();
   const { t } = useLanguage();
   const tenant = currentTenant || activeTenant;
 
@@ -106,6 +106,31 @@ export default function Sidebar({ activeTab, setActiveTab }) {
                 </option>
               ))}
             </select>
+
+            {/* Business Type Badge & Personalize Button */}
+            <div className="pt-2 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => setIsOnboardingModalOpen(true)}
+                className="w-full flex items-center justify-between p-2 rounded-xl bg-emerald-50/80 hover:bg-emerald-100/80 border border-emerald-200 transition text-left cursor-pointer group"
+                title="Change Mandi Business Type & Simplify Screens / व्यापार श्रेणी बदलें"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-base">{workspaceConfig?.icon || '🏢'}</span>
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-bold text-slate-800 truncate leading-tight">
+                      {workspaceConfig?.businessTitle || 'Mandi Mode'}
+                    </div>
+                    <div className="text-[9px] text-emerald-700 font-semibold truncate">
+                      {workspaceConfig?.businessTitleHi || 'कार्यक्षेत्र सेटिंग्स'}
+                    </div>
+                  </div>
+                </div>
+                <span className="text-[10px] text-emerald-700 font-bold bg-white px-1.5 py-0.5 rounded border border-emerald-300 shadow-2xs group-hover:scale-105 transition-transform">
+                  बदलें ⚙️
+                </span>
+              </button>
+            </div>
           </div>
         </div>
 

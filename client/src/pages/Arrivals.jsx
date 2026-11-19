@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useLanguage } from '../context/LanguageContext';
+import { useTenant } from '../context/TenantContext';
 import { 
   Truck, 
   Plus, 
@@ -26,6 +27,7 @@ import PartySearchSelect from '../components/PartySearchSelect';
 
 export default function Arrivals() {
   const { t, isHindi } = useLanguage();
+  const { workspaceConfig } = useTenant();
   const [activeView, setActiveView] = useState('FORM'); // 'FORM' (Default: Inline full-page entry form) | 'REGISTER' (Consignments Register)
   const [arrivals, setArrivals] = useState([]);
   const [commodities, setCommodities] = useState([]);
@@ -445,7 +447,7 @@ export default function Arrivals() {
                 <label className="block text-xs font-bold text-slate-800">
                   {t('Inward Flow & Destination (आवक प्रकार व स्थान) *', 'आवक प्रकार व स्थान *')}
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className={`grid grid-cols-1 ${workspaceConfig?.showChambers !== false ? 'sm:grid-cols-2' : ''} gap-3`}>
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, inward_type: 'direct' })}
@@ -464,23 +466,25 @@ export default function Arrivals() {
                     {formData.inward_type === 'direct' && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, inward_type: 'storage' })}
-                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${
-                      formData.inward_type === 'storage'
-                        ? 'border-indigo-600 bg-indigo-50 text-indigo-950 ring-2 ring-indigo-500/20'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div>
-                      <p className="font-black text-xs flex items-center gap-1.5">
-                        <span>❄️ Storage / Ripening Chamber / Godown</span>
-                      </p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">स्टोरेज / राइपनिंग चैंबर / माल गोदाम (Indirect / Future Sale)</p>
-                    </div>
-                    {formData.inward_type === 'storage' && <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0" />}
-                  </button>
+                  {workspaceConfig?.showChambers !== false && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, inward_type: 'storage' })}
+                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                        formData.inward_type === 'storage'
+                          ? 'border-indigo-600 bg-indigo-50 text-indigo-950 ring-2 ring-indigo-500/20'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div>
+                        <p className="font-black text-xs flex items-center gap-1.5">
+                          <span>❄️ Storage / Ripening Chamber / Godown</span>
+                        </p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">स्टोरेज / राइपनिंग चैंबर / माल गोदाम (Indirect / Future Sale)</p>
+                      </div>
+                      {formData.inward_type === 'storage' && <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0" />}
+                    </button>
+                  )}
                 </div>
 
                 {formData.inward_type === 'storage' && (
@@ -589,51 +593,53 @@ export default function Arrivals() {
               </div>
 
               {/* Crate & Driver Accounting Box */}
-              <div className="bg-amber-50/60 p-3.5 rounded-2xl border border-amber-200/80 space-y-2 mt-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                    <span>📦 Crate & Driver Accounting (चालक क्रेट हिसाब - केला/फल स्टोर)</span>
-                  </span>
-                  <span className="text-[10px] text-amber-700 font-mono">
-                    {t('Crate In / Out / Balance', 'आवक क्रेट / वापसी / शेष')}
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      {t('Driver Crates In (प्राप्त क्रेट)', 'चालक से प्राप्त क्रेट')}
-                    </label>
-                    <input
-                      type="number"
-                      placeholder="e.g. 350"
-                      value={formData.driver_crates_in}
-                      onChange={(e) => setFormData({ ...formData, driver_crates_in: e.target.value })}
-                      className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-amber-500 outline-none bg-white"
-                    />
+              {workspaceConfig?.showCrates !== false && (
+                <div className="bg-amber-50/60 p-3.5 rounded-2xl border border-amber-200/80 space-y-2 mt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                      <span>📦 Crate & Driver Accounting (चालक क्रेट हिसाब - केला/फल स्टोर)</span>
+                    </span>
+                    <span className="text-[10px] text-amber-700 font-mono">
+                      {t('Crate In / Out / Balance', 'आवक क्रेट / वापसी / शेष')}
+                    </span>
                   </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      {t('Empty Crates Returned (लौटाई क्रेट)', 'चालक को लौटाई खाली क्रेट')}
-                    </label>
-                    <input
-                      type="number"
-                      placeholder="e.g. 50"
-                      value={formData.driver_crates_out}
-                      onChange={(e) => setFormData({ ...formData, driver_crates_out: e.target.value })}
-                      className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-amber-500 outline-none bg-white text-emerald-800"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      {t('Net Balance Crates (बाकी क्रेट)', 'चालक पर बाकी क्रेट')}
-                    </label>
-                    <div className="w-full px-3 py-1.5 bg-white border border-amber-300 rounded-xl text-xs font-mono font-black text-amber-900 flex items-center justify-between">
-                      <span>{(parseInt(formData.driver_crates_in, 10) || 0) - (parseInt(formData.driver_crates_out, 10) || 0)} Crates</span>
-                      <span className="text-[10px] text-slate-400">Balance</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        {t('Driver Crates In (प्राप्त क्रेट)', 'चालक से प्राप्त क्रेट')}
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 350"
+                        value={formData.driver_crates_in}
+                        onChange={(e) => setFormData({ ...formData, driver_crates_in: e.target.value })}
+                        className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-amber-500 outline-none bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        {t('Empty Crates Returned (लौटाई क्रेट)', 'चालक को लौटाई खाली क्रेट')}
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 50"
+                        value={formData.driver_crates_out}
+                        onChange={(e) => setFormData({ ...formData, driver_crates_out: e.target.value })}
+                        className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-amber-500 outline-none bg-white text-emerald-800"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        {t('Net Balance Crates (बाकी क्रेट)', 'चालक पर बाकी क्रेट')}
+                      </label>
+                      <div className="w-full px-3 py-1.5 bg-white border border-amber-300 rounded-xl text-xs font-mono font-black text-amber-900 flex items-center justify-between">
+                        <span>{(parseInt(formData.driver_crates_in, 10) || 0) - (parseInt(formData.driver_crates_out, 10) || 0)} Crates</span>
+                        <span className="text-[10px] text-slate-400">Balance</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Card 3: Farmer & Agent Details */}
@@ -687,80 +693,84 @@ export default function Arrivals() {
               </div>
 
               {/* Agent Section */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-100">
-                <div>
-                  <PartySearchSelect
-                    partyType="Agent"
-                    label={t('Agent / Broker (दलाल / एजेंट - यदि हो)', 'दलाल / एजेंट (वैकल्पिक)')}
-                    value={formData.agent_name}
-                    placeholder="एजेंट खोजें या नया जोड़ें..."
-                    onChange={(name, party) => {
-                      setFormData(prev => ({
-                        ...prev,
-                        agent_name: name,
-                        agent_phone: party?.mobile || prev.agent_phone
-                      }));
-                    }}
-                  />
+              {workspaceConfig?.showAgent !== false && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-100">
+                  <div>
+                    <PartySearchSelect
+                      partyType="Agent"
+                      label={t('Agent / Broker (दलाल / एजेंट - यदि हो)', 'दलाल / एजेंट (वैकल्पिक)')}
+                      value={formData.agent_name}
+                      placeholder="एजेंट खोजें या नया जोड़ें..."
+                      onChange={(name, party) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          agent_name: name,
+                          agent_phone: party?.mobile || prev.agent_phone
+                        }));
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">{t('Agent Mobile', 'दलाल / एजेंट मोबाइल')}</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 98765..."
+                      value={formData.agent_phone}
+                      onChange={(e) => setFormData({ ...formData, agent_phone: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-mono focus:ring-2 focus:ring-emerald-600 outline-none"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">{t('Agent Mobile', 'दलाल / एजेंट मोबाइल')}</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 98765..."
-                    value={formData.agent_phone}
-                    onChange={(e) => setFormData({ ...formData, agent_phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-mono focus:ring-2 focus:ring-emerald-600 outline-none"
-                  />
-                </div>
-              </div>
+              )}
 
               {/* Farmer Crate Accounting Box */}
-              <div className="bg-emerald-50/60 p-3.5 rounded-2xl border border-emerald-200/80 space-y-2 mt-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
-                    <span>🌾 Grower Crate Accounting (किसान क्रेट हिसाब)</span>
-                  </span>
-                  <span className="text-[10px] text-emerald-700 font-mono">
-                    {t('Farmer Crates In / Return / Bal', 'किसान क्रेट आवक / वापसी / बाकी')}
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      {t('Crates Received from Farmer', 'किसान से प्राप्त भरी क्रेट')}
-                    </label>
-                    <input
-                      type="number"
-                      placeholder="e.g. 350"
-                      value={formData.farmer_crates_in}
-                      onChange={(e) => setFormData({ ...formData, farmer_crates_in: e.target.value })}
-                      className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
-                    />
+              {workspaceConfig?.showCrates !== false && (
+                <div className="bg-emerald-50/60 p-3.5 rounded-2xl border border-emerald-200/80 space-y-2 mt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                      <span>🌾 Grower Crate Accounting (किसान क्रेट हिसाब)</span>
+                    </span>
+                    <span className="text-[10px] text-emerald-700 font-mono">
+                      {t('Farmer Crates In / Return / Bal', 'किसान क्रेट आवक / वापसी / बाकी')}
+                    </span>
                   </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      {t('Empty Crates Returned to Farmer', 'किसान को लौटाई खाली क्रेट')}
-                    </label>
-                    <input
-                      type="number"
-                      placeholder="e.g. 50"
-                      value={formData.farmer_crates_returned}
-                      onChange={(e) => setFormData({ ...formData, farmer_crates_returned: e.target.value })}
-                      className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-emerald-800"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      {t('Net Crates Due to Farmer', 'किसान के नाम शेष क्रेट')}
-                    </label>
-                    <div className="w-full px-3 py-1.5 bg-white border border-emerald-300 rounded-xl text-xs font-mono font-black text-emerald-900 flex items-center justify-between">
-                      <span>{(parseInt(formData.farmer_crates_in, 10) || 0) - (parseInt(formData.farmer_crates_returned, 10) || 0)} Crates</span>
-                      <span className="text-[10px] text-slate-400">Balance</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        {t('Crates Received from Farmer', 'किसान से प्राप्त भरी क्रेट')}
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 350"
+                        value={formData.farmer_crates_in}
+                        onChange={(e) => setFormData({ ...formData, farmer_crates_in: e.target.value })}
+                        className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        {t('Empty Crates Returned to Farmer', 'किसान को लौटाई खाली क्रेट')}
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 50"
+                        value={formData.farmer_crates_returned}
+                        onChange={(e) => setFormData({ ...formData, farmer_crates_returned: e.target.value })}
+                        className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-emerald-800"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        {t('Net Crates Due to Farmer', 'किसान के नाम शेष क्रेट')}
+                      </label>
+                      <div className="w-full px-3 py-1.5 bg-white border border-emerald-300 rounded-xl text-xs font-mono font-black text-emerald-900 flex items-center justify-between">
+                        <span>{(parseInt(formData.farmer_crates_in, 10) || 0) - (parseInt(formData.farmer_crates_returned, 10) || 0)} Crates</span>
+                        <span className="text-[10px] text-slate-400">Balance</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Card 4: Commodity, Variety & Quantity */}

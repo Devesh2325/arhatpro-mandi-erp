@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useLanguage } from '../context/LanguageContext';
+import { useTenant } from '../context/TenantContext';
 import { 
   BookOpen, 
   DollarSign, 
@@ -29,6 +30,7 @@ import {
 
 export default function BahiKhata() {
   const { t, isHindi } = useLanguage();
+  const { workspaceConfig } = useTenant();
   const [activeTab, setActiveTab] = useState('ACCOUNTS'); // ACCOUNTS, CRATES, DRIVERS, CASHBOOK, JOURNAL, TRIAL_BALANCE, BALANCE_SHEET, AGING
   const [accounts, setAccounts] = useState([]);
   const [cashEntries, setCashEntries] = useState([]);
@@ -408,8 +410,8 @@ export default function BahiKhata() {
       <div className="flex border-b border-gray-200 gap-2 sm:gap-4 overflow-x-auto pb-1 text-xs sm:text-sm font-bold select-none">
         {[
           { id: 'ACCOUNTS', label: t('Party Accounts', 'खाता बही (पार्टी)'), icon: BookOpen },
-          { id: 'CRATES', label: t('Crates Ledger', 'क्रेट खाता (पार्टी/स्टोर)'), icon: Package },
-          { id: 'DRIVERS', label: t('Driver Ledger', 'चालक/भाड़ा खाता'), icon: Truck },
+          ...(workspaceConfig?.showCrates !== false ? [{ id: 'CRATES', label: t('Crates Ledger', 'क्रेट खाता (पार्टी/स्टोर)'), icon: Package }] : []),
+          ...(workspaceConfig?.showDriverFreight !== false ? [{ id: 'DRIVERS', label: t('Driver Ledger', 'चालक/भाड़ा खाता'), icon: Truck }] : []),
           { id: 'CASHBOOK', label: t('Rokad / Cashbook', 'रोकड़ बही (नकद)'), icon: DollarSign },
           { id: 'JOURNAL', label: t('Double-Entry Journal', 'रोजनामचा (जर्नल)'), icon: ShieldCheck },
           { id: 'TRIAL_BALANCE', label: t('Trial Balance', 'तलपट (ट्रायल बैलेंस)'), icon: Scale },
@@ -489,7 +491,9 @@ export default function BahiKhata() {
                   <th className="py-3.5 px-4">{t('Account Type', 'पार्टी प्रकार')}</th>
                   <th className="py-3.5 px-4">{t('Contact Info', 'संपर्क / शहर')}</th>
                   <th className="py-3.5 px-4 text-right">{t('Financial Balance (₹)', 'खाता शेष (रुपये)')}</th>
-                  <th className="py-3.5 px-4 text-center">{t('Crates Balance (📦)', 'क्रेट्स शेष (📦)')}</th>
+                  {workspaceConfig?.showCrates !== false && (
+                    <th className="py-3.5 px-4 text-center">{t('Crates Balance (📦)', 'क्रेट्स शेष (📦)')}</th>
+                  )}
                   <th className="py-3.5 px-4 text-center">{t('Status', 'स्थिति')}</th>
                 </tr>
               </thead>
@@ -525,13 +529,15 @@ export default function BahiKhata() {
                               ₹{Math.abs(acc.balance || 0).toLocaleString()} {isDr ? 'Dr (Lena)' : 'Cr (Dena)'}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-center font-mono font-bold">
-                            <span className={`px-2 py-0.5 rounded text-xs ${
-                              cBal > 0 ? 'bg-amber-100 text-amber-900' : cBal < 0 ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-500'
-                            }`}>
-                              {cBal !== 0 ? `${Math.abs(cBal)} 📦 ${cBal > 0 ? (acc.account_type === 'Buyer' ? 'लेना' : 'देना') : ''}` : '0 Nil'}
-                            </span>
-                          </td>
+                          {workspaceConfig?.showCrates !== false && (
+                            <td className="py-3 px-4 text-center font-mono font-bold">
+                              <span className={`px-2 py-0.5 rounded text-xs ${
+                                cBal > 0 ? 'bg-amber-100 text-amber-900' : cBal < 0 ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-500'
+                              }`}>
+                                {cBal !== 0 ? `${Math.abs(cBal)} 📦 ${cBal > 0 ? (acc.account_type === 'Buyer' ? 'लेना' : 'देना') : ''}` : '0 Nil'}
+                              </span>
+                            </td>
+                          )}
                           <td className="py-3 px-4 text-center">
                             <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
                               Active

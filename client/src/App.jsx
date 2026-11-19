@@ -13,6 +13,7 @@ import BahiKhata from './pages/BahiKhata';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import SuperAdmin from './pages/SuperAdmin';
+import OnboardingModal from './components/OnboardingModal';
 import { Menu, Sparkles, Languages, Crown, Zap, LogOut } from 'lucide-react';
 
 const PLAN_STYLES = {
@@ -26,7 +27,7 @@ const PLAN_STYLES = {
 
 function MandiApp() {
   const { user, isAuthenticated, loading, logout, isImpersonating } = useAuth();
-  const { currentTenant, activeTenant } = useTenant();
+  const { currentTenant, activeTenant, workspaceConfig, isOnboardingModalOpen, setIsOnboardingModalOpen } = useTenant();
   const { language, setLanguage, t } = useLanguage();
   const tenant = currentTenant || activeTenant;
 
@@ -36,10 +37,12 @@ function MandiApp() {
   useEffect(() => {
     if (user?.role === 'super_admin') {
       setActiveTab('super-admin');
+    } else if (workspaceConfig?.primaryFlow) {
+      setActiveTab(workspaceConfig.primaryFlow);
     } else {
       setActiveTab('dashboard');
     }
-  }, [user]);
+  }, [user, workspaceConfig?.primaryFlow]);
 
   if (loading) {
     return (
@@ -179,6 +182,20 @@ function MandiApp() {
                 </select>
               </div>
 
+              {/* Business Mode Pill / Switcher */}
+              <button
+                type="button"
+                onClick={() => setIsOnboardingModalOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:border-emerald-300 text-slate-800 rounded-xl text-xs font-bold border border-slate-200 transition-all cursor-pointer"
+                title="Change Mandi Business Type & Personalize Screens / व्यापार श्रेणी बदलें"
+              >
+                <span>{workspaceConfig?.icon || '🏢'}</span>
+                <span className="hidden lg:inline text-slate-700">{workspaceConfig?.businessTitle || 'Mandi Mode'}</span>
+                <span className="text-[10px] text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded font-bold">
+                  ⚡ Mode
+                </span>
+              </button>
+
               {/* Buy Plan / Upgrade Button — shows current plan, click to upgrade */}
               {user?.role !== 'super_admin' && (
                 <button
@@ -247,6 +264,12 @@ function MandiApp() {
         </div>
 
       </div>
+
+      {/* Workspace Personalization & Business Onboarding Modal */}
+      <OnboardingModal
+        isOpen={isOnboardingModalOpen}
+        onClose={() => setIsOnboardingModalOpen(false)}
+      />
     </div>
   );
 }

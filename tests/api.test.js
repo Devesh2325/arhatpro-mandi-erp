@@ -216,6 +216,30 @@ await test('PUT /tenants/:id — can update firm settings', async () => {
   assert(status === 200, `Expected 200 got ${status}: ${body.error || ''}`);
 });
 
+await test('PUT /tenants/:id — can update workspace_config and business_type (Onboarding)', async () => {
+  if (!tenantId) return skip('PUT tenant workspace_config', 'no tenantId');
+  const sampleConfig = JSON.stringify({
+    businessCategory: 'banana_store',
+    businessTitle: 'Banana Store & Ripening Chamber',
+    businessTitleHi: 'केला स्टोर व राइपनिंग चैंबर',
+    icon: '🍌',
+    showCrates: true,
+    showChambers: true,
+    showDriverFreight: true,
+    showAgent: true,
+    primaryFlow: 'quick-trade',
+    defaultUnit: 'Banana Crate (15kg)'
+  });
+  const { status, body } = await put(`/tenants/${tenantId}`, {
+    workspace_config: sampleConfig,
+    business_type: 'banana_store',
+    onboarding_completed: 1
+  }, adminToken);
+  assertJson(body, `/tenants/${tenantId} PUT workspace_config`);
+  assert(status === 200, `Expected 200 got ${status}: ${body.error || ''}`);
+  assert(body.tenant && body.tenant.business_type === 'banana_store', 'business_type was not updated');
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  4. COMMODITIES
 // ═══════════════════════════════════════════════════════════════════════════

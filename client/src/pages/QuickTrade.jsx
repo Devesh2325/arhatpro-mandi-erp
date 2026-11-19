@@ -19,7 +19,7 @@ import {
 import PartySearchSelect from '../components/PartySearchSelect';
 
 export default function QuickTrade() {
-  const { activeTenant } = useTenant();
+  const { activeTenant, workspaceConfig } = useTenant();
   const { t, isHindi } = useLanguage();
 
   // Fresh initial states - completely clean for new users
@@ -480,7 +480,7 @@ export default function QuickTrade() {
               <label className="font-bold text-slate-800 text-xs block">
                 {t('Inward Flow & Storage Mode *', 'आवक प्रकार व स्टोरेज मोड *')}
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <div className={`grid grid-cols-1 ${workspaceConfig?.showChambers !== false ? 'sm:grid-cols-2' : ''} gap-2 text-xs`}>
                 <button
                   type="button"
                   onClick={() => setInwardType('direct')}
@@ -497,21 +497,23 @@ export default function QuickTrade() {
                   {inwardType === 'direct' && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => setInwardType('storage')}
-                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
-                    inwardType === 'storage'
-                      ? 'border-indigo-600 bg-indigo-50 text-indigo-950 ring-2 ring-indigo-500/20'
-                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <div>
-                    <span className="font-black">❄️ Storage / Ripening Chamber</span>
-                    <span className="text-[10px] text-slate-500 block">स्टोरेज / राइपनिंग चैंबर (Banana/Cold Store)</span>
-                  </div>
-                  {inwardType === 'storage' && <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0" />}
-                </button>
+                {workspaceConfig?.showChambers !== false && (
+                  <button
+                    type="button"
+                    onClick={() => setInwardType('storage')}
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                      inwardType === 'storage'
+                        ? 'border-indigo-600 bg-indigo-50 text-indigo-950 ring-2 ring-indigo-500/20'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div>
+                      <span className="font-black">❄️ Storage / Ripening Chamber</span>
+                      <span className="text-[10px] text-slate-500 block">स्टोरेज / राइपनिंग चैंबर (Banana/Cold Store)</span>
+                    </div>
+                    {inwardType === 'storage' && <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0" />}
+                  </button>
+                )}
               </div>
 
               {inwardType === 'storage' && (
@@ -614,51 +616,53 @@ export default function QuickTrade() {
             </div>
 
             {/* Driver Crate Accounting Box */}
-            <div className="bg-amber-50/80 p-3 rounded-xl border border-amber-200/80 space-y-2 mt-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                  <span>📦 Driver Crate Tracking (चालक क्रेट हिसाब)</span>
-                </span>
-                <span className="text-[10px] text-amber-700 font-mono">
-                  {t('In / Out / Balance', 'आवक क्रेट / वापसी / शेष')}
-                </span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    {t('Driver Crates In', 'चालक से प्राप्त क्रेट')}
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="e.g. 300"
-                    value={driverCratesIn}
-                    onChange={(e) => setDriverCratesIn(e.target.value)}
-                    className="w-full p-1.5 border border-slate-300 rounded-lg font-mono font-bold focus:ring-1 focus:ring-amber-500 outline-none bg-white text-xs"
-                  />
+            {workspaceConfig?.showCrates !== false && (
+              <div className="bg-amber-50/80 p-3 rounded-xl border border-amber-200/80 space-y-2 mt-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                    <span>📦 Driver Crate Tracking (चालक क्रेट हिसाब)</span>
+                  </span>
+                  <span className="text-[10px] text-amber-700 font-mono">
+                    {t('In / Out / Balance', 'आवक क्रेट / वापसी / शेष')}
+                  </span>
                 </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    {t('Empty Crates Returned', 'चालक को लौटाई खाली क्रेट')}
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="e.g. 50"
-                    value={driverCratesOut}
-                    onChange={(e) => setDriverCratesOut(e.target.value)}
-                    className="w-full p-1.5 border border-slate-300 rounded-lg font-mono font-bold focus:ring-1 focus:ring-amber-500 outline-none bg-white text-emerald-800 text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    {t('Net Balance Crates', 'चालक पर बाकी क्रेट')}
-                  </label>
-                  <div className="w-full p-1.5 bg-white border border-amber-300 rounded-lg font-mono font-black text-amber-900 flex items-center justify-between text-xs">
-                    <span>{(parseInt(driverCratesIn, 10) || 0) - (parseInt(driverCratesOut, 10) || 0)} Crates</span>
-                    <span className="text-[10px] text-slate-400">Balance</span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {t('Driver Crates In', 'चालक से प्राप्त क्रेट')}
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 300"
+                      value={driverCratesIn}
+                      onChange={(e) => setDriverCratesIn(e.target.value)}
+                      className="w-full p-1.5 border border-slate-300 rounded-lg font-mono font-bold focus:ring-1 focus:ring-amber-500 outline-none bg-white text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {t('Empty Crates Returned', 'चालक को लौटाई खाली क्रेट')}
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 50"
+                      value={driverCratesOut}
+                      onChange={(e) => setDriverCratesOut(e.target.value)}
+                      className="w-full p-1.5 border border-slate-300 rounded-lg font-mono font-bold focus:ring-1 focus:ring-amber-500 outline-none bg-white text-emerald-800 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {t('Net Balance Crates', 'चालक पर बाकी क्रेट')}
+                    </label>
+                    <div className="w-full p-1.5 bg-white border border-amber-300 rounded-lg font-mono font-black text-amber-900 flex items-center justify-between text-xs">
+                      <span>{(parseInt(driverCratesIn, 10) || 0) - (parseInt(driverCratesOut, 10) || 0)} Crates</span>
+                      <span className="text-[10px] text-slate-400">Balance</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Subcard B: Farmer & Grower Inward Logistics */}
@@ -695,30 +699,32 @@ export default function QuickTrade() {
             </div>
 
             {/* Agent Section */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1 border-t border-emerald-100">
-              <div>
-                <PartySearchSelect
-                  partyType="Agent"
-                  label={t('Agent / Broker (दलाल / एजेंट - यदि हो)', 'दलाल / एजेंट (वैकल्पिक)')}
-                  value={agentName}
-                  placeholder="दलाल खोजें या नया जोड़ें..."
-                  onChange={(name, party) => {
-                    setAgentName(name);
-                    if (party?.mobile) setAgentPhone(party.mobile);
-                  }}
-                />
+            {workspaceConfig?.showAgent !== false && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1 border-t border-emerald-100">
+                <div>
+                  <PartySearchSelect
+                    partyType="Agent"
+                    label={t('Agent / Broker (दलाल / एजेंट - यदि हो)', 'दलाल / एजेंट (वैकल्पिक)')}
+                    value={agentName}
+                    placeholder="दलाल खोजें या नया जोड़ें..."
+                    onChange={(name, party) => {
+                      setAgentName(name);
+                      if (party?.mobile) setAgentPhone(party.mobile);
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">{t('Agent Mobile', 'दलाल / एजेंट मोबाइल')}</label>
+                  <input
+                    type="text"
+                    value={agentPhone}
+                    onChange={(e) => setAgentPhone(e.target.value)}
+                    placeholder="e.g. 98765..."
+                    className="w-full p-2 border border-slate-300 rounded-xl font-mono focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none bg-white"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">{t('Agent Mobile', 'दलाल / एजेंट मोबाइल')}</label>
-                <input
-                  type="text"
-                  value={agentPhone}
-                  onChange={(e) => setAgentPhone(e.target.value)}
-                  placeholder="e.g. 98765..."
-                  className="w-full p-2 border border-slate-300 rounded-xl font-mono focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none bg-white"
-                />
-              </div>
-            </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>
@@ -754,6 +760,7 @@ export default function QuickTrade() {
             </div>
 
             {/* Farmer Crate Accounting Box */}
+            {workspaceConfig?.showCrates !== false && (
             <div className="bg-emerald-100/60 p-3 rounded-xl border border-emerald-200 space-y-2 mt-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
@@ -799,6 +806,7 @@ export default function QuickTrade() {
                 </div>
               </div>
             </div>
+            )}
           </div>
 
           {/* Dynamic Mandi Expenses Checklist (Farmer & Buyer) */}
