@@ -1,14 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { KeyRound, Rocket, AlertTriangle, Building2, Sparkles, CheckCircle2, ChevronRight } from 'lucide-react';
+import { KeyRound, Rocket, AlertTriangle, Building2, Sparkles, CheckCircle2, ChevronRight, X } from 'lucide-react';
 
-export default function AuthModal() {
+export default function AuthModal({
+  initialTab = 'login',
+  initialBusinessType = 'banana_store',
+  isOpen = true,
+  onClose = null,
+  isModal = false
+}) {
   const { login, signup } = useAuth();
   const { language, t } = useLanguage();
-  const [tab, setTab] = useState('login');
+  const [tab, setTab] = useState(initialTab);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (initialTab) setTab(initialTab);
+  }, [initialTab]);
 
   // Login form state
   const [loginIdentifier, setLoginIdentifier] = useState('');
@@ -22,11 +32,17 @@ export default function AuthModal() {
     pin: '',
     shopNo: '',
     mandiName: 'Kela Mandi, Azadpur & Jalgaon Terminal',
-    businessType: 'banana_store',
+    businessType: initialBusinessType || 'banana_store',
     apmcLicenseNo: '',
     theme: 'amber',
     logoIcon: '🍌'
   });
+
+  useEffect(() => {
+    if (initialBusinessType) {
+      handleBusinessTypeChange(initialBusinessType);
+    }
+  }, [initialBusinessType]);
 
   // Pre-configured Testing Mandis & Stores for Instant 1-Click Evaluation
   const demoMandis = [
@@ -207,8 +223,22 @@ export default function AuthModal() {
     }
   };
 
-  return (
-    <div className="w-full max-w-xl bg-white rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 border border-slate-100 text-gray-800 max-h-[92vh] overflow-y-auto">
+  if (isModal && !isOpen) return null;
+
+  const modalBody = (
+    <div className="w-full max-w-xl bg-white rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 border border-slate-100 text-gray-800 max-h-[92vh] overflow-y-auto relative my-auto">
+      {/* Optional Close Button */}
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
+          title="Close / बंद करें"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      )}
+
       {/* Brand Header */}
       <div className="text-center space-y-1.5">
         <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-600 via-teal-700 to-slate-900 flex items-center justify-center text-3xl mx-auto shadow-md text-white">
@@ -465,4 +495,14 @@ export default function AuthModal() {
       )}
     </div>
   );
+
+  if (isModal) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto animate-fade-in">
+        {modalBody}
+      </div>
+    );
+  }
+
+  return modalBody;
 }

@@ -14,6 +14,7 @@ import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import SuperAdmin from './pages/SuperAdmin';
 import OnboardingModal from './components/OnboardingModal';
+import LandingPage from './pages/LandingPage';
 import { Menu, Sparkles, Languages, Crown, Zap, LogOut } from 'lucide-react';
 
 const PLAN_STYLES = {
@@ -54,22 +55,9 @@ function MandiApp() {
     );
   }
 
-  // If not logged in, show clean enterprise login screen
+  // If not logged in, show modern public Mandi ERP Landing Page with CTAs & Onboarding
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-400/20 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-3">
-            <Sparkles className="w-3.5 h-3.5" /> Full-Stack Enterprise Mandi ERP
-          </div>
-          <h1 className="text-4xl font-black text-white tracking-tight">ARHATPRO MANDI ERP</h1>
-          <p className="text-sm text-slate-400 mt-2 max-w-md mx-auto">
-            Cloud-native Multi-Tenant APMC Trading Platform • React + Express + Relational SQL
-          </p>
-        </div>
-        <AuthModal />
-      </div>
-    );
+    return <LandingPage />;
   }
 
   const renderActivePage = () => {
