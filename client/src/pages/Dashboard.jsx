@@ -77,7 +77,7 @@ export default function Dashboard({ setActiveTab }) {
 
   const totalOutstanding = accounts.reduce((sum, a) => sum + (a.balance || 0), 0);
   const overdueAccounts = accounts.filter(a => (a.overdue_days || 0) > 15);
-  const rokadClosing = cashbook?.closingBalance !== undefined ? (parseFloat(cashbook.closingBalance) || 0) : (currentTenant?.opening_cash || 0);
+  const rokadClosing = cashbook?.closingBalance !== undefined && cashbook?.closingBalance !== null ? (parseFloat(cashbook.closingBalance) || 0) : ((currentTenant?.opening_cash !== undefined && currentTenant?.opening_cash !== null) ? (parseFloat(currentTenant.opening_cash) || 0) : 0);
 
   const isNewUser = arrivals.length === 0 && lots.length === 0;
 
@@ -563,8 +563,8 @@ export default function Dashboard({ setActiveTab }) {
             <span>{t('Rokad Cash in Hand', 'हाथ में कुल रोकड़')}</span>
             <DollarSign className="w-4 h-4 text-emerald-600" />
           </div>
-          <div className="text-2xl font-black text-emerald-600 font-mono">
-            ₹{rokadClosing.toLocaleString()}
+          <div className={`text-2xl font-black font-mono ${rokadClosing < 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+            {rokadClosing < 0 ? `-₹${Math.abs(rokadClosing).toLocaleString()}` : `₹${rokadClosing.toLocaleString()}`}
           </div>
           <div className="text-xs text-slate-500 flex items-center justify-between pt-1 border-t border-slate-100">
             <span>{t('Counter Cashbook:', 'रोकड़ बही मिलान:')}</span>

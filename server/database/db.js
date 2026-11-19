@@ -1,6 +1,10 @@
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
+
+// Parse PostgreSQL NUMERIC/DECIMAL (OID 1700) and BIGINT (OID 20) as JS Numbers
+types.setTypeParser(1700, val => (val === null ? null : parseFloat(val)));
+types.setTypeParser(20, val => (val === null ? null : parseInt(val, 10)));
 
 const DEFAULT_SUPABASE_URL = 'postgresql://postgres.xswvatrgqgccidgjvara:Devesh%4023251995@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres';
 const connectionString = process.env.DATABASE_URL || process.env.SUPABASE_DB_URL || DEFAULT_SUPABASE_URL;

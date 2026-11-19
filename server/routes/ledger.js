@@ -93,8 +93,9 @@ router.get('/cashbook', authenticate, async (req, res) => {
     let totalJama = 0;
     let totalKharch = 0;
     list.forEach(tx => {
-      if (tx.type === 'JAMA') totalJama += tx.amount;
-      if (tx.type === 'KHARCH') totalKharch += tx.amount;
+      const amt = parseFloat(tx.amount) || 0;
+      if (tx.type === 'JAMA') totalJama += amt;
+      if (tx.type === 'KHARCH') totalKharch += amt;
     });
 
     const tenantRec = await queryOne(`SELECT opening_cash FROM tenants WHERE id = ?`, [tenantId]);
@@ -106,7 +107,8 @@ router.get('/cashbook', authenticate, async (req, res) => {
       totalJama,
       totalKharch,
       closingBalance,
-      transactions: list
+      transactions: list,
+      entries: list
     });
   } catch (err) {
     res.status(500).json({ error: 'Could not fetch cashbook.' });
@@ -283,8 +285,9 @@ router.get('/trial-balance', authenticate, async (req, res) => {
     let totalJama = 0;
     let totalKharch = 0;
     cashTxs.forEach(tx => {
-      if (tx.type === 'JAMA') totalJama += tx.amount;
-      if (tx.type === 'KHARCH') totalKharch += tx.amount;
+      const amt = parseFloat(tx.amount) || 0;
+      if (tx.type === 'JAMA') totalJama += amt;
+      if (tx.type === 'KHARCH') totalKharch += amt;
     });
     const tenantRec = await queryOne(`SELECT opening_cash FROM tenants WHERE id = ?`, [tenantId]);
     const openingCash = (tenantRec && tenantRec.opening_cash !== null && tenantRec.opening_cash !== undefined) ? (parseFloat(tenantRec.opening_cash) || 0) : 0;
@@ -341,8 +344,9 @@ router.get('/trial-balance', authenticate, async (req, res) => {
       }
       if (!journalAccounts[jv.debit_account]) journalAccounts[jv.debit_account] = { dr: 0, cr: 0 };
       if (!journalAccounts[jv.credit_account]) journalAccounts[jv.credit_account] = { dr: 0, cr: 0 };
-      journalAccounts[jv.debit_account].dr += jv.amount;
-      journalAccounts[jv.credit_account].cr += jv.amount;
+      const jvAmt = parseFloat(jv.amount) || 0;
+      journalAccounts[jv.debit_account].dr += jvAmt;
+      journalAccounts[jv.credit_account].cr += jvAmt;
     });
 
     // Build structured Trial Balance Rows
@@ -477,8 +481,9 @@ router.get('/balance-sheet', authenticate, async (req, res) => {
     let totalJama = 0;
     let totalKharch = 0;
     cashTxs.forEach(tx => {
-      if (tx.type === 'JAMA') totalJama += tx.amount;
-      if (tx.type === 'KHARCH') totalKharch += tx.amount;
+      const amt = parseFloat(tx.amount) || 0;
+      if (tx.type === 'JAMA') totalJama += amt;
+      if (tx.type === 'KHARCH') totalKharch += amt;
     });
     const tenantRec = await queryOne(`SELECT opening_cash FROM tenants WHERE id = ?`, [tenantId]);
     const openingCash = (tenantRec && tenantRec.opening_cash !== null && tenantRec.opening_cash !== undefined) ? (parseFloat(tenantRec.opening_cash) || 0) : 0;
@@ -657,12 +662,13 @@ router.get('/drivers', authenticate, async (req, res) => {
 
       if (driverMap[key]) {
         if (ctx.reference_type !== 'arrival') {
+          const cCount = parseInt(ctx.crates_count, 10) || 0;
           if (ctx.movement_type === 'RECEIVED') {
-            driverMap[key].cratesIn += ctx.crates_count;
-            driverMap[key].cratesBalance += ctx.crates_count;
+            driverMap[key].cratesIn += cCount;
+            driverMap[key].cratesBalance += cCount;
           } else {
-            driverMap[key].cratesOut += ctx.crates_count;
-            driverMap[key].cratesBalance -= ctx.crates_count;
+            driverMap[key].cratesOut += cCount;
+            driverMap[key].cratesBalance -= cCount;
           }
         }
       }
@@ -826,10 +832,11 @@ router.get('/crates', authenticate, async (req, res) => {
             netBalance: 0
           };
         }
+        const cCount = parseInt(tx.crates_count, 10) || 0;
         if (tx.movement_type === 'RECEIVED') {
-          partyCrateMap[pName].cratesReceived += tx.crates_count;
+          partyCrateMap[pName].cratesReceived += cCount;
         } else {
-          partyCrateMap[pName].cratesGiven += tx.crates_count;
+          partyCrateMap[pName].cratesGiven += cCount;
         }
       }
     });
@@ -866,12 +873,13 @@ router.get('/crates', authenticate, async (req, res) => {
             netBalance: 0
           };
         }
+        const dCount = parseInt(tx.crates_count, 10) || 0;
         if (tx.movement_type === 'RECEIVED') {
-          driverCrateMap[key].cratesIn += tx.crates_count;
-          driverCrateMap[key].netBalance += tx.crates_count;
+          driverCrateMap[key].cratesIn += dCount;
+          driverCrateMap[key].netBalance += dCount;
         } else {
-          driverCrateMap[key].cratesOut += tx.crates_count;
-          driverCrateMap[key].netBalance -= tx.crates_count;
+          driverCrateMap[key].cratesOut += dCount;
+          driverCrateMap[key].netBalance -= dCount;
         }
       }
     });

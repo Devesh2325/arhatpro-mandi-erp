@@ -148,13 +148,13 @@ export default function BahiKhata() {
           api.getCashbook(),
           api.getAccounts()
         ]);
-        setCashEntries(cashRes.entries || []);
-        const opCash = cashRes.openingCash !== undefined ? parseFloat(cashRes.openingCash) : 0;
+        setCashEntries(cashRes.entries || cashRes.transactions || []);
+        const opCash = cashRes.openingCash !== undefined ? (parseFloat(cashRes.openingCash) || 0) : 0;
         setCashSummary({
           openingCash: opCash,
-          totalJama: cashRes.totalJama || 0,
-          totalKharch: cashRes.totalKharch || 0,
-          closingBalance: cashRes.closingBalance !== undefined ? parseFloat(cashRes.closingBalance) : 0
+          totalJama: parseFloat(cashRes.totalJama) || 0,
+          totalKharch: parseFloat(cashRes.totalKharch) || 0,
+          closingBalance: cashRes.closingBalance !== undefined ? (parseFloat(cashRes.closingBalance) || 0) : 0
         });
         setOpeningCashInput(opCash.toString());
         setAccounts(accRes.accounts || []);
@@ -1133,11 +1133,13 @@ export default function BahiKhata() {
                   <tr><td colSpan="6" className="text-center py-10 text-gray-400">{t('No cash transactions recorded yet.', 'अभी तक कोई रोकड़ प्रविष्टि नहीं है।')}</td></tr>
                 ) : (
                   cashEntries.map(entry => {
-                    const isCashIn = entry.entry_type === 'cash_in';
+                    const isCashIn = entry.entry_type === 'cash_in' || entry.type === 'JAMA';
+                    const dt = entry.transaction_date || entry.created_at;
+                    const amt = parseFloat(entry.amount) || 0;
                     return (
                       <tr key={entry.id} className="hover:bg-gray-50">
                         <td className="py-3 px-4 text-xs font-mono text-gray-500">
-                          {new Date(entry.transaction_date).toLocaleString('en-IN')}
+                          {dt ? new Date(dt).toLocaleString('en-IN') : (entry.time || '—')}
                         </td>
                         <td className="py-3 px-4">
                           <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
@@ -1147,13 +1149,13 @@ export default function BahiKhata() {
                             {isCashIn ? t('Cash In', 'रोकड़ जमा') : t('Cash Out', 'रोकड़ भुगतान')}
                           </span>
                         </td>
-                        <td className="py-3 px-4 font-semibold text-gray-900">{entry.account_name || 'Counter Cash'}</td>
-                        <td className="py-3 px-4 text-xs text-gray-500">{entry.description || '—'}</td>
+                        <td className="py-3 px-4 font-semibold text-gray-900">{entry.account_name || entry.title || 'Counter Cash'}</td>
+                        <td className="py-3 px-4 text-xs text-gray-500">{entry.description || entry.title || '—'}</td>
                         <td className="py-3 px-4 text-right font-mono font-bold text-emerald-600">
-                          {isCashIn ? `₹${entry.amount.toLocaleString()}` : '—'}
+                          {isCashIn ? `₹${amt.toLocaleString()}` : '—'}
                         </td>
                         <td className="py-3 px-4 text-right font-mono font-bold text-rose-600">
-                          {!isCashIn ? `₹${entry.amount.toLocaleString()}` : '—'}
+                          {!isCashIn ? `₹${amt.toLocaleString()}` : '—'}
                         </td>
                       </tr>
                     );
