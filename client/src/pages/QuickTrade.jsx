@@ -140,40 +140,6 @@ export default function QuickTrade() {
     setTimeout(() => setMessage(''), 3000);
   };
 
-  const loadSampleDemo = () => {
-    setEntryDate(new Date().toISOString().split('T')[0]);
-    setInwardType('storage');
-    setStorageLocation('Chamber-4 (Banana Ripening)');
-    setDriverName('Gurmel Singh Transporter');
-    setDriverPhone('9812033445');
-    setFreightPaymentMode('cash');
-    setDriverCratesIn('300');
-    setDriverCratesOut('50');
-    setFarmerCratesIn('300');
-    setFarmerCratesReturned('0');
-    setTruckNo('MH-19-J-2244');
-    setFarmerName('Patil Banana Farms');
-    setFarmerPhone('+91 98220 12345');
-    setAgentName('Khandesh Transport');
-    setAgentPhone('+91 98220 99887');
-    setTotalFreight(24000);
-    setFreightAdvance(10000);
-    setArrivalRate(600);
-    if (commoditiesList.length > 0) {
-      setCommodity(commoditiesList[0].name_en || commoditiesList[0].name);
-    }
-    setLots([
-      { id: 'LOT-1', label: 'Lot 1 (G9 Ripened Yellow)', mark: 'Mark PBF-1', variety: 'G9 Super Yellow', qty: 150 },
-      { id: 'LOT-2', label: 'Lot 2 (G9 Semi-Ripe Chamber)', mark: 'Mark PBF-2', variety: 'G9 Semi-Ripe', qty: 150 }
-    ]);
-    setBuyerRows([
-      { id: 1, targetLot: 'LOT-1', buyerName: 'Daily Fresh Fruit Mart', buyerContact: '+91 98220 54321', qty: 150, rate: 750, cratesIssued: '150', cratesReturned: '30' },
-      { id: 2, targetLot: 'LOT-2', buyerName: 'City Supermarket Co.', buyerContact: '+91 98220 77889', qty: 150, rate: 720, cratesIssued: '150', cratesReturned: '20' }
-    ]);
-    setMessage('Sample demo Banana Store consignment with Ripening Chamber & Crates loaded.');
-    setError('');
-  };
-
   const handleFarmerChange = (val) => {
     setFarmerName(val);
     const matched = farmers.find(f => f.name.toLowerCase() === val.toLowerCase());
@@ -374,16 +340,6 @@ export default function QuickTrade() {
           >
             <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
             {t('fresh_form')}
-          </button>
-
-          <button
-            type="button"
-            onClick={loadSampleDemo}
-            className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer border border-purple-200"
-            title="Fill sample demo data for quick testing"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-            {t('sample_data')}
           </button>
 
           {parseFloat(arrivalRate) > 0 ? (

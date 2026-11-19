@@ -133,41 +133,6 @@ export default function Arrivals() {
     setMessage(null);
   };
 
-  const loadSampleDemo = () => {
-    const demoTrucks = ['HP-01-A-4567', 'PB-08-BX-9021', 'DL-1L-8822', 'UK-07-TA-3310'];
-    const demoDrivers = ['Jagjit Singh', 'Ramesh Kumar', 'Manjeet Sandhu'];
-    const demoLocations = ['Kotgarh, Shimla', 'Thanedhar, HP', 'Kinnaur, HP', 'Solan, HP'];
-    const randomTruck = demoTrucks[Math.floor(Math.random() * demoTrucks.length)];
-    const randomDriver = demoDrivers[Math.floor(Math.random() * demoDrivers.length)];
-    const randomLoc = demoLocations[Math.floor(Math.random() * demoLocations.length)];
-
-    setFormData({
-      entry_date: new Date().toISOString().split('T')[0],
-      inward_type: 'storage',
-      storage_location: 'Chamber 4 (Ripening)',
-      unit: 'Crate (20kg)',
-      driver_crates_in: '350',
-      driver_crates_out: '50',
-      manual_lot_no: 'LOT-' + Math.floor(100 + Math.random() * 900),
-      truck_no: randomTruck,
-      driver_name: randomDriver,
-      driver_mobile: '98160' + Math.floor(10000 + Math.random() * 90000),
-      farmer_name: 'Devinder Thakur',
-      farmer_phone: '9817012345',
-      source_location: randomLoc,
-      agent_name: 'Suresh Agent',
-      agent_phone: '9833344455',
-      commodity_id: commodities[0]?.id || '',
-      variety: 'Grand Naine G9 Ripened',
-      bags: '350',
-      gross_weight: '70.5',
-      arrival_rate: '650',
-      freight_amount: '28000',
-      advance_paid: '15000'
-    });
-    setMessage({ type: 'success', text: 'Loaded sample consignment with Ripening Chamber & Crate tracking data!' });
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -338,16 +303,6 @@ export default function Arrivals() {
               >
                 <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
                 {t('fresh_form', 'नया फॉर्म')}
-              </button>
-
-              <button
-                type="button"
-                onClick={loadSampleDemo}
-                className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer border border-purple-200"
-                title="Fill sample demo truck data for quick testing"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-                {t('sample_data', 'सैंपल डेटा')}
               </button>
 
               <button

@@ -45,24 +45,12 @@ export default function LandingPage() {
     message: ''
   });
   const [contactSubmitted, setContactSubmitted] = useState(false);
-  const [demoLoggingIn, setDemoLoggingIn] = useState('');
 
   const openAuth = (tab = 'login', bType = 'banana_store') => {
     setAuthModalTab(tab);
     setAuthModalBusinessType(bType);
     setAuthModalOpen(true);
     setMobileMenuOpen(false);
-  };
-
-  const handleDemoLogin = async (phone, pin, label) => {
-    setDemoLoggingIn(label);
-    try {
-      await login(phone, pin);
-    } catch (err) {
-      alert('Demo login failed: ' + err.message);
-    } finally {
-      setDemoLoggingIn('');
-    }
   };
 
   const handleContactSubmit = (e) => {
@@ -73,76 +61,6 @@ export default function LandingPage() {
     }
     setContactSubmitted(true);
   };
-
-  // Demo Mandis for 1-Click Evaluation
-  const demoMandis = [
-    {
-      id: 'banana',
-      firm: 'Golden Banana Ripening Store',
-      hindi: 'गोल्डन बनाना राइपनिंग स्टोर व क्रेट ट्रेडिंग',
-      mandi: 'Kela Mandi, Azadpur & Jalgaon Terminal',
-      phone: '9820011223',
-      pin: '1234',
-      icon: '🍌',
-      badge: 'Banana Store & Chamber',
-      desc: 'Crate circulation, ripening chambers, driver freight advances, multi-buyer sales.'
-    },
-    {
-      id: 'apple',
-      firm: 'Royal Apple Traders',
-      hindi: 'रॉयल एप्पल ट्रेडर्स (आज़ादपुर सेब मंडी)',
-      mandi: 'Azadpur Mandi, Delhi - Shop B-12',
-      phone: '9811012345',
-      pin: '1234',
-      icon: '🍎',
-      badge: 'Azadpur APMC Fruit Mandi',
-      desc: 'High-speed spot trade, lot mark grading, buyer distribution, APMC fees.'
-    },
-    {
-      id: 'coldstorage',
-      firm: 'Shree Ram Potato Cold Storage',
-      hindi: 'श्री राम आलू कोल्ड स्टोरेज एवं आढ़त',
-      mandi: 'Agra & Aligarh Cold Storage Belt, UP',
-      phone: '9837012345',
-      pin: '1234',
-      icon: '🥔',
-      badge: 'Potato Cold Storage',
-      desc: 'Sack inward consignments, cold room lot allocation, long-term storage rent.'
-    },
-    {
-      id: 'grain',
-      firm: 'Kisan Grain Trading Co.',
-      hindi: 'किसान ग्रेन ट्रेडिंग कंपनी (अनाज मंडी)',
-      mandi: 'New Grain Market, Khanna (Punjab)',
-      phone: '9876543210',
-      pin: '1234',
-      icon: '🌾',
-      badge: 'Grain Mandi (गेहूं-धान)',
-      desc: 'Weighbridge quintals, kisan auction, agent brokerage. No crates/chambers needed.'
-    },
-    {
-      id: 'vashi',
-      firm: 'Mumbai Agri Traders & Exporters',
-      hindi: 'मुंबई एग्री ट्रेडर्स (वाशी एपीएमसी)',
-      mandi: 'Vashi APMC Market, Navi Mumbai',
-      phone: '9820098200',
-      pin: '1234',
-      icon: '🥭',
-      badge: 'Vashi APMC Mumbai',
-      desc: 'Wholesale fruit lot distribution, buyer udhaar ledger, double entry journal.'
-    },
-    {
-      id: 'kolar',
-      firm: 'Kolar Vegetable & Tomato Yard',
-      hindi: 'कोलार सब्जी व टमाटर मंडी यार्ड',
-      mandi: 'APMC Market Yard, Kolar, Karnataka',
-      phone: '9845012345',
-      pin: '1234',
-      icon: '🍅',
-      badge: 'Kolar Tomato Yard',
-      desc: 'Fast spot crate deliveries, cashbook rokad, kisan payment vouchers.'
-    }
-  ];
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-white">
@@ -175,10 +93,6 @@ export default function LandingPage() {
             </a>
             <a href="#features" className="hover:text-emerald-400 transition-colors">
               {isHindi ? 'खासियतें' : 'Features'}
-            </a>
-            <a href="#demo" className="hover:text-emerald-400 transition-colors flex items-center gap-1.5 text-amber-400">
-              <Sparkles className="w-4 h-4" />
-              {isHindi ? 'लाइव डेमो' : 'Live Demo'}
             </a>
             <a href="#pricing" className="hover:text-emerald-400 transition-colors">
               {isHindi ? 'प्लान्स' : 'Pricing'}
@@ -249,14 +163,6 @@ export default function LandingPage() {
               className="block p-2 hover:text-emerald-400"
             >
               {isHindi ? 'मुख्य खासियतें (Features)' : 'Features'}
-            </a>
-            <a 
-              href="#demo" 
-              onClick={() => setMobileMenuOpen(false)}
-              className="block p-2 text-amber-400 flex items-center gap-2"
-            >
-              <Sparkles className="w-4 h-4" />
-              {isHindi ? 'लाइव डेमो चलाएं (Live Demo)' : 'Live Demo'}
             </a>
             <a 
               href="#pricing" 
@@ -337,12 +243,13 @@ export default function LandingPage() {
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </button>
 
-              <a
-                href="#demo"
+              <button
+                type="button"
+                onClick={() => openAuth('login')}
                 className="w-full sm:w-auto px-8 py-4 bg-slate-800/90 hover:bg-slate-700/90 text-white border border-slate-700 rounded-2xl font-bold text-sm transition-all cursor-pointer flex items-center justify-center gap-2"
               >
-                <span>⚡ लाइव डेमो चलाएं (Test Mandis)</span>
-              </a>
+                <span>🔐 {isHindi ? 'आढ़ती लॉग इन (Merchant Login)' : 'Merchant Login'}</span>
+              </button>
             </div>
 
             {/* Trust Metrics Grid */}
@@ -832,80 +739,7 @@ export default function LandingPage() {
 
 
       {/* ──────────────────────────────────────────────────────────────────────────
-          5. INTERACTIVE LIVE DEMO SHOWCASE
-      ────────────────────────────────────────────────────────────────────────── */}
-      <section id="demo" className="py-20 bg-slate-950 border-t border-slate-800 relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
-          <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
-            <span className="text-xs font-black uppercase tracking-wider text-amber-400 bg-amber-950/60 px-3 py-1 rounded-full border border-amber-800/60 flex items-center gap-1.5 w-fit mx-auto">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Instant 1-Click Evaluation / बिना पंजीकरण टेस्ट करें</span>
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-              लाइव डेमो मंडियों में 1-क्लिक में प्रवेश करें
-            </h2>
-            <p className="text-sm text-slate-400">
-              नीचे दी गई किसी भी मंडी पर क्लिक करें और बिना साइनअप के वास्तविक डेटा के साथ पूरा सिस्टम चलाकर देखें।
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {demoMandis.map((dm) => (
-              <div
-                key={dm.id}
-                className="bg-slate-900 rounded-3xl p-5 border border-slate-800 hover:border-emerald-500/40 transition-all flex flex-col justify-between space-y-4 group"
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-3xl p-2 bg-slate-800 rounded-xl border border-slate-700">
-                      {dm.icon}
-                    </span>
-                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                      {dm.badge}
-                    </span>
-                  </div>
-
-                  <h3 className="font-bold text-white text-base leading-tight group-hover:text-emerald-400 transition-colors">
-                    {dm.firm}
-                  </h3>
-                  <p className="text-xs text-emerald-400/90 font-medium mt-0.5">{dm.hindi}</p>
-                  <p className="text-[11px] text-slate-400 mt-1">{dm.mandi}</p>
-                  <p className="text-xs text-slate-400 mt-3 pt-3 border-t border-slate-800/80 leading-relaxed">
-                    {dm.desc}
-                  </p>
-                </div>
-
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    disabled={demoLoggingIn === dm.firm}
-                    onClick={() => handleDemoLogin(dm.phone, dm.pin, dm.firm)}
-                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 group-hover:shadow-emerald-900/40 disabled:opacity-50"
-                  >
-                    {demoLoggingIn === dm.firm ? (
-                      <span>Loading Demo Workspace...</span>
-                    ) : (
-                      <>
-                        <span>Launch Demo ({dm.firm.split(' ')[0]})</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </>
-                    )}
-                  </button>
-                  <div className="text-center text-[10px] text-slate-500 font-mono mt-1.5">
-                    Phone: {dm.phone} • PIN: {dm.pin}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-        </div>
-      </section>
-
-
-      {/* ──────────────────────────────────────────────────────────────────────────
-          6. PRICING PLANS
+          5. PRICING PLANS
       ────────────────────────────────────────────────────────────────────────── */}
       <section id="pricing" className="py-20 bg-slate-900 border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1257,13 +1091,12 @@ export default function LandingPage() {
             </div>
 
             <div>
-              <h4 className="font-bold text-white mb-3 text-xs uppercase tracking-wider">Live Evaluation</h4>
+              <h4 className="font-bold text-white mb-3 text-xs uppercase tracking-wider">Quick Links</h4>
               <ul className="space-y-2 text-[11px]">
-                <li><a href="#demo" className="text-amber-400 hover:text-amber-300">🍌 Jalgaon Banana Store</a></li>
-                <li><a href="#demo" className="text-rose-400 hover:text-rose-300">🍎 Azadpur Fruit Mandi</a></li>
-                <li><a href="#demo" className="text-blue-400 hover:text-blue-300">🥔 Agra Potato Cold Storage</a></li>
-                <li><a href="#demo" className="text-yellow-400 hover:text-yellow-300">🌾 Khanna Grain Market</a></li>
-                <li><button onClick={() => openAuth('login')} className="text-emerald-400 hover:underline">🔐 Direct Merchant Login</button></li>
+                <li><button onClick={() => openAuth('login')} className="hover:text-white text-left cursor-pointer">🔐 {isHindi ? 'आढ़ती लॉग इन (Login)' : 'Merchant Login'}</button></li>
+                <li><button onClick={() => openAuth('signup')} className="hover:text-white text-left cursor-pointer">🚀 {isHindi ? 'नया खाता बनाएं (Sign Up)' : 'Create Free Account'}</button></li>
+                <li><a href="#pricing" className="hover:text-white">💰 {isHindi ? 'प्लान्स व फीस' : 'Subscription Plans'}</a></li>
+                <li><a href="#contact" className="hover:text-white">📞 {isHindi ? 'मंडी सहायता व संपर्क' : 'Help & Support'}</a></li>
               </ul>
             </div>
 

@@ -20,13 +20,13 @@ router.get('/', authenticate, async (req, res) => {
       return res.json(all);
     }
 
-    // Tenant Admin: sees agencies where they are owner OR demo evaluation mandis
+    // Tenant Admin: sees agencies where they are owner or assigned
     if (role === 'shop_admin') {
       const owned = await query(`
         SELECT t.*, s.plan, s.valid_until, s.status as sub_status 
         FROM tenants t 
         LEFT JOIN subscriptions s ON t.id = s.tenant_id 
-        WHERE t.owner_user_id = ? OR t.id = ? OR t.id IN ('tenant-banana-store', 'tenant-cold-storage', 'tenant-rat', 'tenant-vashi-apmc', 'tenant-kolar-yard', 'tenant-punjab-grain')
+        WHERE t.owner_user_id = ? OR t.id = ?
         ORDER BY t.created_at DESC
       `, [id, tenantId]);
       return res.json(owned);
@@ -53,9 +53,8 @@ router.get('/:id', authenticate, async (req, res) => {
 
     if (!tenant) return res.status(404).json({ error: 'Agency not found.' });
 
-    // Isolation check: if not super admin, not matching tenant, and not a demo evaluation tenant
-    const demoIds = ['tenant-banana-store', 'tenant-cold-storage', 'tenant-rat', 'tenant-vashi-apmc', 'tenant-kolar-yard', 'tenant-punjab-grain'];
-    if (req.user.role !== 'super_admin' && tenant.owner_user_id !== req.user.id && req.user.tenantId !== tenant.id && !demoIds.includes(tenant.id)) {
+    // Isolation check: if not super admin and not matching owner/tenant
+    if (req.user.role !== 'super_admin' && tenant.owner_user_id !== req.user.id && req.user.tenantId !== tenant.id) {
       return res.status(403).json({ error: 'Access denied: You do not own this agency workspace.' });
     }
 
